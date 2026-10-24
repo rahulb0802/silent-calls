@@ -36,10 +36,14 @@ TODO(hackathon): accept the agreed video-chunk protocol when Person 2 supplies i
 3. Open the floating companion. In Training & settings confirm profile `sarvajith` (or your actual server profile), and `ws://127.0.0.1:8000/ws/session`; Save if changed.
 4. Back in the widget, click Connect lip-reading. Expect GPU connected. Nothing should be spoken.
 5. Enable camera; choose the Logitech camera before enabling if needed. Enable global key, granting Accessibility/Input Monitoring if required.
-6. Hold F8, mouth a short phrase, release. Expect the 300ms tail, then uploading/waiting, then candidate buttons. Venue Wi-Fi may take 10 seconds or longer. Capture alone must not speak.
+6. Hold T, mouth a short phrase, release. Expect the 300ms tail, then uploading/waiting, then candidate buttons. Venue Wi-Fi may take 10 seconds or longer. Capture alone must not speak.
 7. Select a correct candidate, or edit the phrase and click Speak edited phrase. The local voice service must be configured as before. In Meet/Zoom choose BlackHole 2ch and keep the mic unmuted. Ask a participant whether they heard the selected text.
 8. For keyboard selection, focus the widget outside the editing field and press 1/2/3. These are local widget shortcuts, not system-wide selection keys.
 9. Try Type instead / quick phrases to confirm the existing typed path remains accessible.
 10. Optional recovery: close the SSH tunnel during a capture, reopen it, and wait for reconnect. The old capture should not be replayed; re-enable camera/global key and capture a fresh phrase.
 
 No tests, builds, typechecks, verification passes, live network requests, app launches or GPU calls were run by the agent. Changes are local, awaiting the user's approval before any push.
+
+## Letter hold key
+
+The default is now T, using native `UiohookKey.T` and renderer `KeyT`. Hold-key storage v2 starts with T instead of inheriting the old F8 default; other key choices remain available. Native T with Command/Control/Alt is ignored so normal shortcuts do not start captures. Typing in Silent Calls inputs does not start native capture. The global hook observes and does not suppress the letter in other apps; avoid a focused meeting chat field while holding T. No tests or verification pass were run for this change.

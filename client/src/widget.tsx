@@ -9,7 +9,7 @@ import type {MeetingPort} from './services/meeting-port';
 import type {CaptureCallbacks} from './capture/use-capture';
 import { useCapture } from './capture/use-capture';
 import type { HoldKey, HoldStatus } from './desktop';
-const keyLabels: Record<HoldKey, string> = { F8: 'F8', F9: 'F9', F10: 'F10', CtrlRight: 'Right Ctrl' };
+const keyLabels: Record<HoldKey, string> = { T: 'T', F8: 'F8', F9: 'F9', F10: 'F10', CtrlRight: 'Right Ctrl' };
 export function MeetingWidget({service:providedPort}:{service?:MeetingPort} = {}) {
   const [gpuPort] = useState(() => new LipreadPort(loadSettings()));
   const port = providedPort || gpuPort;
@@ -22,8 +22,8 @@ export function MeetingWidget({service:providedPort}:{service?:MeetingPort} = {}
   const service=useMeetingPort(port,()=>{capture.stop();void window.desktop?.stopGlobalHold();});
   callbacks.current={onStart:service.onStart,onFrame:service.onFrame,onEnd:service.onEnd,onCancel:service.cancel,onVideoFrame:tracking.sample};
   const [key, setKey] = useState<HoldKey>(() => {
-    const stored = localStorage.getItem('silent-calls:hold-key:v1');
-    return stored && ['F8', 'F9', 'F10', 'CtrlRight'].includes(stored) ? stored as HoldKey : 'F8';
+    const stored = localStorage.getItem('silent-calls:hold-key:v2');
+    return stored && ['T', 'F8', 'F9', 'F10', 'CtrlRight'].includes(stored) ? stored as HoldKey : 'T';
   });
   const [hook, setHook] = useState<HoldStatus>({active:false,key,message:'Enable the camera, then enable the global key.'});
   const [enablingHook, setEnablingHook] = useState(false);
@@ -42,7 +42,10 @@ export function MeetingWidget({service:providedPort}:{service?:MeetingPort} = {}
     const desktop = window.desktop;
     if (!desktop) return;
     const removeEvent = desktop.onGlobalHold(event => {
-      if (event.type === 'down') beginRef.current();
+      if (event.type === 'down') {
+        if (document.hasFocus() && document.activeElement?.closest('input,textarea,select,[contenteditable="true"]')) return;
+        beginRef.current();
+      }
       if (event.type === 'up') releaseRef.current();
       if (event.type === 'cancel') stopRef.current();
     });
@@ -87,11 +90,12 @@ export function MeetingWidget({service:providedPort}:{service?:MeetingPort} = {}
     const down = (event: KeyboardEvent) => {
       if ((event.target as HTMLElement).closest('input,select,textarea')) return;
       if(service.phase==='choosing' && ['1','2','3'].includes(event.key)){const candidate=service.candidates[Number(event.key)-1];if(candidate){event.preventDefault();service.confirm(candidate);}return;}
-      const matches = key === 'CtrlRight' ? event.code === 'ControlRight' : event.code === key;
+      const matches = key === 'CtrlRight' ? event.code === 'ControlRight' : event.code === (key === 'T' ? 'KeyT' : key);
+      if (key === 'T' && (event.metaKey || event.ctrlKey || event.altKey)) return;
       if (matches && !hook.active) { event.preventDefault(); if (!event.repeat) beginRef.current(); }
     };
     const up = (event: KeyboardEvent) => {
-      if (!hook.active && (key === 'CtrlRight' ? event.code === 'ControlRight' : event.code === key)) { event.preventDefault(); releaseRef.current(); }
+      if (!hook.active && (key === 'CtrlRight' ? event.code === 'ControlRight' : event.code === (key === 'T' ? 'KeyT' : key))) { event.preventDefault(); releaseRef.current(); }
     };
     const blur = () => { if (!hook.active) releaseRef.current(); };
     window.addEventListener('keydown', down); window.addEventListener('keyup', up); window.addEventListener('blur', blur);
@@ -127,7 +131,7 @@ export function MeetingWidget({service:providedPort}:{service?:MeetingPort} = {}
       {modelError && <p className="capture-error" role="alert">{modelError}</p>}
       {capture.error && <p className="capture-error" role="alert">{capture.error}</p>}
       {!capture.cameraOn ? <button className="hold-button" onClick={() => {setPlaying(false);void capture.enable(device || undefined);}}><Camera size={16}/> Enable camera</button> : <button className={`hold-button ${busy ? 'held' : ''}`} disabled={serviceBusy || (!ready && capture.phase !== 'capturing')} onPointerDown={event => { event.currentTarget.setPointerCapture(event.pointerId); beginRef.current(); }} onPointerUp={capture.release} onPointerCancel={capture.release} onBlur={() => {if (!hook.active) capture.release();}} onKeyDown={event => {if (['Space','Enter'].includes(event.code)) {event.preventDefault();if (!event.repeat) beginRef.current();}}} onKeyUp={event => {if (['Space','Enter'].includes(event.code)) {event.preventDefault();capture.release();}}}><span className="record-dot"/>{capture.phase === 'starting' ? 'Warming up the frame buffer…' : capture.phase === 'tail' ? 'Capturing 0.3s post-roll…' : capture.phase === 'capturing' ? 'Release to finish' : 'Hold to capture'}<kbd>{keyLabels[key]}</kbd></button>}
-      <div className="capture-settings"><label htmlFor="camera-device">Camera</label><select id="camera-device" value={device} disabled={capture.cameraOn} onChange={event => setDevice(event.target.value)}><option value="">System default</option>{devices.map((camera,index) => <option key={camera.deviceId || index} value={camera.deviceId}>{camera.label || `Camera ${index + 1}`}</option>)}</select><label htmlFor="hold-key">Hold key</label><select id="hold-key" value={key} disabled={hook.active || busy || hookPending} onChange={event => {const selected=event.target.value as HoldKey;setKey(selected);localStorage.setItem('silent-calls:hold-key:v1',selected);}}>{Object.entries(keyLabels).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></div>
+      <div className="capture-settings"><label htmlFor="camera-device">Camera</label><select id="camera-device" value={device} disabled={capture.cameraOn} onChange={event => setDevice(event.target.value)}><option value="">System default</option>{devices.map((camera,index) => <option key={camera.deviceId || index} value={camera.deviceId}>{camera.label || `Camera ${index + 1}`}</option>)}</select><label htmlFor="hold-key">Hold key</label><select id="hold-key" value={key} disabled={hook.active || busy || hookPending} onChange={event => {const selected=event.target.value as HoldKey;setKey(selected);localStorage.setItem('silent-calls:hold-key:v2',selected);}}>{Object.entries(keyLabels).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></div>
       <div className="global-controls"><button className="icon-text" disabled={!window.desktop || (!hook.active && (!ready || hookPending))} onClick={() => hook.active ? void stop() : void enableGlobal()}>{hook.active ? <Pause size={14}/> : <Play size={14}/>} {hook.active ? 'Disable global key & camera' : enablingHook ? 'Enabling…' : 'Enable global key'}</button>{!hook.active && window.desktop && <button className="icon-text" onClick={() => window.desktop?.openKeyboardSettings()}>Permissions <ArrowUpRight size={12}/></button>}</div>
       <p className="capture-help" role="status">{window.desktop ? hook.message : 'Browser preview: the hold key works only while this tab is focused. Use Electron for global capture.'}</p>
       <div className="capture-metrics"><span>{capture.stats.fps} fps measured / 25 target</span><span>{capture.stats.bufferedMs}ms buffered</span></div>

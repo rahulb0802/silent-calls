@@ -1,9 +1,9 @@
 const { fork } = require('node:child_process');
 const path = require('node:path');
-const keys = ['F8', 'F9', 'F10', 'CtrlRight'];
+const keys = ['T', 'F8', 'F9', 'F10', 'CtrlRight'];
 function createGlobalHold({ systemPreferences, emit, statusChanged }) {
   let child = null, held = false, safetyTimer = null, startupTimer = null;
-  let status = { active: false, key: 'F8', message: 'Global key is off.' };
+  let status = { active: false, key: 'T', message: 'Global key is off.' };
   function update(patch) { status = { ...status, ...patch }; statusChanged(status); return status; }
   function stop(message = 'Global key is off.') {
     clearTimeout(safetyTimer); clearTimeout(startupTimer);

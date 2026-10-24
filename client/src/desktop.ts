@@ -1,5 +1,5 @@
 import type {VoiceState} from './services/use-local-voice';
-export type HoldKey = 'F8' | 'F9' | 'F10' | 'CtrlRight';
+export type HoldKey = 'T' | 'F8' | 'F9' | 'F10' | 'CtrlRight';
 export type HoldStatus = { active: boolean; key: HoldKey; message: string };
 export type HoldEvent = { type: 'down' | 'up' | 'cancel' };
 export type SetupStatus = {platform:string;canStartService:boolean;keyboardAllowed:boolean};
