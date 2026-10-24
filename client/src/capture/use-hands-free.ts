@@ -12,16 +12,21 @@ function load(): Saved {
 export type Calibration = { step: 'idle' | 'rest' | 'mouth' | 'done' | 'failed'; secondsLeft: number };
 const REST_MS = 4000, MOUTH_MS = 5000;
 
-/** Hands-free control: feed it face samples (onSample), tell it the current phase, and it calls onEvent. */
-export function useHandsFree(phase: HandsFreePhase, otherTalking: boolean, suggestions: boolean, onEvent: (event: HandsFreeEvent) => void) {
+/** Hands-free control: feed it face samples (onSample), tell it the current phase, and it calls onEvent.
+ * `talkingAt`: performance.now() of the other person's latest live caption; they count as talking for
+ * 1.5 s after it (a caption that never finalizes can't block starts forever). */
+export function useHandsFree(phase: HandsFreePhase, talkingAt: number, suggestions: boolean, onEvent: (event: HandsFreeEvent) => void) {
   const [saved, setSaved] = useState<Saved>(load);
   const engine = useRef(new HandsFree({ mode: saved.mode, mouthOn: saved.mouthOn }));
-  const state = useRef({ phase, otherTalking, suggestions, onEvent, enabled: saved.enabled });
-  state.current = { phase, otherTalking, suggestions, onEvent, enabled: saved.enabled };
+  const state = useRef({ phase, talkingAt, suggestions, onEvent, enabled: saved.enabled });
+  state.current = { phase, talkingAt, suggestions, onEvent, enabled: saved.enabled };
   const [meter, setMeter] = useState({ level: 0, threshold: engine.current.threshold });
   const [calibration, setCalibration] = useState<Calibration>({ step: 'idle', secondsLeft: 0 });
   const calib = useRef<{ step: 'rest' | 'mouth'; until: number; rest: number[]; mouth: number[] } | null>(null);
   const lastMeter = useRef(0);
+  // Tuning recording: 15 s of face readings (numbers only, no images), saved as a JSON file.
+  const rec = useRef<{ until: number; start: number; rows: unknown[] } | null>(null);
+  const [recording, setRecording] = useState(0);
 
   const save = useCallback((next: Saved) => {
     setSaved(next);
@@ -30,6 +35,19 @@ export function useHandsFree(phase: HandsFreePhase, otherTalking: boolean, sugge
   }, []);
 
   const onSample = useCallback((sample: FaceSample) => {
+    const r = rec.current;
+    if (r) {
+      const e = engine.current;
+      r.rows.push({ ...sample, t: Math.round(sample.t - r.start), smoothed: +e.mouth.toFixed(3), threshold: +e.threshold.toFixed(3) });
+      const left = Math.max(0, Math.ceil((r.until - sample.t) / 1000));
+      setRecording(left || 0);
+      if (sample.t >= r.until) {
+        rec.current = null; setRecording(0);
+        const url = URL.createObjectURL(new Blob([JSON.stringify({ note: '0-5 s still, 5-10 s mouth a sentence, 10-15 s smile / twitch / nod', rows: r.rows })], { type: 'application/json' }));
+        const a = document.createElement('a'); a.href = url; a.download = `hands-free-${Date.now()}.json`; a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+      }
+    }
     const c = calib.current;
     if (c) {
       if (sample.face) (c.step === 'rest' ? c.rest : c.mouth).push(sample.mouth);
@@ -47,7 +65,7 @@ export function useHandsFree(phase: HandsFreePhase, otherTalking: boolean, sugge
     }
     const s = state.current;
     if (!s.enabled) return;
-    const events = engine.current.push(sample, s.phase, s.otherTalking, s.suggestions);
+    const events = engine.current.push(sample, s.phase, sample.t - s.talkingAt < 1500, s.suggestions);
     if (sample.t - lastMeter.current > 200) { lastMeter.current = sample.t; setMeter({ level: engine.current.mouth, threshold: engine.current.threshold }); }
     for (const event of events) { console.info(`[hands-free] ${event} (mouth ${engine.current.mouth.toFixed(2)} / start at ${engine.current.threshold.toFixed(2)})`); s.onEvent(event); }
   }, [save]);
@@ -63,6 +81,7 @@ export function useHandsFree(phase: HandsFreePhase, otherTalking: boolean, sugge
     setEnabled: (enabled: boolean) => save({ ...saved, enabled }),
     setMode: (mode: GestureMode) => save({ ...saved, mode }),
     resetCalibration: () => save({ ...saved, mouthOn: undefined }),
-    calibrate, calibration, meter, onSample,
+    calibrate, calibration, meter, onSample, recording,
+    record: () => { const now = performance.now(); rec.current = { until: now + 15000, start: now, rows: [] }; setRecording(15); },
   };
 }

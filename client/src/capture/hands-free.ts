@@ -6,11 +6,12 @@ export type FaceSample = {
   t: number;          // ms
   face: boolean;      // a face was found
   mouth: number;      // mouth movement, summed blendshape change per second
-  open: number;       // how open the jaw is, 0..1 (speech opens and closes it a few times a second)
+  open: number;       // lip gap / mouth width, smoothed (speech opens and closes it a few times a second)
   yaw: number;        // head turn, degrees
   pitch: number;      // head nod, degrees
   brows: number;      // brow raise, 0..1
   blink: number;      // both eyes closed, 0..1
+  debug?: Record<string, number>;  // raw readings, kept only in tuning recordings
 };
 export type HandsFreePhase = 'idle' | 'capturing' | 'choosing' | 'busy';
 export type HandsFreeEvent = 'start' | 'stop' | 'discard' | 'next' | 'send' | 'cancel' | 'restart';
@@ -27,7 +28,7 @@ const START_WIN = 600, START_FRAC = 0.75;  // most of the last 0.6 s mouthing st
 const STOP_WIN = 900, STOP_FRAC = 0.15;    // almost no mouthing for 0.9 s ends it
 const MIN_CAPTURE_MS = 900;                // never end a capture sooner than this
 const SPEECH_SWINGS = 3;                   // jaw open/close turns in the start window: speech has several, a twitch one or two
-const SWING = 0.035;                       // jaw change that counts as a turn
+const SWING = 0.03;                        // change in the lip gap (gap / mouth width) that counts as a turn
 const MIN_ACTIVE_MS = 700;                 // a capture with less mouthing than this is dropped, not read
 const RESTART_WIN = 700;                   // mouthing this long while options are shown discards them and reads again
 const MIN_ON = 1.2;         // floor for the adaptive start threshold
@@ -46,7 +47,8 @@ const CHOOSE_TIMEOUT_MS = 30000;
 
 export class HandsFree {
   config: HandsFreeConfig;
-  noise = 0.4;                         // resting mouth movement, adapted while idle
+  noise = 0.4;                         // resting mouth movement: the median of recent idle readings
+  private idle: number[] = [];
   mouth = 0;                           // smoothed
   private last?: FaceSample;
   private headSpeed = 0;
@@ -96,7 +98,11 @@ export class HandsFree {
     while (this.recent.length && this.recent[0].t < s.t - STOP_WIN) this.recent.shift();
 
     if (phase === 'idle') {
-      if (this.mouth < on) this.noise += 0.02 * (Math.min(this.mouth, on) - this.noise);
+      if (this.share(s.t, START_WIN, 'on') < 0.3) {  // resting (not partway into mouthing)
+        this.idle.push(this.mouth);
+        if (this.idle.length > 150) this.idle.shift();  // the last ~10 s
+        if (this.idle.length % 15 === 0) this.noise = [...this.idle].sort((a, b) => a - b)[this.idle.length >> 1];
+      }
       if (!otherTalking && this.share(s.t, START_WIN, 'on') >= START_FRAC && this.swings(s.t, START_WIN) >= SPEECH_SWINGS) {
         this.recent = []; this.started = s.t; this.activeMs = 0; events.push('start');
       }
@@ -180,9 +186,10 @@ export function calibratedThreshold(rest: number[], mouthing: number[]): number 
   return Math.max(MIN_ON * 0.5, floor + 0.35 * (active - floor));
 }
 
-const MOUTH_SHAPES = ['jawOpen', 'mouthClose', 'mouthFunnel', 'mouthPucker', 'mouthLeft', 'mouthRight', 'mouthRollLower',
-  'mouthRollUpper', 'mouthShrugLower', 'mouthShrugUpper', 'mouthPressLeft', 'mouthPressRight', 'mouthLowerDownLeft',
-  'mouthLowerDownRight', 'mouthUpperUpLeft', 'mouthUpperUpRight', 'mouthStretchLeft', 'mouthStretchRight'];
+// The shapes speech moves (jaw, lip closure and rounding, lips parting); expression shapes (smile, press,
+// stretch, sideways) are left out: they twitch while listening.
+const MOUTH_SHAPES = ['jawOpen', 'mouthClose', 'mouthFunnel', 'mouthPucker', 'mouthRollLower', 'mouthRollUpper',
+  'mouthLowerDownLeft', 'mouthLowerDownRight', 'mouthUpperUpLeft', 'mouthUpperUpRight'];
 
 /** Mouth movement between two blendshape readings, per second (smiles left out: they're not speech). */
 export function mouthMovement(previous: Record<string, number> | null, current: Record<string, number>, dtMs: number): number {
