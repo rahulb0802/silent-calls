@@ -78,6 +78,7 @@ export function CompactPill(p: Props) {
         {p.repair && <button className={`pill-repair ${repairPicked ? 'is-picked' : ''}`} aria-current={repairPicked ? 'true' : undefined} onClick={p.onRepair}><Sparkles size={11}/>{p.repair}</button>}</div>
       <p className="pill-hint">{p.hint}</p>
     </div>}
+    {(p.phase === 'capturing' || p.phase === 'thinking') && p.hint && <p className="pill-hint">{p.hint}</p>}
     {(p.phase === 'listening' || p.phase === 'capturing') && <CopilotPanel compact pick={p.replyPick} hint={p.replyHint}/>}
     {p.tip}
     {p.error && <p className="pill-error" role="alert">{p.error}</p>}

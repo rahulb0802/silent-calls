@@ -70,7 +70,7 @@ export function MeetingWidget({service:providedPort}:{service?:MeetingPort} = {}
   const [highlight,setHighlight]=useState(0);
   useEffect(()=>setHighlight(0),[service.candidates]);
   // Hands-free: mouthing starts and stops a capture, head (or brow/eye) gestures pick an option. Keys still work.
-  const handsFreePhase:HandsFreePhase=capture.phase==='capturing'?'capturing':service.phase==='choosing'?'choosing':(capture.phase==='ready'||capture.phase==='review')&&service.phase==='idle'?'idle':'busy';
+  const handsFreePhase:HandsFreePhase=capture.phase==='capturing'?'capturing':capture.phase==='tail'||service.phase==='processing'?'thinking':service.phase==='choosing'?'choosing':(capture.phase==='ready'||capture.phase==='review')&&service.phase==='idle'?'idle':'busy';
   const onHandsFree=useRef<(event:HandsFreeEvent)=>void>(()=>{});
   const [talkingAt,setTalkingAt]=useState(-1e9);
   useEffect(()=>{if(voice.liveCaption)setTalkingAt(performance.now());},[voice.liveCaption]);
@@ -129,6 +129,8 @@ export function MeetingWidget({service:providedPort}:{service?:MeetingPort} = {}
     if (event === 'next' && stops) setHighlight(index => (index + 1) % stops);
     if (event === 'send' && shown[highlight]) { setSpoken(shown[highlight].text); confirmPick(shown[highlight]); }
     else if (event === 'send' && service.repair && highlight === shown.length && service.candidates[0]) { setSpoken(service.repair); confirmPick(service.candidates[0], service.repair); }
+    if (event === 'cancel' && handsFreePhase === 'capturing') { capture.abort(); return; }  // shake while reading
+    if (event === 'cancel' && handsFreePhase === 'thinking') { service.cancel(); capture.clear(); return; }  // shake while finding words
     if (event === 'cancel' || event === 'restart') { retry(); capture.clear(); }
     if (event === 'restart') { nextTrigger.current='mouth'; capture.begin(); }
   };
@@ -234,7 +236,9 @@ export function MeetingWidget({service:providedPort}:{service?:MeetingPort} = {}
   }};
   const pillPhase:PillPhase=!capture.cameraOn?startingSession?'starting':'off':busy?'capturing':service.phase==='processing'?'thinking':service.phase==='choosing'?'choosing':service.phase==='queued'||service.phase==='speaking'?'speaking':capture.phase==='starting'?'starting':'listening';
   const heard=voice.liveCaption||voice.captions.at(-1)||null;
-  const pillHint=service.phase==='choosing'
+  const pillHint=busy?handsFree.enabled&&handsFree.mode==='head'?handsFree.startBy==='nod'?'Nod when you finish · shake to cancel':'Stop mouthing to finish · shake to cancel':''
+    :service.phase==='processing'?handsFree.enabled&&handsFree.mode==='head'?'Shake your head to cancel':''
+    :service.phase==='choosing'
     ?dictation?`${handsFree.enabled?handsFree.mode==='head'?'Nod to type it · turn for the next':'Raise your eyebrows to type it':'Click one'} · tap ${keyLabels[key]} to type the highlighted one`
     :handsFree.enabled?handsFree.mode==='head'?'Nod to say it · turn for the next · shake to cancel':'Raise your eyebrows to say it · close your eyes for the next':'Press 1–3 or click · mouth again to retry'
     :handsFree.enabled?handsFree.startBy==='nod'?handsFree.mode==='head'?'Nod, mouth your reply, nod again':'Raise your brows, mouth your reply, raise them again':'Just start mouthing your reply':`Hold ${keyLabels[key]} and mouth your reply`;

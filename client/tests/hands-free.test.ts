@@ -175,3 +175,17 @@ test('personal gesture sizes: 60% of the practiced nod and turn, within bounds; 
   assert.deepEqual(names(run(script)), []);
   assert.deepEqual(names(run(script, new HandsFree({mode: 'head', ...personalGestures(4.5, 20)}))), ['send']);
 });
+
+test('a head shake cancels a reading in progress, and the lip-reader while it works', () => {
+  const shakeAt = (start: number) => (t: number) => ({yaw: 2 + (t > start && t < start + 250 ? 20 : t >= start + 250 && t < start + 500 ? -20 : 0)});
+  const nodMode = new HandsFree({mode: 'head', startBy: 'nod'});
+  assert.deepEqual(names(run([{ms: 1000, phase: 'idle'}, {ms: 1500, phase: 'capturing', at: shakeAt(1300)}], nodMode)), ['cancel']);
+  assert.deepEqual(names(run([{ms: 1000, phase: 'idle'}, {ms: 1500, phase: 'capturing', at: shakeAt(1300)}])), ['cancel']);  // mouth mode too
+  assert.deepEqual(names(run([{ms: 1000, phase: 'idle'}, {ms: 1500, phase: 'thinking', at: shakeAt(1300)}])), ['cancel']);
+  assert.deepEqual(names(run([{ms: 1000, phase: 'idle'}, {ms: 1500, phase: 'thinking', at: nod(1300)}])), []);  // only a shake
+});
+
+test('the nod that finished reading does not pick the first option', () => {
+  // options appear while the head is still coming back from the finishing nod
+  assert.deepEqual(names(run([{ms: 1000, phase: 'idle'}, {ms: 900, phase: 'choosing', at: t => ({pitch: 10 + (t < 1400 ? 9 : 0)})}])), []);
+});

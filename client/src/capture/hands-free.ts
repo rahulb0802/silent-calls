@@ -13,7 +13,8 @@ export type FaceSample = {
   blink: number;      // both eyes closed, 0..1
   debug?: Record<string, number>;  // raw readings, kept only in tuning recordings
 };
-export type HandsFreePhase = 'idle' | 'capturing' | 'choosing' | 'busy';
+// thinking: the lip-reader is working on a capture (a head shake cancels it)
+export type HandsFreePhase = 'idle' | 'capturing' | 'thinking' | 'choosing' | 'busy';
 export type HandsFreeEvent = 'start' | 'stop' | 'discard' | 'next' | 'send' | 'cancel' | 'restart';
 export type GestureMode = 'head' | 'face';
 export type StartBy = 'nod' | 'mouth';
@@ -48,6 +49,7 @@ const YAW_T = 10, PITCH_T = 6;       // deg from the resting pose to count as a 
 const RETURN = 0.4;                  // back within this fraction of the threshold = returned
 const NOD_MAX_MS = 1200, TURN_MIN_MS = 120, TURN_MAX_MS = 2500;
 const REFRACTORY_MS = 450;
+const CHOOSE_GRACE_MS = 900;  // no gestures this soon after options appear: the nod that finished reading isn't a pick
 // Face gestures (brows, eyes)
 const BROW_T = 0.25, BROW_MS = 250;
 const BLINK_T = 0.5, BLINK_MIN_MS = 500, BLINK_MAX_MS = 1800;
@@ -83,7 +85,7 @@ export class HandsFree {
     const events: HandsFreeEvent[] = [];
     const dt = this.last ? Math.max(1, s.t - this.last.t) : 66;
     if (phase !== this.phase) {
-      if (phase === 'choosing') { this.choosingSince = s.t; this.recent = []; this.out = null; this.quietUntil = s.t + REFRACTORY_MS; }
+      if (phase === 'choosing') { this.choosingSince = s.t; this.recent = []; this.out = null; this.quietUntil = s.t + CHOOSE_GRACE_MS; }
       if (phase === 'choosing' || phase === 'busy') this.started = 0;
       this.phase = phase;
     }
@@ -109,6 +111,11 @@ export class HandsFree {
     this.recent.push({t: s.t, on: this.mouth >= on && still && facing, off: this.mouth >= off, open: s.open});
     while (this.recent.length && this.recent[0].t < s.t - STOP_WIN) this.recent.shift();
 
+    if (phase === 'thinking') {  // only a shake counts: cancel the reading in progress
+      const gesture = this.config.mode === 'head' ? this.head(s.t, dyaw, dpitch) : null;
+      if (gesture === 'cancel' && s.t >= this.quietUntil) { this.quietUntil = s.t + REFRACTORY_MS; events.push('cancel'); }
+      return events;
+    }
     if (this.config.startBy === 'nod' && (phase === 'idle' || phase === 'capturing')) {
       // nod (or raise your brows) to start, again to finish; a turn picks a suggested reply
       const gesture = this.config.mode === 'head' ? this.head(s.t, dyaw, dpitch) : this.face(s);
@@ -116,6 +123,7 @@ export class HandsFree {
       if (gesture && s.t >= this.quietUntil) {
         this.quietUntil = s.t + REFRACTORY_MS;
         if (phase === 'idle') { if (gesture === 'send') this.started = s.t; events.push(gesture); }
+        else if (gesture === 'cancel') { this.started = 0; events.push('cancel'); }  // shake: drop this reading
         else if (this.started && gesture === 'send') { this.started = 0; events.push('stop'); }
       }
       if (phase === 'idle' && this.started && s.t - this.started > 1000) this.started = 0;
@@ -137,6 +145,7 @@ export class HandsFree {
         if (gesture && s.t >= this.quietUntil) { events.push(gesture); this.quietUntil = s.t + REFRACTORY_MS; }
       } else if (!suggestions) this.out = null;
     } else if (phase === 'capturing') {
+      if (this.config.mode === 'head' && this.head(s.t, dyaw, dpitch) === 'cancel') { this.started = 0; events.push('cancel'); return events; }
       // only end captures this started: a held key ends its own
       if (this.started && this.mouth >= off) this.activeMs += dt;
       if (this.started && s.t - this.started >= MIN_CAPTURE_MS && this.share(s.t, STOP_WIN, 'off') <= STOP_FRAC) {
