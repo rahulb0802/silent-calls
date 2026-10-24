@@ -2,7 +2,7 @@ import type {VoiceState} from './services/use-local-voice';
 export type HoldKey = 'T' | 'F8' | 'F9' | 'F10' | 'CtrlRight';
 export type HoldStatus = { active: boolean; key: HoldKey; message: string; receivedKey?: boolean };
 export type HoldEvent = { type: 'down' | 'up' | 'cancel' };
-export type DecisionInput = {utteranceId:string;candidates:{text:string;score:number}[];vocab:string[]};
+export type DecisionInput = {utteranceId:string;candidates:{text:string;score:number}[];vocab:string[];me?:string};
 /** The decision layer's ranking (silentcalls DecisionEvent): top options with combined lip + Jev probability. */
 export type Decision = {utteranceId:string;route:'speak'|'choose'|'repeat';options:{text:string;prob:number;jev:boolean}[];jev:boolean;timings:Record<string,number>};
 export type SetupStatus = {platform:string;canStartService:boolean;keyboardAllowed:boolean};

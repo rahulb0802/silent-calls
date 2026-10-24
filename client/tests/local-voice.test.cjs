@@ -19,7 +19,7 @@ test('parseDecision keeps valid options and drops malformed ones',()=>{
 test('decide sends candidates without auto-speak and resolves with the decision',async()=>{
   const {voice,sent,deliver}=connected();
   const pending=voice.decide({utteranceId:'u1',candidates:[{text:'hi server',score:-1},{text:'',score:0}],vocab:['Sarvajith']});
-  assert.deepEqual(sent,[{type:'candidates',utterance_id:'u1',candidates:[{text:'hi server',score:-1}],vocab:['Sarvajith'],auto_speak:false}]);
+  assert.deepEqual(sent,[{type:'candidates',utterance_id:'u1',candidates:[{text:'hi server',score:-1}],vocab:['Sarvajith'],me:'',auto_speak:false}]);
   deliver({type:'decision',utterance_id:'u1',route:'choose',options:[{text:'hi server',prob:0.9,p_jev:null}],timings_ms:{}});
   assert.equal((await pending).options[0].text,'hi server');
   deliver({type:'repair',utterance_id:'u1',text:'hi Sarvajith'});

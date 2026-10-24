@@ -51,6 +51,7 @@ export function CompactPill(p: Props) {
     return () => window.removeEventListener('scroll', top, true);
   }, []);
   const shown = p.candidates.slice(0, 3);
+  const repairPicked = Boolean(p.repair) && p.highlight === shown.length;  // Claude's suggestion is the 4th stop
   const top = shown[p.highlight] ?? shown[0];
   return <main className={`compact-pill phase-${p.phase}`} ref={root} aria-label="Silent Calls companion">
     <div className="pill-bar">
@@ -68,9 +69,9 @@ export function CompactPill(p: Props) {
       <button className="pill-icon" aria-label="Open the full companion" onClick={p.onExpand}><Maximize2 size={14}/></button>
     </div>
     {p.phase === 'choosing' && top && <div className="pill-choices">
-      <button className="pill-top" onClick={() => p.onPick(top)}><span>{top.text}</span>{top.source === 'copilot' && <CalendarDays size={13} aria-label="co-pilot reply"/>}<Volume2 size={14}/></button>
+      <button className={`pill-top ${repairPicked ? 'is-dimmed' : ''}`} onClick={() => p.onPick(top)}><span>{top.text}</span>{top.source === 'copilot' && <CalendarDays size={13} aria-label="co-pilot reply"/>}<Volume2 size={14}/></button>
       <div className="pill-others">{shown.map((c, i) => c === top ? null : <button key={c.id} onClick={() => p.onPick(c)}><kbd>{i + 1}</kbd>{c.text}{c.source === 'copilot' && <CalendarDays size={11}/>}</button>)}
-        {p.repair && <button className="pill-repair" onClick={p.onRepair}><Sparkles size={11}/>{p.repair}</button>}</div>
+        {p.repair && <button className={`pill-repair ${repairPicked ? 'is-picked' : ''}`} aria-current={repairPicked ? 'true' : undefined} onClick={p.onRepair}><Sparkles size={11}/>{p.repair}</button>}</div>
       <p className="pill-hint">{p.hint}</p>
     </div>}
     {(p.phase === 'listening' || p.phase === 'capturing') && <CopilotPanel compact pick={p.replyPick} hint={p.replyHint}/>}

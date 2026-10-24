@@ -124,13 +124,14 @@ class Jev:
             self._keepalive.cancel()
         await self._http.aclose()
 
-    async def score(self, context: str, cands: list[Candidate], names: list[str] | None = None) -> list[float]:
+    async def score(self, context: str, cands: list[Candidate], names: list[str] | None = None,
+                    me: str = "") -> list[float]:
         state = (
             f"A phone call. Recent conversation:\n{context}\n\n"
             "The user cannot speak aloud, so they silently mouthed their next line to a camera. "
             "A lip-reading model produced the options below. Lip-reading confuses sounds that look "
             "alike on the lips (p/b/m, f/v, t/d/n, k/g), so options are often near-misses."
-        ) + names_note(names)
+        ) + names_note(names, me)
         body = {
             "model": self.s.jev_model,
             "state": state,
@@ -148,13 +149,18 @@ class Jev:
         return [float(probs.get(f"c{i}", 0.0)) for i in range(len(cands))]
 
 
-def names_note(names: list[str] | None) -> str:
-    """Names the user may say (their list + names heard in the call). The lip-reader rarely gets a name right:
-    it reads a look-alike instead ("server jet" for "Sarvajith")."""
-    if not names:
-        return ""
-    return ("\n\nNames that may come up: " + ", ".join(names) + ". The lip-reader often turns a name into "
-            "ordinary words that look alike on the lips (e.g. \"server jet\" for \"Sarvajith\").")
+def names_note(names: list[str] | None, me: str = "") -> str:
+    """Names the user may say (their list + names heard in the call), and which one is their own. The
+    lip-reader rarely gets a name right: it reads ordinary look-alike words instead. (No example name in
+    the prompt: Claude would offer it as the answer.)"""
+    note = ""
+    if names:
+        note += ("\n\nNames that may come up: " + ", ".join(names) + ". The lip-reader often turns a name into "
+                 "ordinary words that look alike on the lips (a two-syllable name read as two short words).")
+    if me:
+        note += (f"\nThe user's own name is {me}. When they introduce themselves or say who's speaking "
+                 f"(\"my name is\", \"this is\", \"it's\"), it is {me}, not another name on the list.")
+    return note
 
 
 REPAIR_SYSTEM = """\
@@ -185,9 +191,10 @@ class Repairer:
         self.s = s
         self._client = anthropic.AsyncAnthropic()
 
-    async def repair(self, context: str, cands: list[Candidate], names: list[str] | None = None) -> str | None:
+    async def repair(self, context: str, cands: list[Candidate], names: list[str] | None = None,
+                     me: str = "") -> str | None:
         guesses = "\n".join(f"{i + 1}. {c.text}" for i, c in enumerate(cands[: self.s.claude_top_k]))
-        guesses += names_note(names)
+        guesses += names_note(names, me)
         resp = await self._client.beta.messages.create(
             model=self.s.claude_model,
             max_tokens=2048,
@@ -210,13 +217,13 @@ class Repairer:
 
 
 async def score_with_jev(jev: Jev | None, context: str, cands: list[Candidate],
-                         w: Weights, names: list[str] | None = None) -> tuple[Scored, float]:
+                         w: Weights, names: list[str] | None = None, me: str = "") -> tuple[Scored, float]:
     """Combine lip and Jev scores; falls back to lip-only if Jev is slow or down. Returns (scored, jev_ms)."""
     t0 = time.perf_counter()
     p_jev = None
     if jev is not None:
         try:
-            p_jev = await jev.score(context, cands, names)
+            p_jev = await jev.score(context, cands, names, me)
         except Exception as e:  # timeout, HTTP error, bad payload
             log.warning("jev failed (%s); using lip-reading scores only", e)
     jev_ms = (time.perf_counter() - t0) * 1000

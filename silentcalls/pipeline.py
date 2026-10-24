@@ -106,10 +106,10 @@ class Pipeline:
         # Claude starts now, in parallel with Jev, and reports back on its own.
         if self.repairer:
             self._repairs[msg.utterance_id] = asyncio.create_task(
-                self._repair(msg.utterance_id, context, cands, names))
+                self._repair(msg.utterance_id, context, cands, names, msg.me))
 
         try:
-            scored, jev_ms = await score_with_jev(self.jev, context, cands, self.w, names)
+            scored, jev_ms = await score_with_jev(self.jev, context, cands, self.w, names, msg.me)
         except asyncio.CancelledError:
             self._cancel_repair(msg.utterance_id)
             raise
@@ -171,10 +171,11 @@ class Pipeline:
         heard = names_from_text(re.sub(r"(?m)^[^:\n]+:\s*", "", context))
         return clean(self.call_names() + heard)
 
-    async def _repair(self, utterance_id: str, context: str, cands, names: list[str] | None = None) -> None:
+    async def _repair(self, utterance_id: str, context: str, cands, names: list[str] | None = None,
+                      me: str = "") -> None:
         t0 = time.perf_counter()
         try:
-            text = await self.repairer.repair(context, cands, names)
+            text = await self.repairer.repair(context, cands, names, me)
         except asyncio.CancelledError:
             raise
         except Exception as e:

@@ -228,7 +228,8 @@ class LocalVoice {
       const done = decision => { clearTimeout(timer); resolve(decision); };
       timer = setTimeout(() => { if (this.decisions.get(id) === done) this.decisions.delete(id); done(null); }, DECIDE_TIMEOUT_MS);
       this.decisions.set(id, done);
-      try { this.socket.send(JSON.stringify({ type: 'candidates', utterance_id: id, candidates, vocab, auto_speak: false })); }
+      const me = typeof input.me === 'string' && /^[\p{L}' -]{2,40}$/u.test(input.me.trim()) ? input.me.trim() : '';
+      try { this.socket.send(JSON.stringify({ type: 'candidates', utterance_id: id, candidates, vocab, me, auto_speak: false })); }
       catch { this.decisions.delete(id); done(null); }
     });
   }

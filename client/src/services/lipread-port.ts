@@ -217,7 +217,7 @@ export class LipreadPort implements MeetingPort {
     const desktop = window.desktop;
     let decision: Decision | null = null;
     if (desktop?.decide && scored.length) {
-      try { decision = await desktop.decide({utteranceId:id, candidates:scored, vocab:names(this.settings, this.callNames)}); }
+      try { decision = await desktop.decide({utteranceId:id, candidates:scored, vocab:names(this.settings, this.callNames), me:this.settings.profileId.trim()}); }
       catch { decision = null; }
     }
     const ranked = rankByDecision(id, candidates, decision);

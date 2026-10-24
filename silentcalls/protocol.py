@@ -32,6 +32,7 @@ class CandidatesMessage(BaseModel):
     candidates: list[Candidate]  # best first, up to the beam size (40)
     model_ms: float | None = None  # crop + model time on the GPU, for latency logging
     vocab: list[str] = Field(default_factory=list, max_length=200)  # names the user may say (app's word list)
+    me: str = Field("", max_length=80)  # the user's own name (their profile name), if it is one
     auto_speak: bool = True  # False: never speak on route "speak"; the app waits for the user's pick
 
 
