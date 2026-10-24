@@ -50,6 +50,9 @@ calendar or in a search result; never invent one. If a fact is needed but you ca
 says so honestly (e.g. "Let me check and get back to you"). For every fact used, list its source and the exact \
 detail (e.g. calendar: "Design review, Tue 2:00-3:00pm").
 
+Also list, in `names`, the names of people, companies, places or products said in the call so far, spelled \
+properly (the captions may get them wrong or in lowercase); the lip-reader uses them to read the user's reply.
+
 Search email only when the conversation clearly needs something from it; use Gmail search syntax and keep it \
 narrow. Never put private details in a reply unless the other person asked for them."""
 
@@ -89,8 +92,9 @@ REPLIES_SCHEMA = {
                 "additionalProperties": False,
             },
         },
+        "names": {"type": "array", "items": {"type": "string"}},
     },
-    "required": ["replies"],
+    "required": ["replies", "names"],
     "additionalProperties": False,
 }
 
@@ -109,9 +113,12 @@ def calendar_text(events: list[dict]) -> str:
 class Copilot:
     """Prepares replies after each line from the other person; the latest line wins (older work is cancelled)."""
 
-    def __init__(self, s: Settings, emit: Callable[[CopilotEvent], Awaitable[None]], data=None, client=None):
+    def __init__(self, s: Settings, emit: Callable[[CopilotEvent], Awaitable[None]], data=None, client=None,
+                 on_names: Callable[[list[str]], Awaitable[None]] | None = None):
         self.s = s
         self.emit = emit
+        self.on_names = on_names  # names Claude found in the call (e.g. ones the captions wrote in lowercase)
+        self.names: list[str] = []
         self.data = data  # GoogleData, or anything with async calendar() / search_mail(query); None = no Google
         # keep the connection to the API open between lines (a new TLS handshake costs ~0.2-0.3 s)
         self.client = client or anthropic.AsyncAnthropic(
@@ -182,6 +189,8 @@ class Copilot:
                                  latency_ms=round((time.perf_counter() - t0) * 1000))
         log.info("copilot: %d replies in %d ms, %d lookups", len(replies), self.last.latency_ms, len(steps))
         await self.emit(self.last)
+        if self.on_names and self.names:
+            await self.on_names(self.names)
 
     async def _create(self, tools: list, messages: list):
         request = dict(model=self.s.claude_model, max_tokens=4096, fallbacks="default", system=SYSTEM, tools=tools,
@@ -239,6 +248,7 @@ class Copilot:
                 return [], steps
             text = next((b.text for b in resp.content if b.type == "text"), "")
             data = json.loads(text)
+            self.names = [str(n).strip()[:60] for n in data.get("names", []) if str(n).strip()][:20]
             replies = [CopilotReply(text=r["text"].strip()[:200],
                                     facts=[CopilotFact(source=f["source"], detail=f["detail"][:200]) for f in r["facts"]])
                        for r in data["replies"] if r["text"].strip()]

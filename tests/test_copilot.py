@@ -135,3 +135,39 @@ def test_pipeline_passes_the_line_so_far_to_the_copilot():
 
     asyncio.run(run())
     assert seen == [("Are you free", "User: Hi\nOther person: Are you free")]
+
+
+def test_first_names_from_attendees_and_senders():
+    from silentcalls.google_data import first_names
+    assert first_names(["Priya Shah", "priya.shah", "Team Figma", "Amazon.com", "Support", "Al", "Devansh R."]) == \
+        ["priya", "figma", "amazon", "devansh"]
+
+
+def test_names_from_calendar_email_and_claude_reach_the_lip_reader():
+    events = []
+
+    async def emit(e):
+        events.append(e)
+
+    class People(FakeData):
+        async def people(self):
+            return ["priya", "devansh"]
+
+    class NamingClient(FakeClient):
+        async def create(self, **req):
+            self.requests.append(req)
+            answer = {"replies": [{"text": "Yes, I sent it to Sarvajith.", "facts": []}], "names": ["Sarvajith"]}
+            return NS(stop_reason="end_turn", content=[NS(type="text", text=json.dumps(answer))])
+
+    async def run():
+        cp = Copilot(Settings(), emit=emit, data=People(), client=NamingClient())
+        p = Pipeline(Settings(), voice=None, emit=emit, use_jev=False, use_claude=False, copilot=cp)
+        await p.load_people()
+        await p.on_caption("did you send it to sarvajith")  # lowercase: the captions can't tell it's a name
+        await cp._task
+        await p.close()
+        return p.call_names()
+
+    names = asyncio.run(run())
+    assert "sarvajith" in names and {"priya", "devansh"} <= set(names)
+    assert [e for e in events if e.type == "names"][-1].names == names

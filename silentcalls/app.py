@@ -184,6 +184,7 @@ async def main() -> None:
                         copilot=copilot, coach=coach)
     if pipeline.jev:
         pipeline.jev.start()
+    asyncio.create_task(pipeline.load_people())
     tasks = []
     if not args.no_captions:
         tasks.append(asyncio.create_task(CallCaptioner(settings, pipeline.on_caption, pipeline.on_caption_partial).run()))

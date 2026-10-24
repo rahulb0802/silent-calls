@@ -35,6 +35,9 @@ class Pipeline:
         self.repairer = Repairer(s) if use_claude and os.getenv("ANTHROPIC_API_KEY") else None
         self._repairs: dict[str, asyncio.Task] = {}
         self._heard: list[str] = []  # names heard in this call, kept after their lines leave the transcript
+        self._people: list[str] = []  # first names from the user's calendar and email (load_people)
+        if copilot is not None and getattr(copilot, "on_names", 1) is None:
+            copilot.on_names = self.add_names
         self.copilot = copilot  # Copilot, or None
         self.coach = coach  # Coach, or None
         # this call, in memory only, for the post-call review: every line, and for each line the user spoke,
@@ -61,10 +64,27 @@ class Pipeline:
         await self.emit(CaptionEvent(speaker="them", text=line))
         if self.copilot:
             self.copilot.on_line(line, self.transcript.render(), self.call_names())
-        new = [n for n in names_from_text(line) if n not in self._heard]
+        await self.add_names(names_from_text(line))
+
+    async def add_names(self, names: list[str]) -> None:
+        """Names heard in the call (from the captions, or from Claude reading them): the lip-reader gets them."""
+        new = [n for n in clean(names) if n not in self._heard]
         if new:
             self._heard = (self._heard + new)[-50:]
             await self.emit(NamesEvent(names=self.call_names()))
+
+    async def load_people(self) -> None:
+        """Start-up: first names from the user's calendar attendees and frequent email senders."""
+        data = getattr(self.copilot, "data", None)
+        if data is None:
+            return
+        try:
+            self._people = clean(await data.people())
+        except Exception as e:  # Google unreachable: carry on without them
+            log.info("names: calendar/email names unavailable (%s)", type(e).__name__)
+            return
+        log.info("names: %d from calendar and email", len(self._people))
+        await self.emit(NamesEvent(names=self.call_names()))
 
     async def on_caption_partial(self, text: str) -> None:
         """The other person's line so far, for the live caption; only finished lines go to the transcript.
@@ -143,8 +163,8 @@ class Pipeline:
         return event
 
     def call_names(self) -> list[str]:
-        """The user's names (VOCAB) plus every name heard in this call so far."""
-        return clean(self.s.vocab.split(",") + self._heard)
+        """The user's names (VOCAB), every name heard in this call so far, then names from their calendar and email."""
+        return clean(self.s.vocab.split(",") + self._heard + self._people)
 
     def names(self, context: str) -> list[str]:
         """call_names() plus names in the current context (speaker labels stripped)."""

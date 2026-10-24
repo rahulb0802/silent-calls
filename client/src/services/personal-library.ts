@@ -78,6 +78,18 @@ export function addPractice(sentence:string) {
   localStorage.setItem(PRACTICE, JSON.stringify(next));
 }
 
+/** Your own name (the profile name from onboarding) belongs in your vocabulary, so the lip-reader can spell
+ * it and calibration includes "hi my name is …": added once, if it looks like a name. */
+export function ensureOwnName(profileName:string) {
+  const term=profileName.trim();
+  if(!/^[p{L}' -]{2,40}$/u.test(term))return;
+  try {
+    const current=read();
+    if(current.vocabulary.length>=100 || current.vocabulary.some(item=>item.term.toLocaleLowerCase()===term.toLocaleLowerCase()))return;
+    update(library=>({...library,vocabulary:[{id:crypto.randomUUID(),term,aliases:[]},...library.vocabulary]}));
+  } catch { /* an unreadable library is left untouched */ }
+}
+
 /** Saved vocabulary terms (not their alternate readings), for the lip-reader and decision layer to bias toward. */
 export function vocabularyTerms():string[] {
   try { return read().vocabulary.map(entry=>entry.term); }

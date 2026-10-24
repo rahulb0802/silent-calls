@@ -9,6 +9,7 @@ import {PersonalLibrary} from './personal-library';
 import {AudioSetup} from './audio-setup';
 import {Workspace} from './workspace';
 import {loadSettings} from './services/settings';
+import {ensureOwnName} from './services/personal-library';
 import {setupComplete} from './services/setup-memory';
 import {GestureSetupPage} from './components/gesture-onboarding';
 import { Onboarding } from './onboarding';
@@ -25,7 +26,8 @@ function App(){
   const [ready,setReady]=useState(()=>setupComplete(loadSettings()));
   useEffect(()=>{
     const navigate=()=>{setRoute(location.hash || defaultRoute());setReady(setupComplete(loadSettings()));};
-    const refresh=()=>setReady(setupComplete(loadSettings()));
+    const refresh=()=>{setReady(setupComplete(loadSettings()));ensureOwnName(loadSettings().profileId);};
+    ensureOwnName(loadSettings().profileId);
     window.addEventListener('hashchange',navigate);
     const events=['storage','silent-calls:setup','silent-calls:settings'];events.forEach(name=>window.addEventListener(name,refresh));
     return()=>{window.removeEventListener('hashchange',navigate);events.forEach(name=>window.removeEventListener(name,refresh));};
