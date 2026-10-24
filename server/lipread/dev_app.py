@@ -54,6 +54,7 @@ async def session(ws: WebSocket, user_id: str = "anon") -> None:
     await ws.accept()
     use_adapter, utt_id, webm = True, None, False
     session_vocab, utt_vocab, utt_given = [], [], []
+    completed = {}  # only this connection may label its own completed captures
     try:
         while True:
             msg = await ws.receive()
@@ -76,7 +77,13 @@ async def session(ws: WebSocket, user_id: str = "anon") -> None:
                 utt_given = list(m.get("given") or [])  # the call co-pilot's prepared replies
             elif kind == "utterance.confirm" and m.get("learn") and user_id != "anon":
                 # the user corrected this phrase and opted in: keep its mouth crop + text for their next training
-                n = reader.save_correction(user_id, str(m.get("utt_id", "")), str(m.get("text", ""))[:300])
+                correction_id = str(m.get("utt_id", ""))
+                if completed.pop(correction_id, None) != user_id:
+                    continue
+                text = str(m.get("text", ""))
+                if len(text) > 300:
+                    continue
+                n = reader.save_correction(user_id, correction_id, text)
                 log.info("correction saved: %s", "yes" if n else "no (expired)")
                 if n:
                     await ws.send_json({"type": "learned", "utt_id": m.get("utt_id"), "n_corrections": n})
@@ -94,6 +101,9 @@ async def session(ws: WebSocket, user_id: str = "anon") -> None:
                     await ws.send_json({"type": "error", "utt_id": done, "code": r.error,
                                         "message": "; ".join(r.quality.get("flags", [])) or r.error})
                     continue
+                completed[done] = user_id
+                while len(completed) > 20:
+                    completed.pop(next(iter(completed)))
                 probs = softmax([s for _, s in r.candidates])
                 await ws.send_json({
                     "type": "candidates", "utt_id": done, "route": "pick", "confidence": round(probs[0], 3),

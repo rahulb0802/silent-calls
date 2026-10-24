@@ -165,7 +165,7 @@ class LipReader:
         """Save a corrected phrase for this user's next training; None if the crop is gone or the text odd."""
         kept = getattr(self, "_recent", {}).pop(utt_id, None)
         text = normalize_text(text)
-        if kept is None or not text or len(text.split()) > 25:
+        if kept is None or time.monotonic() - kept[0] >= KEEP_S or not text or len(text.split()) > 25:
             return None
         return lora_data.save_correction(lora.adapter_key(user_id), utt_id, text, kept[1])
 

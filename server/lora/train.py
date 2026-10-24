@@ -10,18 +10,21 @@ frontend runs without gradients and every BatchNorm stays frozen.
 """
 
 import argparse
+import hashlib
 import json
 import logging
 import math
 import random
+import shutil
 import time
+import uuid
 from pathlib import Path
 
 import torch
 from torch import nn
 
 from ..lipread import vocab as vb
-from ..lipread.metrics import score, summarize
+from ..lipread.metrics import norm, score, summarize
 from ..lipread.model import DecodeConfig, decode, load
 from ..lipread.paths import ADAPTER_DIR, RESULTS_DIR, add_vsr_to_path
 from . import lora
@@ -135,6 +138,33 @@ class Status:
             tmp.replace(self.path)
 
 
+def atomic_json(path: Path, value: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        temporary.write_text(json.dumps(value, indent=2))
+        temporary.replace(path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def checkpoint_digest(path: Path) -> str | None:
+    return hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else None
+
+
+def replacement_decision(current: dict, candidate: dict) -> tuple[bool, str]:
+    # A bounded acceptance policy, not a claim about every possible future sentence.
+    if not current.get("clips") or candidate.get("clips") != current["clips"]:
+        return False, "No matching held-out evaluation was available."
+    for metric in ("top1_wer", "exact@1", "exact@5"):
+        old, new = current.get(metric), candidate.get(metric)
+        if not isinstance(old, (int, float)) or not isinstance(new, (int, float)) or not math.isfinite(old) or not math.isfinite(new):
+            return False, "Evaluation contained missing or non-finite results."
+        if (metric == "top1_wer" and new > old + 1e-9) or (metric != "top1_wer" and new < old - 1e-9):
+            return False, f"The candidate was worse on held-out {metric}; your current model was kept."
+    return True, "Held-out word errors and exact-match results did not regress."
+
+
 def train(args, avsr=None) -> dict:
     """Train + evaluate one adapter. Pass `avsr` to reuse a loaded model (cross-validation)."""
     t_start = time.time()
@@ -148,7 +178,19 @@ def train(args, avsr=None) -> dict:
     if len(samples) < MIN_CLIPS and args.source == "enroll":
         status.update(state="failed", error=f"only {len(samples)} clips for {args.user}")
         raise SystemExit(f"only {len(samples)} {args.source} clips for {args.user}")
+    out = ADAPTER_DIR / user_key
+    incumbent_path = out / "adapter.pt"
+    protect = bool(args.save and args.source == "enroll")
+    incumbent_digest = checkpoint_digest(incumbent_path) if protect else None
+    incumbent_report = {}
+    if incumbent_digest and (out / "report.json").exists():
+        incumbent_report = json.loads((out / "report.json").read_text())
     train_set, test_set = split(samples, args.test_frac, args.seed, args.fold, args.folds)
+    prior_test = set(incumbent_report.get("test_sentences", []))
+    stable_holdout = not incumbent_digest or bool(prior_test and prior_test <= {sample.key for sample in samples})
+    if protect and incumbent_digest and stable_holdout:
+        test_set = [sample for sample in samples if sample.key in prior_test]
+        train_set = [sample for sample in samples if sample.key not in prior_test]
     if args.max_train:  # learning-curve experiments: train on only this many of the training sentences
         keep = sorted({s.key for s in train_set})
         random.Random(args.seed + 7).shuffle(keep)
@@ -159,6 +201,9 @@ def train(args, avsr=None) -> dict:
         train_set, val_set = split(train_set, 0.12, args.seed + 1)
     # phrases corrected in calls (opted in) train only: the before/after report stays on calibration sentences
     corrections = load_corrections(user_key) if args.source == "enroll" else []
+    # Never feed a held-out reference back as a correction training target.
+    held_out_text = {norm(sample.text) for sample in test_set + val_set}
+    corrections = [sample for sample in corrections if norm(sample.text) not in held_out_text]
     train_set = train_set + corrections
     extra_test = load_feasibility(args.user) if args.test_feasibility and args.source != "feasibility" else []
     # the user's name + saved vocabulary, so held-out sentences are decoded with the name bias, as in a call
@@ -176,6 +221,16 @@ def train(args, avsr=None) -> dict:
     before, before_rows = evaluate(avsr, test_set, vocab)
     before_x = evaluate(avsr, extra_test)[0] if extra_test else None
     log.info("before: %s", before)
+    incumbent_metrics = before
+    if incumbent_digest:
+        incumbent_name = f"{user_key}_previous"
+        lora.drop(model, incumbent_name)
+        lora.load(model, incumbent_name, incumbent_path)
+        lora.set_active(model, incumbent_name)
+        model.eval()
+        incumbent_metrics, _ = evaluate(avsr, test_set, vocab)
+        lora.set_active(model, None)
+        lora.drop(model, incumbent_name)
 
     for p in model.parameters():
         p.requires_grad_(False)
@@ -242,11 +297,26 @@ def train(args, avsr=None) -> dict:
     after_x = evaluate(avsr, extra_test)[0] if extra_test else None
     log.info("after: %s", after)
 
+    promoted, promotion_reason = replacement_decision(incumbent_metrics, after)
+    if protect and not stable_holdout:
+        promoted, promotion_reason = False, "The previous held-out sentences could not be recovered; your current model was kept."
+    if protect and checkpoint_digest(incumbent_path) != incumbent_digest:
+        promoted, promotion_reason = False, "Your active model changed during training; this attempt did not overwrite it."
+    if protect and not all(torch.isfinite(value).all().item() for value in lora.state(model, user_key).values()):
+        promoted, promotion_reason = False, "Training produced invalid weights; your current model was kept."
+    previous_count = incumbent_report.get("n_enrollment", max(0, incumbent_report.get("n_train", 0) - incumbent_report.get("n_corrections", 0)) + incumbent_report.get("n_val", 0) + incumbent_report.get("n_test", 0))
+    active_count = len(samples) if promoted else previous_count if incumbent_digest else 0
     meta = {"user": args.user, "r": args.r, "alpha": args.alpha, "targets": list(TARGETS[args.targets]),
             "source": args.source, "best_step": best_step, "created": time.time()}
     report = {
         "user": args.user, "source": args.source, "n_train": len(train_set), "n_val": len(val_set),
         "n_test": len(test_set), "n_corrections": len(corrections), "test_sentences": sorted({s.key for s in test_set}),
+        "n_enrollment": len(samples), "active_n_enrollment": active_count,
+        "promoted": promoted, "promotion_reason": promotion_reason,
+        "baseline": "personal" if incumbent_digest else "base",
+        "incumbent_wer": incumbent_metrics.get("top1_wer"),
+        "incumbent_top1": incumbent_metrics.get("exact@1"),
+        "incumbent_top5": incumbent_metrics.get("exact@5"),
         "before_wer": before["top1_wer"], "after_wer": after["top1_wer"],
         "before_top5": before["exact@5"], "after_top5": after["exact@5"],
         "vocab_before": vocab_summary(before_rows), "vocab_after": vocab_summary(after_rows),
@@ -265,16 +335,31 @@ def train(args, avsr=None) -> dict:
         "checkpoints": {str(k): v for k, v in sorted(checkpoints.items())},
     }
     if args.save:
-        out = ADAPTER_DIR / user_key
-        lora.save(model, user_key, out / "adapter.pt", meta)
-        (out / "report.json").write_text(json.dumps(report, indent=2))
+        out.mkdir(parents=True, exist_ok=True)
+        if not protect or promoted:
+            candidate_path = out / f"candidate-{uuid.uuid4().hex}.pt"
+            try:
+                lora.save(model, user_key, candidate_path, meta)
+                # Check again after serialization; never overwrite a newer active checkpoint.
+                if protect and checkpoint_digest(incumbent_path) != incumbent_digest:
+                    report.update(promoted=False, promotion_reason="Your active model changed; your newer model was kept.", active_n_enrollment=previous_count)
+                else:
+                    if incumbent_digest:
+                        backup = out / f"previous-{uuid.uuid4().hex}.tmp"
+                        shutil.copy2(incumbent_path, backup)
+                        backup.replace(out / "previous-adapter.pt")
+                    candidate_path.replace(incumbent_path)
+                    atomic_json(out / "report.json", report)
+            finally:
+                candidate_path.unlink(missing_ok=True)
+        atomic_json(out / "last-training-report.json", report)
     tag = args.tag or f"lora_{user_key}_{args.source}_r{args.r}_{args.targets}_s{args.steps}"
     rd = RESULTS_DIR / tag
     rd.mkdir(parents=True, exist_ok=True)
     (rd / "report.json").write_text(json.dumps(report, indent=2))
     (rd / "report.md").write_text(render_md(tag, report))
     status.update(state="done", report={k: report[k] for k in
-                                        ("before_wer", "after_wer", "before_top5", "after_top5", "n_train", "n_val", "n_test")})
+                                        ("before_wer", "after_wer", "before_top5", "after_top5", "n_train", "n_val", "n_test", "n_enrollment", "active_n_enrollment", "promoted", "promotion_reason", "baseline", "incumbent_wer", "incumbent_top1", "incumbent_top5")})
     print(render_md(tag, report))
     return report
 

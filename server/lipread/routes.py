@@ -118,7 +118,10 @@ def training_status(user_id: str) -> dict:
 
 @router.get("/train/{user_id}/report")
 def training_report(user_id: str) -> dict:
-    path = ADAPTER_DIR / adapter_key(user_id) / "report.json"
+    folder = ADAPTER_DIR / adapter_key(user_id)
+    path = folder / "last-training-report.json"
+    if not path.exists():
+        path = folder / "report.json"
     if not path.exists():
         raise HTTPException(404, "no report yet")
     return json.loads(path.read_text())
