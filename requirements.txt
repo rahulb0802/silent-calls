@@ -6,3 +6,5 @@ numpy>=2.0
 pydantic>=2.0
 python-dotenv>=1.0
 soundcard>=0.4.6; sys_platform == "win32"  # call captions via WASAPI loopback
+google-auth-oauthlib>=1.2  # call co-pilot: Calendar + Gmail, read-only
+google-api-python-client>=2.0
