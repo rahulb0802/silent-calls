@@ -1,6 +1,6 @@
 import {SavedPhrases,openPersonalLibrary} from './components/saved-phrases';
 import {usePersonalLibrary,vocabularySuggestions} from './services/personal-library';
-import {LipreadPort} from './services/lipread-port';
+import {LipreadPort,copilotOff} from './services/lipread-port';
 import {loadSettings} from './services/settings';
 import {VoicePanel} from './components/voice-panel';
 import {CallCaptions} from './components/call-captions';
@@ -53,13 +53,17 @@ export function MeetingWidget({service:providedPort}:{service?:MeetingPort} = {}
   const faceSample=useRef<(sample:FaceSample)=>void>(()=>{});
   const tracking=useMouthTracking(capture.cameraOn,modelBuffer,sample=>faceSample.current(sample));
   const service=useMeetingPort(port,()=>{capture.stop();void window.desktop?.stopGlobalHold();});
-  const {state:voice}=useLocalVoice();
+  const {state:voice,speak}=useLocalVoice();
+  // Suggested replies are hands-free too: while they show, turn to pick one, nod to say it, shake to clear.
+  const replies=copilotOff()?[]:(voice.copilot?.replies??[]);
+  const [replyPick,setReplyPick]=useState(-1);
+  useEffect(()=>setReplyPick(-1),[voice.copilot]);
   const [highlight,setHighlight]=useState(0);
   useEffect(()=>setHighlight(0),[service.candidates]);
   // Hands-free: mouthing starts and stops a capture, head (or brow/eye) gestures pick an option. Keys still work.
   const handsFreePhase:HandsFreePhase=capture.phase==='capturing'?'capturing':service.phase==='choosing'?'choosing':(capture.phase==='ready'||capture.phase==='review')&&service.phase==='idle'?'idle':'busy';
   const onHandsFree=useRef<(event:HandsFreeEvent)=>void>(()=>{});
-  const handsFree=useHandsFree(handsFreePhase,Boolean(voice.liveCaption),event=>onHandsFree.current(event));
+  const handsFree=useHandsFree(handsFreePhase,Boolean(voice.liveCaption),handsFreePhase==='idle'&&replies.length>0,event=>onHandsFree.current(event));
   faceSample.current=handsFree.onSample;
   callbacks.current={onStart:service.onStart,onFrame:service.onFrame,onEnd:service.onEnd,onCancel:service.cancel,onVideoFrame:tracking.sample};
   const [key, setKey] = useState<HoldKey>(() => {
@@ -85,7 +89,14 @@ export function MeetingWidget({service:providedPort}:{service?:MeetingPort} = {}
   const beginRef = useRef(begin); beginRef.current = begin;
   onHandsFree.current = event => {
     if (event === 'start') { if (!serviceBusy) capture.begin(); return; }
+    if (handsFreePhase === 'idle') {  // gestures over the suggested replies
+      if (event === 'next' && replies.length) setReplyPick(index => (index + 1) % replies.length);
+      if (event === 'send' && replies[replyPick]) { setSpoken(replies[replyPick].text); void speak(replies[replyPick].text); setReplyPick(-1); }
+      if (event === 'cancel') setReplyPick(-1);
+      return;
+    }
     if (event === 'stop') { capture.release(); return; }
+    if (event === 'discard') { capture.abort(); return; }  // hardly any mouthing: a false start, don't read it
     const shown = service.candidates.slice(0, 3);
     if (event === 'next' && shown.length) setHighlight(index => (index + 1) % shown.length);
     if (event === 'send' && shown[highlight]) { setSpoken(shown[highlight].text); service.confirm(shown[highlight]); }
@@ -193,6 +204,7 @@ export function MeetingWidget({service:providedPort}:{service?:MeetingPort} = {}
     lastLine={heard && {speaker:heard.speaker==='them'?'Them':heard.speaker==='me'?'You':heard.speaker,text:heard.text}} speaking={spoken} hint={pillHint}
     error={service.error || capture.error} cameraOn={capture.cameraOn}
     level={handsFree.enabled?handsFree.meter.level/Math.max(.01,handsFree.meter.threshold):tracking.level/100}
+    replyPick={handsFree.enabled?replyPick:-1} replyHint={handsFree.enabled?handsFree.mode==='head'?'Turn your head to pick one, nod to say it':'Close your eyes a moment to pick one, raise your eyebrows to say it':''}
     showWork={showWork} onShowWork={setShowWork} onExpand={()=>setCompact(false)} onStart={()=>void startSession()} starting={startingSession}
     work={{ranker:service.ranker,route:service.route,confidence:service.confidence,adapter:service.adapter}}/>;
   return <>{pill}<main className={`meeting-widget live-capture consumer-widget ${busy?'is-recording':''} ${service.phase==='processing'?'is-thinking':''} ${compact?'is-compact':''} ${capture.cameraOn?'camera-on':''}`} data-visible={pageVisible} ref={container} tabIndex={-1}>
@@ -209,7 +221,7 @@ export function MeetingWidget({service:providedPort}:{service?:MeetingPort} = {}
         <details className="companion-details"><summary>Saved phrases</summary><SavedPhrases disabled={busy || serviceBusy}/><button className="icon-text" onClick={openPersonalLibrary}>Manage my words<ArrowUpRight size={13}/></button></details><details className="companion-details"><summary>Conversation</summary><CallCaptions/></details>
       </section>
       <div className={tool==='type'?'companion-type':'consumer-hidden'}><VoicePanel/></div>
-      {tool==='assist' && <section className="companion-assistant"><h1>A little help,<br/>right on time.</h1><p className="companion-instruction">Suggestions for the conversation. You choose what to say.</p><CopilotPanel/><details className="companion-details"><summary>After your call</summary><ReviewPanel/></details></section>}
+      {tool==='assist' && <section className="companion-assistant"><h1>A little help,<br/>right on time.</h1><p className="companion-instruction">Suggestions for the conversation. You choose what to say.</p><CopilotPanel pick={handsFree.enabled?replyPick:-1}/><details className="companion-details"><summary>After your call</summary><ReviewPanel/></details></section>}
       {tool==='settings' && <section className="companion-preferences"><h1>Just how you like it.</h1><div className="capture-settings"><label htmlFor="camera-device">Camera</label><select id="camera-device" value={device} disabled={capture.cameraOn} onChange={event=>setDevice(event.target.value)}><option value="">System default</option>{devices.map((camera,index)=><option key={camera.deviceId || index} value={camera.deviceId}>{camera.label || `Camera ${index+1}`}</option>)}</select><label htmlFor="hold-key">Meeting key</label><select id="hold-key" value={key} disabled={hook.active || busy || hookPending} onChange={event=>{const selected=event.target.value as HoldKey;setKey(selected);localStorage.setItem('silent-calls:hold-key:v2',selected);}}>{Object.entries(keyLabels).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></div><button className="icon-text" disabled={!window.desktop || (!hook.active && (!ready || hookPending))} onClick={()=>hook.active?void stop():void enableGlobal()}>{hook.active?'Pause camera & meeting key':enablingHook?'Enabling…':'Enable meeting key'}</button>{(!hook.active || !hook.receivedKey) && window.desktop && <div className="companion-permissions"><p>Allow keyboard access to use your meeting key in other apps.</p><button className="icon-text" onClick={()=>window.desktop?.openKeyboardSettings('accessibility')}>Allow keyboard access<ArrowUpRight size={13}/></button><button className="icon-text" onClick={()=>window.desktop?.openKeyboardSettings('input-monitoring')}>Input monitoring<ArrowUpRight size={13}/></button></div>}<section className="hands-free" aria-label="Hands-free">
         <label className="hands-free-toggle"><input type="checkbox" checked={handsFree.enabled} disabled={!modelBuffer} onChange={event=>handsFree.setEnabled(event.target.checked)}/> Hands-free: start by mouthing, choose with your face</label>
         {!modelBuffer && <p className="capture-help">Needs the face model: run <code>npm run fetch:face-model</code> once, or choose it under Connection & diagnostics.</p>}

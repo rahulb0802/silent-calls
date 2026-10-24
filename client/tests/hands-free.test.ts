@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { HandsFree, calibratedThreshold, headPose, mouthMovement, type FaceSample, type HandsFreeEvent, type HandsFreePhase } from '../src/capture/hands-free';
 
 const STEP = 66;
-const rest = {face: true, mouth: 0.3, yaw: 2, pitch: 10, brows: 0.1, blink: 0};
+const rest = {face: true, mouth: 0.3, open: 0.05, yaw: 2, pitch: 10, brows: 0.1, blink: 0};
 type Script = {ms: number; phase: HandsFreePhase; talking?: boolean; at?: Partial<FaceSample> | ((t: number) => Partial<FaceSample>)}[];
 
 /** Run a script of segments through a HandsFree; returns [time, event] pairs. */
@@ -18,7 +18,8 @@ function run(script: Script, hf = new HandsFree({mode: 'head'})) {
   }
   return out;
 }
-const mouthing = (t: number) => ({mouth: 4 + 2 * Math.sin(t / 50)});
+// silent speech: lots of mouth movement, the jaw opening and closing a few times a second
+const mouthing = (t: number) => ({mouth: 4 + 2 * Math.sin(t / 50), open: 0.15 + 0.12 * Math.sin(t / 45)});
 const names = (events: [number, HandsFreeEvent][]) => events.map(([, e]) => e);
 
 test('mouthing starts a capture, stillness ends it', () => {
@@ -33,10 +34,31 @@ test('mouthing starts a capture, stillness ends it', () => {
 });
 
 test('pauses between words do not end a capture', () => {
-  const gappy = (t: number) => ({mouth: (t % 700) < 450 ? 4 : 0.3});  // 0.45 s of words, 0.25 s pauses
+  const gappy = (t: number) => (t % 700) < 450 ? mouthing(t) : {};  // 0.45 s of words, 0.25 s pauses
   const events = run([{ms: 2000, phase: 'idle'}, {ms: 700, phase: 'idle', at: mouthing}, {ms: 3000, phase: 'capturing', at: gappy}, {ms: 1500, phase: 'capturing'}]);
   assert.deepEqual(names(events), ['start', 'stop']);
   assert.ok(events[1][0] >= 5700, `stopped mid-sentence at ${events[1][0]}`);
+});
+
+test('a twitch, smile or swallow (the jaw moves once) does not start a capture, however strong', () => {
+  const once = (t: number) => ({mouth: 5, open: t < 2300 ? 0.3 : 0.05});
+  assert.deepEqual(names(run([{ms: 2000, phase: 'idle'}, {ms: 700, phase: 'idle', at: once}, {ms: 1500, phase: 'idle'}])), []);
+});
+
+test('a capture with hardly any mouthing is dropped instead of read', () => {
+  const events = run([{ms: 2000, phase: 'idle'}, {ms: 700, phase: 'idle', at: mouthing}, {ms: 200, phase: 'capturing', at: mouthing}, {ms: 1500, phase: 'capturing'}]);
+  assert.deepEqual(names(events), ['start', 'discard']);
+});
+
+test('while suggested replies show, a turn picks one and a nod says it; without them gestures do nothing', () => {
+  const hf = new HandsFree({mode: 'head'});
+  const out: HandsFreeEvent[] = [];
+  for (let t = 0; t < 3600; t += STEP) {
+    const pose = t >= 1000 && t < 1500 ? {yaw: 22} : t >= 2200 && t < 2600 ? {pitch: 28} : {};
+    out.push(...hf.push({t, ...rest, ...pose}, 'idle', false, true));
+  }
+  assert.deepEqual(out, ['next', 'send']);
+  assert.deepEqual(names(run([{ms: 1000, phase: 'idle'}, {ms: 1000, phase: 'idle', at: turn(1050)}])), []);
 });
 
 test('scattered twitches (about a third of the time) do not start a capture', () => {

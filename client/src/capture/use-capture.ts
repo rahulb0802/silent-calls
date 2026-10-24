@@ -122,6 +122,11 @@ export function useCapture(options:CaptureCallbacks = {}) {
     if (phaseRef.current !== 'capturing') return;
     engine.current.release(performance.now()); setPhase('tail');
   }, [setPhase]);
+  /** Drop the capture in progress (nothing is read); the camera stays on. */
+  const abort = useCallback(() => {
+    if (phaseRef.current !== 'capturing' && phaseRef.current !== 'tail') return;
+    engine.current.cancel(); callbacks.current.onCancel?.(); setClip(null); setPhase('ready');
+  }, [setPhase]);
   const clear = useCallback(() => { setClip(null); if (phaseRef.current === 'review') setPhase('ready'); }, [setPhase]);
-  return { video, phase, clip, stats, error, enable, stop, begin, release, clear, cameraOn: !['off', 'error'].includes(phase) };
+  return { video, phase, clip, stats, error, enable, stop, begin, release, abort, clear, cameraOn: !['off', 'error'].includes(phase) };
 }

@@ -33,14 +33,14 @@ export function useMouthTracking(enabled:boolean,modelBuffer:Uint8Array|null,onS
       const face=result.faceLandmarks[0];
       if(!face){
         previous.current=0;smoothed.current=0;shapes.current=null;
-        listener.current?.({t:now,face:false,mouth:0,yaw:0,pitch:0,brows:0,blink:0});
+        listener.current?.({t:now,face:false,mouth:0,open:0,yaw:0,pitch:0,brows:0,blink:0});
         if(now-lastMeter.current>=200){lastMeter.current=now;setTracking({level:0,coaching:'No face found. Face the camera in good light.',available:true});}
         return;
       }
       const current:Record<string,number>={};
       for(const category of result.faceBlendshapes?.[0]?.categories||[])current[category.categoryName]=category.score;
       const matrix=result.facialTransformationMatrixes?.[0]?.data;
-      listener.current?.({t:now,face:true,mouth:mouthMovement(shapes.current,current,dt),...(matrix?headPose(Array.from(matrix)):{yaw:0,pitch:0}),
+      listener.current?.({t:now,face:true,mouth:mouthMovement(shapes.current,current,dt),open:current.jawOpen??0,...(matrix?headPose(Array.from(matrix)):{yaw:0,pitch:0}),
         brows:((current.browInnerUp??0)+(current.browOuterUpLeft??0)+(current.browOuterUpRight??0))/3,
         blink:Math.min(current.eyeBlinkLeft??0,current.eyeBlinkRight??0)});
       shapes.current=current;

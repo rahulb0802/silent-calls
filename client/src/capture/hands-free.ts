@@ -6,13 +6,14 @@ export type FaceSample = {
   t: number;          // ms
   face: boolean;      // a face was found
   mouth: number;      // mouth movement, summed blendshape change per second
+  open: number;       // how open the jaw is, 0..1 (speech opens and closes it a few times a second)
   yaw: number;        // head turn, degrees
   pitch: number;      // head nod, degrees
   brows: number;      // brow raise, 0..1
   blink: number;      // both eyes closed, 0..1
 };
 export type HandsFreePhase = 'idle' | 'capturing' | 'choosing' | 'busy';
-export type HandsFreeEvent = 'start' | 'stop' | 'next' | 'send' | 'cancel' | 'restart';
+export type HandsFreeEvent = 'start' | 'stop' | 'discard' | 'next' | 'send' | 'cancel' | 'restart';
 export type GestureMode = 'head' | 'face';
 export type HandsFreeConfig = {
   mode: GestureMode;
@@ -25,6 +26,9 @@ export type HandsFreeConfig = {
 const START_WIN = 600, START_FRAC = 0.75;  // most of the last 0.6 s mouthing starts a capture (it keeps 0.5 s from before)
 const STOP_WIN = 900, STOP_FRAC = 0.15;    // almost no mouthing for 0.9 s ends it
 const MIN_CAPTURE_MS = 900;                // never end a capture sooner than this
+const SPEECH_SWINGS = 3;                   // jaw open/close turns in the start window: speech has several, a twitch one or two
+const SWING = 0.035;                       // jaw change that counts as a turn
+const MIN_ACTIVE_MS = 700;                 // a capture with less mouthing than this is dropped, not read
 const RESTART_WIN = 700;                   // mouthing this long while options are shown discards them and reads again
 const MIN_ON = 1.2;         // floor for the adaptive start threshold
 const NOISE_GAIN = 3;       // adaptive threshold: this many times the resting noise
@@ -48,7 +52,8 @@ export class HandsFree {
   private headSpeed = 0;
   private baseYaw?: number; private basePitch?: number; private baseBrows?: number;
   private started = 0;  // when this started a capture (0: it didn't)
-  private recent: {t: number; on: boolean; off: boolean}[] = [];  // on: mouthing (and facing, head still); off: any movement
+  private recent: {t: number; on: boolean; off: boolean; open: number}[] = [];  // on: mouthing (and facing, head still); off: any movement
+  private activeMs = 0;  // mouthing during the capture this started
   private out: null | {axis: 'yaw' | 'pitch'; since: number; side: number; flips: number} = null;
   private quietUntil = 0;
   private browSince = 0; private blinkSince = 0;
@@ -59,8 +64,10 @@ export class HandsFree {
   /** The mouth level that starts a capture. */
   get threshold() { return this.config.mouthOn ?? Math.max(MIN_ON, NOISE_GAIN * this.noise); }
 
-  /** Feed one face sample; returns the events it triggers. `otherTalking`: the other person is mid-line. */
-  push(s: FaceSample, phase: HandsFreePhase, otherTalking = false): HandsFreeEvent[] {
+  /** Feed one face sample; returns the events it triggers. `otherTalking`: the other person is mid-line.
+   * `suggestions`: the co-pilot's replies are showing, so gestures while idle pick among them (next / send /
+   * cancel, as with the lip-reader's options). */
+  push(s: FaceSample, phase: HandsFreePhase, otherTalking = false, suggestions = false): HandsFreeEvent[] {
     const events: HandsFreeEvent[] = [];
     const dt = this.last ? Math.max(1, s.t - this.last.t) : 66;
     if (phase !== this.phase) {
@@ -85,23 +92,45 @@ export class HandsFree {
     if (phase !== 'choosing' && this.browSince === 0 && this.blinkSince === 0) this.baseBrows += 0.05 * (s.brows - this.baseBrows);
     const facing = Math.abs(dyaw) < FACING && Math.abs(dpitch) < FACING;
     const on = this.threshold, off = on / 2;
-    this.recent.push({t: s.t, on: this.mouth >= on && still && facing, off: this.mouth >= off});
+    this.recent.push({t: s.t, on: this.mouth >= on && still && facing, off: this.mouth >= off, open: s.open});
     while (this.recent.length && this.recent[0].t < s.t - STOP_WIN) this.recent.shift();
 
     if (phase === 'idle') {
       if (this.mouth < on) this.noise += 0.02 * (Math.min(this.mouth, on) - this.noise);
-      if (!otherTalking && this.share(s.t, START_WIN, 'on') >= START_FRAC) { this.recent = []; this.started = s.t; events.push('start'); }
+      if (!otherTalking && this.share(s.t, START_WIN, 'on') >= START_FRAC && this.swings(s.t, START_WIN) >= SPEECH_SWINGS) {
+        this.recent = []; this.started = s.t; this.activeMs = 0; events.push('start');
+      }
       if (this.started && s.t - this.started > 1000) this.started = 0;  // the capture never began
+      if (suggestions && !events.length) {
+        const gesture = this.config.mode === 'head' ? this.head(s.t, dyaw, dpitch) : this.face(s);
+        if (gesture && s.t >= this.quietUntil) { events.push(gesture); this.quietUntil = s.t + REFRACTORY_MS; }
+      } else if (!suggestions) this.out = null;
     } else if (phase === 'capturing') {
       // only end captures this started: a held key ends its own
-      if (this.started && s.t - this.started >= MIN_CAPTURE_MS && this.share(s.t, STOP_WIN, 'off') <= STOP_FRAC) { this.started = 0; events.push('stop'); }
+      if (this.started && this.mouth >= off) this.activeMs += dt;
+      if (this.started && s.t - this.started >= MIN_CAPTURE_MS && this.share(s.t, STOP_WIN, 'off') <= STOP_FRAC) {
+        events.push(this.activeMs >= MIN_ACTIVE_MS ? 'stop' : 'discard'); this.started = 0;
+      }
     } else if (phase === 'choosing') {
-      if (s.t >= this.quietUntil && this.share(s.t, RESTART_WIN, 'on') >= START_FRAC) { this.recent = []; this.started = s.t; events.push('restart'); return events; }
+      if (s.t >= this.quietUntil && this.share(s.t, RESTART_WIN, 'on') >= START_FRAC && this.swings(s.t, RESTART_WIN) >= SPEECH_SWINGS) { this.recent = []; this.started = s.t; events.push('restart'); return events; }
       const gesture = this.config.mode === 'head' ? this.head(s.t, dyaw, dpitch) : this.face(s);
       if (gesture && s.t >= this.quietUntil) { events.push(gesture); this.quietUntil = s.t + REFRACTORY_MS; this.choosingSince = s.t; }
       else if (s.t - this.choosingSince > CHOOSE_TIMEOUT_MS) { events.push('cancel'); this.choosingSince = s.t; }
     }
     return events;
+  }
+
+  /** Turns of the jaw (opening to closing or back, by at least SWING) in the last `win` ms. */
+  private swings(t: number, win: number): number {
+    let turns = 0, dir = 0, extreme = NaN;
+    for (const x of this.recent) {
+      if (x.t <= t - win) continue;
+      if (Number.isNaN(extreme)) { extreme = x.open; continue; }
+      if (dir === 0) { if (Math.abs(x.open - extreme) >= SWING) { dir = Math.sign(x.open - extreme); extreme = x.open; } }
+      else if (dir * (x.open - extreme) > 0) extreme = x.open;  // still going the same way
+      else if (Math.abs(x.open - extreme) >= SWING) { turns++; dir = -dir; extreme = x.open; }
+    }
+    return turns;
   }
 
   /** Share of the last `win` ms of samples that were mouthing ('on') or moving at all ('off'); -1 until the

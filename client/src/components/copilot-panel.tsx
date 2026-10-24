@@ -10,7 +10,7 @@ const SOURCE: Record<string, {label: string; Icon: typeof CalendarDays}> = {
 
 /** The co-pilot's prepared replies (2-3) and the facts behind them. Mouth one (the lip-reader scores these
  * against your mouthing, so it's picked out), or tap "Say it" to speak it right away in your voice. */
-export function CopilotPanel({compact = false}: {compact?: boolean}) {
+export function CopilotPanel({compact = false, pick = -1, hint = ''}: {compact?: boolean; pick?: number; hint?: string}) {
   const {state, speak} = useLocalVoice();
   const [off, setOff] = useState(copilotOff);
   const [saying, setSaying] = useState('');
@@ -33,7 +33,8 @@ export function CopilotPanel({compact = false}: {compact?: boolean}) {
       : !replies.length ? <p className="copilot-empty">After the other person speaks, 2–3 replies you might give appear here.</p>
       : <>
         {!compact && <p className="copilot-how">Mouth one to pick it, or tap <strong>Say it</strong>.</p>}
-        <ul aria-live="polite">{replies.map((reply, index) => <li key={index}>
+        {hint && <p className="copilot-how">{hint}</p>}
+        <ul aria-live="polite">{replies.map((reply, index) => <li key={index} className={index === pick ? 'is-picked' : undefined} aria-current={index === pick ? 'true' : undefined}>
           <p className="copilot-reply">{reply.text}</p>
           <button className="copilot-say" disabled={busy} onClick={() => say(reply.text)} aria-label={`Say: ${reply.text}`}>
             <Volume2 size={13}/>{saying === reply.text ? 'Saying…' : 'Say it'}</button>

@@ -17,6 +17,8 @@ type Props = {
   error: string;
   cameraOn: boolean;         // the camera preview itself is the full panel's video, placed over the thumb
   level: number;             // mouth movement, 0..1 of the start level
+  replyPick: number;         // suggested reply picked by a gesture (-1: none)
+  replyHint: string;
   showWork: boolean;
   onShowWork: (open: boolean) => void;
   onExpand: () => void;
@@ -71,7 +73,7 @@ export function CompactPill(p: Props) {
         {p.repair && <button className="pill-repair" onClick={p.onRepair}><Sparkles size={11}/>{p.repair}</button>}</div>
       <p className="pill-hint">{p.hint}</p>
     </div>}
-    {(p.phase === 'listening' || p.phase === 'capturing') && <CopilotPanel compact/>}
+    {(p.phase === 'listening' || p.phase === 'capturing') && <CopilotPanel compact pick={p.replyPick} hint={p.replyHint}/>}
     {p.error && <p className="pill-error" role="alert">{p.error}</p>}
     {p.showWork && <div className="pill-work">
       <h2>What the lip-reader saw</h2>

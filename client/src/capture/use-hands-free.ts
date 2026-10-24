@@ -13,11 +13,11 @@ export type Calibration = { step: 'idle' | 'rest' | 'mouth' | 'done' | 'failed';
 const REST_MS = 4000, MOUTH_MS = 5000;
 
 /** Hands-free control: feed it face samples (onSample), tell it the current phase, and it calls onEvent. */
-export function useHandsFree(phase: HandsFreePhase, otherTalking: boolean, onEvent: (event: HandsFreeEvent) => void) {
+export function useHandsFree(phase: HandsFreePhase, otherTalking: boolean, suggestions: boolean, onEvent: (event: HandsFreeEvent) => void) {
   const [saved, setSaved] = useState<Saved>(load);
   const engine = useRef(new HandsFree({ mode: saved.mode, mouthOn: saved.mouthOn }));
-  const state = useRef({ phase, otherTalking, onEvent, enabled: saved.enabled });
-  state.current = { phase, otherTalking, onEvent, enabled: saved.enabled };
+  const state = useRef({ phase, otherTalking, suggestions, onEvent, enabled: saved.enabled });
+  state.current = { phase, otherTalking, suggestions, onEvent, enabled: saved.enabled };
   const [meter, setMeter] = useState({ level: 0, threshold: engine.current.threshold });
   const [calibration, setCalibration] = useState<Calibration>({ step: 'idle', secondsLeft: 0 });
   const calib = useRef<{ step: 'rest' | 'mouth'; until: number; rest: number[]; mouth: number[] } | null>(null);
@@ -47,7 +47,7 @@ export function useHandsFree(phase: HandsFreePhase, otherTalking: boolean, onEve
     }
     const s = state.current;
     if (!s.enabled) return;
-    const events = engine.current.push(sample, s.phase, s.otherTalking);
+    const events = engine.current.push(sample, s.phase, s.otherTalking, s.suggestions);
     if (sample.t - lastMeter.current > 200) { lastMeter.current = sample.t; setMeter({ level: engine.current.mouth, threshold: engine.current.threshold }); }
     for (const event of events) { console.info(`[hands-free] ${event} (mouth ${engine.current.mouth.toFixed(2)} / start at ${engine.current.threshold.toFixed(2)})`); s.onEvent(event); }
   }, [save]);
