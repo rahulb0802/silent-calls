@@ -1,3 +1,4 @@
+import {VoicePanel} from './components/voice-panel';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, Camera, CameraOff, GripHorizontal, Pause, Play, Waves, X } from 'lucide-react';
 import {useMouthTracking} from './capture/mouth-tracking';
@@ -95,6 +96,7 @@ export function MeetingWidget({service:port}:{service?:MeetingPort} = {}) {
     <header className="widget-header"><div className="widget-logo"><Waves size={21}/> silent calls<span>.</span></div><GripHorizontal size={19} className="drag-grip"/><button className="icon-button" aria-label="Close meeting widget" onClick={() => window.desktop ? window.desktop.closeWidget() : window.close()}><X size={17}/></button></header>
     <div className="widget-body"><div className="widget-status"><span className={`dot ${busy ? 'recording-dot' : ''}`}/>{capture.cameraOn ? 'Camera enabled' : 'Camera off'}<span className="demo-badge">{service.connected?'Service connected':'Local capture'}</span></div>
       <h1 aria-live="polite">{title}</h1>
+      <VoicePanel/>
       <div className={`live-camera ${clip ? 'reviewing' : ''}`}>
         <video ref={capture.video} autoPlay muted playsInline aria-label="Live camera preview"/>
         {clip?.frames[frame] && <img src={clip.frames[frame].jpeg} alt={`Captured frame ${frame + 1} of ${clip.frames.length}`}/>}
@@ -111,14 +113,14 @@ export function MeetingWidget({service:port}:{service?:MeetingPort} = {}) {
       <div className="global-controls"><button className="icon-text" disabled={!window.desktop || (!hook.active && (!ready || hookPending))} onClick={() => hook.active ? void stop() : void enableGlobal()}>{hook.active ? <Pause size={14}/> : <Play size={14}/>} {hook.active ? 'Disable global key & camera' : enablingHook ? 'Enabling…' : 'Enable global key'}</button>{!hook.active && window.desktop && <button className="icon-text" onClick={() => window.desktop?.openKeyboardSettings()}>Permissions <ArrowUpRight size={12}/></button>}</div>
       <p className="capture-help" role="status">{window.desktop ? hook.message : 'Browser preview: the hold key works only while this tab is focused. Use Electron for global capture.'}</p>
       <div className="capture-metrics"><span>{capture.stats.fps} fps measured / 25 target</span><span>{capture.stats.bufferedMs}ms buffered</span></div>
-      <div className="meeting-results"><h2>Conversation</h2><div className="meeting-captions" aria-live="polite">{service.captions.length?service.captions.map((line,index)=><p key={index}><strong>{line.speaker}</strong>{line.text}</p>):<p>{service.connected?'Waiting for conversation captions…':'Captions appear when the meeting adapter is connected.'}</p>}</div>
+      {port && <div className="meeting-results"><h2>Conversation</h2><div className="meeting-captions" aria-live="polite">{service.captions.length?service.captions.map((line,index)=><p key={index}><strong>{line.speaker}</strong>{line.text}</p>):<p>{service.connected?'Waiting for conversation captions…':'Captions appear when the meeting adapter is connected.'}</p>}</div>
       {service.phase==='processing' && <p className="capture-help" role="status">Waiting for phrase candidates…</p>}
       {service.phase==='queued' && <p className="capture-help" role="status">Phrase confirmed. Waiting for voice service…</p>}
       {service.phase==='speaking' && <p className="capture-help" role="status">Voice service reports that it is speaking…</p>}
       {service.candidates.length>0 && <div className="candidate-list live-candidates" aria-label="Choose what you meant">{service.candidates.map((candidate,index)=><button key={candidate.id} disabled={service.phase!=='choosing' || !service.connected} onClick={()=>{service.confirm(candidate);container.current?.focus();}}><kbd>{index+1}</kbd><span>{candidate.text}</span></button>)}<button className="retry" onClick={()=>{service.cancel();capture.clear();container.current?.focus();}}>Discard candidates & retry</button></div>}
-      <div className="quick-phrases"><span>Quick phrases</span><div>{['Yes','One moment','Thank you'].map(text=><button key={text} disabled={!service.connected || busy || ['queued','speaking','processing'].includes(service.phase)} onClick={()=>service.quickPhrase(text)}>{text}</button>)}</div></div>
+
       {service.error && <p className="capture-error" role="alert">{service.error}</p>}
-      <p className="capture-help">{service.connected?'The approved adapter receives frames while you hold the key. Uncertain phrases always need your choice.':'No backend adapter is installed. Captures stay local; phrase and voice controls remain disabled.'}</p></div>
+      <p className="capture-help">{service.connected?'The approved adapter receives frames while you hold the key. Uncertain phrases always need your choice.':'Lip-reading is not connected. Camera captures stay local; use Type to speak above for the local voice service.'}</p></div>}
       <button className="icon-text" onClick={()=>window.desktop?window.desktop.showMain('workspace'):window.open(`${location.pathname}#/workspace`,'_blank')}>Training & settings <ArrowUpRight size={13}/></button>
       <p className="capture-help">Meeting video stays in memory and is discarded when you stop the camera.</p>
     </div>
