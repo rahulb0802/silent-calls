@@ -28,6 +28,7 @@ class DecodeConfig:
     lm_weight: float = 0.2  # 0 disables the LM; 0.2 won the sweep (docs/RESULTS.md)
     nbest: int = 10
     name_bias: float = 2.0  # log-prob bonus per subword piece that spells a vocab word (TODO(hackathon): tune)
+    given_bonus: float = 8.0  # log-prob prior for a given sentence (co-pilot reply); RESULTS.md section 9
     name_variants: bool = False  # lip-shape name swaps after decoding (vocab.py); off: noisy (RESULTS.md section 7)
 
 
@@ -173,11 +174,13 @@ def to_input(crop: np.ndarray) -> torch.Tensor:
 
 @torch.no_grad()
 def decode(avsr: AVSR, crop: np.ndarray, nbest: int = 10, vocab: list[str] | None = None,
-           given: list[str] | None = None) -> tuple[list[tuple[str, float, int]], dict]:
+           given: list[str] | None = None, given_bonus: float = 0.0) -> tuple[list[tuple[str, float, int]], dict]:
     """Returns ([(text, log_prob, n_tokens)], timings_ms), best first, distinct texts, lowercase.
     With a vocab the beam is biased toward those words, and log_prob includes the bonus. `given` sentences
     (e.g. the call co-pilot's prepared replies) are scored against the same video (score_texts) and ranked
-    with the beam's guesses; one only appears if it scores among the top nbest."""
+    with the beam's guesses after adding `given_bonus`, the prior that a prepared reply is what's being said
+    (the beam's best guess always outscores the truth on likelihood alone); one only appears if it ranks among
+    the top nbest."""
     search = avsr.beam_search
     if vocab:
         used = avsr.names.set_words(vocab)
@@ -205,8 +208,10 @@ def decode(avsr: AVSR, crop: np.ndarray, nbest: int = 10, vocab: list[str] | Non
     timings = {"encode_ms": (t1 - t0) * 1000, "beam_ms": (t2 - t1) * 1000}
     if given:
         t3 = time.perf_counter()
-        scored = score_texts(avsr, enc, [g for g in given if g not in seen], biased=search is avsr.biased_search)
-        out = sorted(out + [(t, s, n) for t, s, n in scored], key=lambda c: c[1], reverse=True)[:nbest]
+        wanted = {normalize_text(g) for g in given}
+        out = [(t, s + given_bonus if t in wanted else s, n) for t, s, n in out]  # the beam found it too
+        scored = score_texts(avsr, enc, [g for g in wanted if g not in seen], biased=search is avsr.biased_search)
+        out = sorted(out + [(t, s + given_bonus, n) for t, s, n in scored], key=lambda c: c[1], reverse=True)[:nbest]
         timings["given_ms"] = (time.perf_counter() - t3) * 1000
     return out, timings
 

@@ -218,7 +218,8 @@ class LipReader:
                    given: list[str] | None = None) -> LipResult:
         t0 = time.perf_counter()
         adapter = self._use_adapter(user_id)
-        nbest, t = decode(self.avsr, crop, self.cfg.nbest, vocab if self.cfg.name_bias > 0 else None, given)
+        nbest, t = decode(self.avsr, crop, self.cfg.nbest, vocab if self.cfg.name_bias > 0 else None, given,
+                          self.cfg.given_bonus)
         given_set = {normalize_text(g) for g in given or []}
         decoded = {c[0] for c in nbest}
         if self.cfg.name_variants:
