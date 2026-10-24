@@ -2,7 +2,7 @@ import {practiceSentences, vocabularyTerms} from './personal-library';
 import type {ServiceSettings} from './settings';
 export type EnrollmentPrompt={id:string;sentence:string};
 export type EnrollmentProgress={n_clips:number;sentence_ids:string[]};
-export type TrainingReport={before_wer?:number;after_wer?:number;before_top5?:number;after_top5?:number;n_train?:number;n_val?:number;n_test?:number;per_clip?:{key:string;ref:string;before:string;after:string}[]};
+export type TrainingReport={promoted?:boolean;promotion_reason?:string;baseline?:string;incumbent_wer?:number;incumbent_top1?:number;incumbent_top5?:number;active_n_enrollment?:number;n_enrollment?:number;before_wer?:number;after_wer?:number;before_top5?:number;after_top5?:number;n_train?:number;n_val?:number;n_test?:number;per_clip?:{key:string;ref:string;before:string;after:string}[]};
 export type TrainingStatus={state:'none'|'queued'|'loading'|'evaluating'|'training'|'done'|'failed';step?:number;steps?:number;loss?:number;phase?:string;has_adapter?:boolean;error?:string;report?:TrainingReport};
 export type UploadResult={ok:boolean;sentence_id:string;n_clips?:number;sentence_ids?:string[];error?:string;quality?:{face_rate?:number;n_frames?:number;flags?:string[]}};
 export class EnrollmentHttpError extends Error {constructor(message:string,public status:number){super(message);}}

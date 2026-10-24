@@ -1,7 +1,7 @@
 import {loadSettings} from './settings';
 
 /** Opt-in: when you correct a phrase in a call (choose another option, edit it, or take Claude's suggestion),
- * the lip-reader keeps that capture's mouth crop with the text you confirmed, for your next personal
+ * a separate exact-words approval is required before keeping the mouth crop with that text for personal
  * training. Off unless you turn it on; per profile. */
 const key = () => `silent-calls:learn-corrections:v1:${encodeURIComponent(loadSettings().profileId.trim().toLowerCase())}`;
 export const LEARNING_CHANGED = 'silent-calls:learn-corrections';

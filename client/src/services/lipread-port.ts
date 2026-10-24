@@ -86,6 +86,8 @@ export function rankByDecision(id: string, candidates: Candidate[], decision: De
 }
 
 export class LipreadPort implements MeetingPort {
+  private learningReview: {id:string;text:string;at:number;sent:boolean}|null=null;
+  private learningTimer:ReturnType<typeof setTimeout>|null=null;
   private listeners = new Set<(event: MeetingEvent) => void>();
   private socket: WebSocket | null = null;
   private retry: ReturnType<typeof setTimeout> | null = null;
@@ -165,7 +167,13 @@ export class LipreadPort implements MeetingPort {
       try { data = JSON.parse(event.data); } catch { return; }
       if (!data || typeof data !== 'object') return;
       const id = typeof data.utt_id === 'string' ? data.utt_id : this.active;
-      if (data.type === 'learned' && Number.isInteger(data.n_corrections)) { window.dispatchEvent(new CustomEvent(LEARNED, {detail: data.n_corrections})); return; }
+      if(data.type==='learned' && Number.isInteger(data.n_corrections)){
+        if(this.learningReview?.id===id && this.learningReview.sent){
+          this.dismissLearning(id);this.emit({type:'learning.status',utteranceId:id,message:'Saved for your next training session.'});
+          window.dispatchEvent(new CustomEvent(LEARNED,{detail:data.n_corrections}));
+        }
+        return;
+      }
       if (data.type === 'error') {
         if (id !== this.active || !this.active) return;
         const message = friendlyErrors[data.code] || (typeof data.message === 'string' ? data.message.slice(0,1000) : 'The GPU could not read this capture. Please try again.');
@@ -295,6 +303,7 @@ export class LipreadPort implements MeetingPort {
     this.retry = setTimeout(() => { this.retry = null; this.open(); }, delay);
   }
   disconnect() {
+    if(this.learningReview)this.dismissLearning(this.learningReview.id);
     this.desired = false; this.disposed = true;
     this.removeNames?.(); this.removeNames = null;
     if (this.retry) clearTimeout(this.retry); this.retry = null;
@@ -303,6 +312,7 @@ export class LipreadPort implements MeetingPort {
     this.connection(false, 'Lip-reading disconnected. Your camera frames stay local.');
   }
   start(start: UtteranceStart) {
+    if(this.learningReview && !this.learningReview.sent)this.dismissLearning(this.learningReview.id);
     if (!this.connected || this.socket?.readyState !== WebSocket.OPEN || this.active || this.voicePending) {
       this.emit({type:'error',utteranceId:start.utteranceId,message:'Connect lip-reading and wait for the previous request before capturing.'}); return;
     }
@@ -375,15 +385,39 @@ export class LipreadPort implements MeetingPort {
     const candidate = this.choices.find(item => item.id === candidateId);
     const text = (editedText ?? candidate?.text ?? '').trim();
     if (!text || text.length > 5000) { this.emit({type:'error',utteranceId,message:'Choose a candidate or enter a phrase up to 5000 characters.'}); return; }
-    // a correction (not the top guess as it was) teaches your personal model, if you've opted in
-    const top = this.choices[0]?.text.trim().toLowerCase();
-    if (learningOn() && text.toLowerCase() !== top && this.socket?.readyState === WebSocket.OPEN) {
-      try { this.socket.send(JSON.stringify({type:'utterance.confirm', utt_id:utteranceId, text:text.slice(0, 300), learn:true})); } catch { /* best effort */ }
+    // Speaking/typing confirms intent, not a training label. Ask separately, without delaying output.
+    if(this.learningReview)this.dismissLearning(this.learningReview.id);
+    const changed=editedText!==undefined || candidate?.source==='personal' || candidateId!==this.choices[0]?.id;
+    if(learningOn() && changed && text.length<=300 && text.split(/\s+/).length<=25 && this.socket?.readyState===WebSocket.OPEN){
+      this.learningReview={id:utteranceId,text,at:Date.now(),sent:false};
+      this.emit({type:'learning.review',utteranceId,text});
+      this.learningTimer=setTimeout(()=>{
+        if(this.learningReview?.id===utteranceId && !this.learningReview.sent){this.dismissLearning(utteranceId);this.emit({type:'learning.status',utteranceId,message:'This training example expired. Nothing was saved.'});}
+      },120000);
     }
     this.voicePending = true;
     const generation = ++this.voiceGeneration;
     if (dictationOn()) void this.typeConfirmed(utteranceId,text,generation);
     else void this.speakConfirmed(utteranceId,text,generation);
+  }
+  approveLearning(utteranceId:string){
+    const review=this.learningReview;
+    if(!review || review.id!==utteranceId || review.sent)return;
+    if(!learningOn() || Date.now()-review.at>120000 || this.socket?.readyState!==WebSocket.OPEN){
+      this.dismissLearning(utteranceId);this.emit({type:'learning.status',utteranceId,message:'The example is no longer available. Nothing was saved.'});return;
+    }
+    if(this.learningTimer)clearTimeout(this.learningTimer);
+    try{
+      // Existing wire format; this is the only send path and requires the separate exact-words approval.
+      this.socket.send(JSON.stringify({type:'utterance.confirm',utt_id:review.id,text:review.text,learn:true}));
+      review.sent=true;this.emit({type:'learning.status',utteranceId,message:'Saving your approved example…'});
+      this.learningTimer=setTimeout(()=>{if(this.learningReview?.id===utteranceId){this.dismissLearning(utteranceId);this.emit({type:'learning.status',utteranceId,message:'Save was not confirmed. Check your saved corrections before retrying.'});}},20000);
+    }catch{this.dismissLearning(utteranceId);this.emit({type:'learning.status',utteranceId,message:'Could not confirm the save. Check your saved corrections.'});}
+  }
+  dismissLearning(utteranceId:string){
+    if(this.learningReview?.id!==utteranceId)return;
+    if(this.learningTimer)clearTimeout(this.learningTimer);this.learningTimer=null;this.learningReview=null;
+    this.emit({type:'learning.status',utteranceId,message:''});
   }
   /** Dictation: type the confirmed text where the cursor is (in whatever app has focus), with a space after. */
   private async typeConfirmed(id: string, text: string, generation: number) {

@@ -10,13 +10,17 @@ export function useMeetingPort(port:MeetingPort|undefined,onLost:()=>void){
   const [confidence,setConfidence]=useState<number|undefined>(),[timings,setTimings]=useState<Record<string,number>>({}),[quality,setQuality]=useState('');
   const [adapter,setAdapter]=useState<string|null|undefined>();
   const [route,setRoute]=useState<Route|undefined>(),[ranker,setRanker]=useState<'jev'|'lip'|undefined>(),[repair,setRepair]=useState('');
+  const [learningReview,setLearningReview]=useState<{utteranceId:string;text:string}|null>(null);
+  const [learningNotice,setLearningNotice]=useState('');
   const [upload,setUpload]=useState({sentFrames:0,bufferedBytes:0});
   const clearTimer=()=>{if(timer.current)clearTimeout(timer.current);timer.current=null;};
   useEffect(()=>{
     setConnected(false);setCandidates([]);setCaptions([]);setPhase('idle');active.current='';
     if(!port)return;
     const unsubscribe=port.subscribe(event=>{
-      if(event.type==='connection'){setConnected(event.connected);setMessage(event.message);if(!event.connected){clearTimer();active.current='';setCandidates([]);setPhase('idle');lost.current();}return;}
+      if(event.type==='connection'){setConnected(event.connected);setMessage(event.message);if(!event.connected){clearTimer();active.current='';setCandidates([]);setPhase('idle');setLearningReview(null);lost.current();}return;}
+      if(event.type==='learning.review'){setLearningReview({utteranceId:event.utteranceId,text:event.text});setLearningNotice('');return;}
+      if(event.type==='learning.status'){setLearningReview(null);setLearningNotice(event.message);return;}
       if(event.type==='caption'){setCaptions(lines=>[...lines.slice(-2),{speaker:event.speaker.slice(0,100),text:event.text.slice(0,2000)}]);return;}
       if(event.type==='error'){if(event.utteranceId && event.utteranceId!==active.current)return;clearTimer();setError(event.message);setPhase('idle');setCandidates([]);active.current='';return;}
       if(event.utteranceId!==active.current)return;
@@ -35,5 +39,7 @@ export function useMeetingPort(port:MeetingPort|undefined,onLost:()=>void){
   const onEnd=useCallback((clip:CaptureClip)=>{if(connected && clip.id===active.current){setPhase('processing');expectReply(130000);port?.end(clip);}},[port,connected]);
   function confirm(candidate:Candidate,editedText?:string){if(!connected || phase!=='choosing' || confirmed.current || !active.current)return;confirmed.current=true;setPhase('queued');expectReply(80000);port?.confirm(active.current,candidate.id,editedText);}
   function quickPhrase(text:string){if(!connected)return;cancel();active.current=crypto.randomUUID();confirmed.current=true;setPhase('queued');expectReply(60000);port?.quickPhrase(active.current,text);}
-  return{connected,error,message,phase,candidates,captions,confidence,timings,quality,adapter,route,ranker,repair,upload,cancel,confirm,quickPhrase,onStart,onFrame,onEnd};
+  function approveLearning(){if(learningReview){const id=learningReview.utteranceId;setLearningReview(null);port?.approveLearning?.(id);}}
+  function dismissLearning(){if(learningReview){port?.dismissLearning?.(learningReview.utteranceId);setLearningReview(null);}}
+  return{learningReview,learningNotice,approveLearning,dismissLearning,connected,error,message,phase,candidates,captions,confidence,timings,quality,adapter,route,ranker,repair,upload,cancel,confirm,quickPhrase,onStart,onFrame,onEnd};
 }

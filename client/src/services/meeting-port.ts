@@ -9,6 +9,8 @@ export type MeetingEvent=
   | {type:'repair';utteranceId:string;text:string}
   | {type:'upload';utteranceId:string;sentFrames:number;bufferedBytes:number}
   | {type:'caption';speaker:string;text:string}
+  | {type:'learning.review';utteranceId:string;text:string}
+  | {type:'learning.status';utteranceId:string;message:string}
   | {type:'speech.started'|'speech.finished';utteranceId:string}
   | {type:'connection';connected:boolean;message:string}
   | {type:'error';message:string;utteranceId?:string;code?:string};
@@ -20,6 +22,8 @@ export interface MeetingPort{
   end(clip:CaptureClip):void;
   cancel(utteranceId:string):void;
   confirm(utteranceId:string,candidateId:string,editedText?:string):void;
+  approveLearning?(utteranceId:string):void;
+  dismissLearning?(utteranceId:string):void;
   quickPhrase(utteranceId:string,text:string):void;
 }
 export type EnrollmentClip={prompt:string;blob:Blob;split:'train'|'eval'};

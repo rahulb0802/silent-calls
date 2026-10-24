@@ -51,7 +51,7 @@ export function CalibrationFlow({settings,onLockChange,onComplete}:{settings:Ser
   function complete(){if(finished.current)return;
     try{rememberCalibration(settings,target.current,saved.current.length);setMemory(savedCalibration(settings));}catch{setMessage('Your training is saved on the server, but this computer could not remember setup. Allow app storage to remember it after reopening.');}
     finished.current=true;busy.current=false;stopCamera();setScreen('done');setMessage('Your personal calibration is ready.');done.current?.();}
-  function trainedForGoal(value:TrainingStatus){const report=value.report;return value.state==='done' && value.has_adapter===true && (report?.n_train || 0)+(report?.n_val || 0)+(report?.n_test || 0)>=target.current && saved.current.length>=target.current;}
+  function trainedForGoal(value:TrainingStatus){const report=value.report;return value.state==='done' && value.has_adapter===true && (report?.active_n_enrollment ?? ((report?.n_train || 0)+(report?.n_val || 0)+(report?.n_test || 0)))>=target.current && saved.current.length>=target.current;}
   async function readStatus(){
     const next=await api.current!.status(session.current!.signal);
     // Older servers omit validation clips from the status summary. The full
@@ -77,7 +77,7 @@ export function CalibrationFlow({settings,onLockChange,onComplete}:{settings:Ser
       if(trainedForGoal(next)){complete();return;}
       if(next.state==='done'){
         if(saved.current.length<target.current){chooseNext();await openCamera();if(valid()){setScreen('record');setMessage('Let’s finish your remaining sentences.');panel.current?.focus();}return;}
-        setError('Training finished, but your saved personal calibration could not be confirmed. Check progress before continuing.');return;
+        setError('Training finished, but a safe personal-model update was not confirmed. Your previous model was kept. Check progress or try personalizing again.');return;
       }
       setError('No active training was found. Your recordings are saved. Check progress before starting again.');
     }catch(reason){if(valid()){busy.current=false;setError('Connection interrupted. Your training may still be running. Keep the connection open, then choose Check progress.');}}

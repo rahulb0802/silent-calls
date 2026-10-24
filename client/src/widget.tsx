@@ -1,3 +1,4 @@
+import {LearningConfirmation} from './components/learning-confirmation';
 import {SavedPhrases,openPersonalLibrary} from './components/saved-phrases';
 import {usePersonalLibrary,vocabularySuggestions} from './services/personal-library';
 import {LipreadPort,copilotOff,names as lipNames} from './services/lipread-port';
@@ -72,7 +73,7 @@ export function MeetingWidget({service:providedPort}:{service?:MeetingPort} = {}
   const [highlight,setHighlight]=useState(0);
   useEffect(()=>setHighlight(0),[service.candidates]);
   // Hands-free: mouthing starts and stops a capture, head (or brow/eye) gestures pick an option. Keys still work.
-  const handsFreePhase:HandsFreePhase=capture.phase==='capturing'?'capturing':capture.phase==='tail'||service.phase==='processing'?'thinking':service.phase==='choosing'?'choosing':(capture.phase==='ready'||capture.phase==='review')&&service.phase==='idle'?'idle':'busy';
+  const handsFreePhase:HandsFreePhase=service.learningReview?'choosing':capture.phase==='capturing'?'capturing':capture.phase==='tail'||service.phase==='processing'?'thinking':service.phase==='choosing'?'choosing':(capture.phase==='ready'||capture.phase==='review')&&service.phase==='idle'?'idle':'busy';
   const onHandsFree=useRef<(event:HandsFreeEvent)=>void>(()=>{});
   const [talkingAt,setTalkingAt]=useState(-1e9);
   useEffect(()=>{if(voice.liveCaption)setTalkingAt(performance.now());},[voice.liveCaption]);
@@ -120,6 +121,7 @@ export function MeetingWidget({service:providedPort}:{service?:MeetingPort} = {}
   };
   const beginRef = useRef(begin); beginRef.current = begin;
   onHandsFree.current = event => {
+    if(service.learningReview){if(event==='send')service.approveLearning();else if(event==='cancel' || event==='next' || event==='restart')service.dismissLearning();return;}
     if (event === 'start') { if (!serviceBusy) { nextTrigger.current='mouth'; capture.begin(); } return; }
     if (handsFreePhase === 'idle') {  // gestures over the suggested replies
       if (event === 'next' && replies.length) setReplyPick(index => (index + 1) % replies.length);
@@ -255,11 +257,11 @@ export function MeetingWidget({service:providedPort}:{service?:MeetingPort} = {}
     level={handsFree.enabled?handsFree.meter.level/Math.max(.01,handsFree.meter.threshold):tracking.level/100}
     replyPick={handsFree.enabled?replyPick:-1} replyHint={handsFree.enabled?handsFree.mode==='head'?'Turn your head to pick one, nod to say it':'Close your eyes a moment to pick one, raise your eyebrows to say it':''}
     showWork={showWork} onShowWork={setShowWork} onExpand={()=>setCompact(false)} onStart={()=>void startSession()} starting={startingSession}
-    work={{ranker:service.ranker,route:service.route,confidence:service.confidence,adapter:service.adapter}} tip={capture.cameraOn && <CoachOverlay coach={coach} compact/>}/>;
+    work={{ranker:service.ranker,route:service.route,confidence:service.confidence,adapter:service.adapter}} tip={capture.cameraOn && <CoachOverlay coach={coach} compact/>} learningReview={<LearningConfirmation review={service.learningReview} notice={service.learningNotice} onSave={service.approveLearning} onSkip={service.dismissLearning}/>}/>;
   return <>{pill}<main className={`meeting-widget live-capture consumer-widget ${busy?'is-recording':''} ${service.phase==='processing'?'is-thinking':''} ${compact?'is-compact':''} ${capture.cameraOn?'camera-on':''}`} data-visible={pageVisible} ref={container} tabIndex={-1}>
     <header className="widget-header"><div className="widget-logo"><Waves size={21}/> silent calls<span>.</span></div><GripHorizontal size={19} className="drag-grip"/><button className="icon-button" aria-label="Compact companion" onClick={()=>setCompact(true)}><Minimize2 size={16}/></button><button className="icon-button" aria-label="Close companion" onClick={()=>window.desktop?window.desktop.closeWidget():window.close()}><X size={17}/></button></header>
     <nav className="companion-tools" aria-label="Companion tools">{([['talk','Talk',Mic],['type','Type',MessageCircle],['assist','Suggestions',Sparkles],['settings','Settings',Settings2]] as const).map(([value,label,Icon])=><button key={value} aria-pressed={tool===value} onClick={()=>setTool(value)}><Icon size={16}/><span>{label}</span></button>)}</nav>
-    <div className="widget-body consumer-widget-body">
+    <div className="widget-body consumer-widget-body"><LearningConfirmation review={service.learningReview} notice={service.learningNotice} onSave={service.approveLearning} onSkip={service.dismissLearning}/>
       <section className={`companion-talk ${tool!=='talk'?'consumer-hidden':''}`}><div className="companion-presence"><span className={`dot ${!capture.cameraOn?'amber':''}`}/>{busy?'Capturing your words':capture.cameraOn?tracking.available?'Hands-free ready':'Preparing gestures':'At your pace'}</div><h1 aria-live="polite">{title}</h1>
         <div className="companion-camera"><video ref={capture.video} autoPlay muted playsInline aria-label="Your camera"/>{!capture.cameraOn && <div className="companion-camera-off"><Waves size={42} strokeWidth={1.2}/><p>A quieter way to speak.</p></div>}{capture.cameraOn && <CoachOverlay coach={coach}/>}{capture.cameraOn && <span className="companion-camera-caption">{busy?'Mouth your phrase naturally':'Your preview'}</span>}<div className="companion-signal" aria-hidden="true">{[0,1,2,3,4].map(n=><i key={n} style={{animationDelay:`${n*70}ms`}}/>)}</div></div>
         {!capture.cameraOn?<><p className="companion-instruction">Start your companion. Nod to begin, mouth your phrase, then nod again to finish.</p><button className="hold-button companion-start" disabled={startingSession} onClick={()=>void startSession()}><Mic size={17}/>{startingSession?'Connecting…':'Start companion'}</button></>:<><p className="companion-instruction">{handsFree.enabled?handsFree.startBy==='nod'?busy?'Nod again when you finish.':'Nod, then mouth your reply.':busy?'Stop mouthing to finish.':voice.liveCaption?'Listening to them. Mouth your reply when they finish.':'Hands-free: just start mouthing.':busy?'Release when you finish.':hook.active?`Hold ${keyLabels[key]} in your call, then choose your words.`:'Hold the button below. Enable the meeting key in Settings to use it across apps.'}</p><button className={`hold-button ${busy?'held':''}`} disabled={serviceBusy || (!ready && capture.phase!=='capturing')} onPointerDown={event=>{event.currentTarget.setPointerCapture(event.pointerId);beginRef.current();}} onPointerUp={capture.release} onPointerCancel={capture.release} onBlur={()=>{if(!hook.active)capture.release();}} onKeyDown={event=>{if(['Space','Enter'].includes(event.code)){event.preventDefault();if(!event.repeat)beginRef.current();}}} onKeyUp={event=>{if(['Space','Enter'].includes(event.code)){event.preventDefault();capture.release();}}}><span className="record-dot"/>{busy?'Release to finish':capture.phase==='starting'?'Getting ready…':'Hold to speak'}<kbd>{keyLabels[key]}</kbd></button></>}

@@ -5,6 +5,7 @@ import {CopilotPanel} from './copilot-panel';
 
 export type PillPhase = 'off' | 'starting' | 'listening' | 'capturing' | 'thinking' | 'choosing' | 'speaking';
 type Props = {
+  learningReview?:ReactNode;
   phase: PillPhase;
   dictation: boolean;        // picks are typed into the focused app instead of spoken
   onDictation: (on: boolean) => void;
@@ -81,6 +82,7 @@ export function CompactPill(p: Props) {
     {(p.phase === 'capturing' || p.phase === 'thinking') && p.hint && <p className="pill-hint">{p.hint}</p>}
     {(p.phase === 'listening' || p.phase === 'capturing') && <CopilotPanel compact pick={p.replyPick} hint={p.replyHint}/>}
     {p.tip}
+    {p.learningReview}
     {p.error && <p className="pill-error" role="alert">{p.error}</p>}
     {p.showWork && <div className="pill-work">
       <h2>What the lip-reader saw</h2>
