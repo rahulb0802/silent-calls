@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { HandsFree, calibratedThreshold, type FaceSample, type GestureMode, type HandsFreeEvent, type HandsFreePhase, type StartBy } from './hands-free';
+import { HandsFree, calibrate as calibrateFrom, type FaceSample, type GestureMode, type HandsFreeEvent, type HandsFreePhase, type StartBy } from './hands-free';
 
 const KEY = 'silent-calls:hands-free:v1';
 type Saved = { enabled: boolean; mode: GestureMode; startBy: StartBy; mouthOn?: number };
@@ -22,7 +22,8 @@ export function useHandsFree(phase: HandsFreePhase, talkingAt: number, suggestio
   state.current = { phase, talkingAt, suggestions, onEvent, enabled: saved.enabled };
   const [meter, setMeter] = useState({ level: 0, threshold: engine.current.threshold });
   const [calibration, setCalibration] = useState<Calibration>({ step: 'idle', secondsLeft: 0 });
-  const calib = useRef<{ step: 'rest' | 'mouth'; until: number; rest: number[]; mouth: number[] } | null>(null);
+  const calib = useRef<{ step: 'rest' | 'mouth'; until: number; rest: FaceSample[]; mouth: FaceSample[] } | null>(null);
+  const lastCalibration = useRef<unknown>(null);  // the readings from the last calibration, to save for tuning
   const lastMeter = useRef(0);
   const practiceUntil=useRef(0);
   // Tuning recording: 15 s of face readings (numbers only, no images), saved as a JSON file.
@@ -64,14 +65,16 @@ export function useHandsFree(phase: HandsFreePhase, talkingAt: number, suggestio
     }
     const c = calib.current;
     if (c) {
-      if (sample.face) (c.step === 'rest' ? c.rest : c.mouth).push(sample.mouth);
+      (c.step === 'rest' ? c.rest : c.mouth).push(sample);
       const left = Math.max(0, Math.ceil((c.until - sample.t) / 1000));
       if (sample.t >= c.until) {
         if (c.step === 'rest') { calib.current = { ...c, step: 'mouth', until: sample.t + MOUTH_MS }; setCalibration({ step: 'mouth', secondsLeft: MOUTH_MS / 1000 }); }
         else {
           calib.current = null;
-          const threshold = calibratedThreshold(c.rest, c.mouth);
-          if (threshold) { const current = load(); save({ ...current, mouthOn: threshold }); setCalibration({ step: 'done', secondsLeft: 0 }); }
+          const result = calibrateFrom(c.rest, c.mouth);
+          lastCalibration.current = { result, rest: c.rest, mouth: c.mouth };
+          console.info('[hands-free] calibration', JSON.stringify(result));
+          if (result.ok) { const current = load(); save({ ...current, mouthOn: result.threshold ?? undefined }); setCalibration({ step: 'done', secondsLeft: 0 }); }
           else setCalibration({ step: 'failed', secondsLeft: 0 });
         }
       } else setCalibration(previous => previous.secondsLeft === left && previous.step === c.step ? previous : { step: c.step, secondsLeft: left });
@@ -98,6 +101,13 @@ export function useHandsFree(phase: HandsFreePhase, talkingAt: number, suggestio
     setStartBy: (startBy: StartBy) => save({ ...saved, startBy }),
     resetCalibration: () => save({ ...saved, mouthOn: undefined }),
     calibrate, calibration, meter, onSample, recording,
+    /** Save the last calibration's readings (numbers only) as a JSON file, to tune from. */
+    saveCalibration: () => {
+      if (!lastCalibration.current) return;
+      const url = URL.createObjectURL(new Blob([JSON.stringify({ note: 'calibration: rest then mouthing', ...lastCalibration.current as object })], { type: 'application/json' }));
+      const a = document.createElement('a'); a.href = url; a.download = `hands-free-calibration-${Date.now()}.json`; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    },
     record: () => { const now = performance.now(); rec.current = { until: now + 15000, start: now, rows: [] }; setRecording(15); },
   };
 }

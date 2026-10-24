@@ -206,17 +206,33 @@ export class HandsFree {
   }
 }
 
-/** Calibration: resting and mouthing levels -> the start threshold (between the two, nearer the rest). */
+const quantile = (xs: number[], f: number) => { const s = [...xs].sort((a, b) => a - b); return s[Math.min(s.length - 1, Math.floor(f * s.length))] ?? 0; };
+
+/** Calibration from a few seconds at rest and a few mouthing. Mouthing is told apart from rest by either
+ * signal: more mouth movement than rest's typical (not its occasional twitches), or the lips opening and
+ * closing over a wider range. ok=false only when neither separates. The start level is set only when
+ * the movement signal separates (otherwise the adaptive one is kept). */
+export function calibrate(rest: FaceSample[], mouthing: FaceSample[]) {
+  const r = rest.filter(x => x.face), m = mouthing.filter(x => x.face);
+  const restMove = quantile(r.map(x => x.mouth), 0.75), move = quantile(m.map(x => x.mouth), 0.5);
+  const spread = (xs: FaceSample[]) => quantile(xs.map(x => x.open), 0.9) - quantile(xs.map(x => x.open), 0.1);
+  const restOpen = spread(r), open = spread(m);
+  const byMovement = move > restMove * 1.3, byLips = open > Math.max(0.02, restOpen * 2);
+  const ok = r.length >= 10 && m.length >= 10 && (byMovement || byLips);
+  return {ok, threshold: ok && byMovement ? Math.max(MIN_ON * 0.5, restMove + 0.4 * (move - restMove)) : null,
+    measured: {restMove, move, restOpen, open, restSamples: r.length, mouthSamples: m.length}};
+}
+
+/** The start threshold from calibration, or null when mouthing can't be told from rest. */
 export function calibratedThreshold(rest: number[], mouthing: number[]): number | null {
-  const q = (xs: number[], f: number) => { const s = [...xs].sort((a, b) => a - b); return s[Math.min(s.length - 1, Math.floor(f * s.length))] ?? 0; };
-  const floor = q(rest, 0.9), active = q(mouthing, 0.5);
-  if (rest.length < 10 || mouthing.length < 10 || active <= floor * 1.5) return null;
-  return Math.max(MIN_ON * 0.5, floor + 0.35 * (active - floor));
+  const sample = (mouth: number) => ({t: 0, face: true, mouth, open: 0, yaw: 0, pitch: 0, brows: 0, blink: 0});
+  return calibrate(rest.map(sample), mouthing.map(sample)).threshold;
 }
 
 // The shapes speech moves (jaw, lip closure and rounding, lips parting); expression shapes (smile, press,
 // stretch, sideways) are left out: they twitch while listening.
-const MOUTH_SHAPES = ['jawOpen', 'mouthClose', 'mouthFunnel', 'mouthPucker', 'mouthRollLower', 'mouthRollUpper',
+// mouthPucker is left out too: on a resting face it swings widely from frame to frame.
+const MOUTH_SHAPES = ['jawOpen', 'mouthClose', 'mouthFunnel', 'mouthRollLower', 'mouthRollUpper',
   'mouthLowerDownLeft', 'mouthLowerDownRight', 'mouthUpperUpLeft', 'mouthUpperUpRight'];
 
 /** Mouth movement between two blendshape readings, per second (smiles left out: they're not speech). */
