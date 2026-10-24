@@ -70,7 +70,38 @@ Smaller streams, all through the live path (LM weight 0.2, see section 4; baseli
 Face crops cost 5-7 points of exact@10 at any size from 160 px up, so the loss isn't only resolution (MediaPipe's
 landmarks are probably less accurate on a frame that is all face). Below 160 px accuracy falls off quickly.
 
-<!-- LOWQ -->
+Lower JPEG quality on full 480p frames barely saves bandwidth (JPEG has no inter-frame compression):
+
+| what the client sends | upload | WER | exact@1 | exact@5 | exact@10 |
+|---|---|---|---|---|---|
+| 480p q50 | 645 KB/s | 37% | 32% | 49% | 52% |
+| 480p q50 gray | 563 KB/s | 42% | 32% | 44% | 48% |
+| 480p q30 | 480 KB/s | 41% | 27% | 44% | 52% |
+
+**Video instead of JPEGs.** The client can send what Chrome's `MediaRecorder` produces (a VP8 webm stream in
+~100 ms chunks) and the server decodes it on release (`LipReader.on_chunk`, `utterance.start` with
+`encoding: "webm"`). Simulated by re-encoding each clip with libvpx in realtime mode at a capped bitrate:
+
+| VP8 stream | upload | WER | exact@1 | exact@5 | exact@10 |
+|---|---|---|---|---|---|
+| 480p, 250 kbps | 33 KB/s | 45% | 27% | 40% | 47% |
+| 480p, 500 kbps | 63 KB/s | 43% | 27% | 46% | 48% |
+| 480p, 1 Mbps | 124 KB/s | 38% | 34% | 43% | 49% |
+| 720p, 1 Mbps | 125 KB/s | 42% | 28% | 43% | 48% |
+| 360p, 250 kbps | 32 KB/s | 49% | 24% | 36% | 41% |
+
+<!-- VP8B -->
+
+These are pessimistic: our clips were already VP9-compressed by the browser, so this is a second lossy
+generation; a live MediaRecorder stream is encoded once, straight from the camera. Decoding + face detection
+after release adds ~0.2 s (they can't run during the hold on a webm stream).
+
+**Recommendation for the client (Person 1):**
+- On good Wi-Fi/ethernet/hotspot (≥1.5 MB/s up): JPEG 480p q80 frames, as in PROTOCOL.md. Best accuracy, ~0.9 s.
+- On venue Wi-Fi: `MediaRecorder` VP8 at 1 Mbps, 480p, `start(100)`, send each `dataavailable` blob as a binary
+  message after `utterance.start {encoding: "webm"}`. ~125 KB/s, costs a few points of exact@5/10, +0.2 s.
+- Either way, test the uplink before the demo (e.g. `tools/ws_replay.py`); if `end→candidates` is much more than
+  ~1 s, the network is the problem, not the model.
 
 ## 4. Decoder settings (no training)
 
