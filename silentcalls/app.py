@@ -11,6 +11,7 @@ import binascii
 import io
 import json
 import logging
+import os
 import wave
 from urllib.parse import urlparse
 
@@ -19,6 +20,8 @@ import httpx
 from pydantic import BaseModel, ValidationError
 
 from .captions import CallCaptioner
+from .copilot import Copilot
+from .google_data import GoogleData
 from .config import settings
 from .pipeline import Pipeline
 from .protocol import CandidatesMessage, NamesEvent
@@ -159,6 +162,7 @@ async def main() -> None:
     p.add_argument("--no-captions", action="store_true", help="don't capture call audio")
     p.add_argument("--no-jev", action="store_true")
     p.add_argument("--no-claude", action="store_true")
+    p.add_argument("--no-copilot", action="store_true", help="don't prepare replies after each line (copilot.py)")
     args = p.parse_args()
 
     voice = None
@@ -166,7 +170,12 @@ async def main() -> None:
         voice = VoiceOutput(settings)
         await voice.start()
 
-    pipeline = Pipeline(settings, voice, broadcast, use_jev=not args.no_jev, use_claude=not args.no_claude)
+    copilot = None
+    if not args.no_copilot and not args.no_claude and os.getenv("ANTHROPIC_API_KEY"):
+        copilot = Copilot(settings, broadcast, GoogleData.connect())
+        log.info("copilot: on (%s)", "calendar + email" if copilot.data else "no Google account connected")
+    pipeline = Pipeline(settings, voice, broadcast, use_jev=not args.no_jev, use_claude=not args.no_claude,
+                        copilot=copilot)
     if pipeline.jev:
         pipeline.jev.start()
     tasks = []

@@ -24,7 +24,7 @@ Emit = Callable[[BaseModel], Awaitable[None]]
 
 class Pipeline:
     def __init__(self, s: Settings, voice: VoiceOutput | None, emit: Emit,
-                 use_jev: bool = True, use_claude: bool = True):
+                 use_jev: bool = True, use_claude: bool = True, copilot=None):
         self.s = s
         self.w = Weights.load()
         self.voice = voice
@@ -34,6 +34,7 @@ class Pipeline:
         self.repairer = Repairer(s) if use_claude and os.getenv("ANTHROPIC_API_KEY") else None
         self._repairs: dict[str, asyncio.Task] = {}
         self._heard: list[str] = []  # names heard in this call, kept after their lines leave the transcript
+        self.copilot = copilot  # Copilot, or None
 
     async def close(self) -> None:
         tasks = list(self._repairs.values())
@@ -43,10 +44,14 @@ class Pipeline:
         self._repairs.clear()
         if self.jev:
             await self.jev.close()
+        if self.copilot:
+            await self.copilot.close()
 
     async def on_caption(self, line: str) -> None:
         self.transcript.add("them", line)
         await self.emit(CaptionEvent(speaker="them", text=line))
+        if self.copilot:
+            self.copilot.on_line(line, self.transcript.render(), self.call_names())
         new = [n for n in names_from_text(line) if n not in self._heard]
         if new:
             self._heard = (self._heard + new)[-50:]
@@ -99,6 +104,8 @@ class Pipeline:
 
     async def speak(self, text: str) -> None:
         self.transcript.add("me", text)
+        if self.copilot:
+            await self.copilot.clear()
         first_ms = await self.voice.say(text) if self.voice else 0.0
         await self.emit(SpokenEvent(text=text, first_audio_ms=round(first_ms)))
 
