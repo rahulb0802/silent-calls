@@ -40,6 +40,19 @@ function createMain() {
   mainWindow = new BrowserWindow({ width: 1160, height: 800, minWidth: 900, minHeight: 690, title: 'Silent Calls', icon, backgroundColor: '#f7f8f4', webPreferences: preferences });
   load(mainWindow);
 }
+function readSetupGate(){
+  try{
+    const settings=JSON.parse(localStorage.getItem('silent-calls:services:v1') || '{}');
+    const profile=typeof settings.profileId==='string'?settings.profileId.trim():'';
+    if(!profile)return false;
+    const url=new URL((settings.apiUrl || '').trim() || (settings.websocketUrl || 'ws://127.0.0.1:8000/ws/session').replace(/^ws:/,'http:').replace(/^wss:/,'https:'));
+    if(url.hostname==='localhost')url.hostname='127.0.0.1';
+    const record=JSON.parse(localStorage.getItem(`silent-calls:setup:v2:${encodeURIComponent(url.origin)}:${encodeURIComponent(profile)}`) || '{}');
+    const gesture=JSON.parse(localStorage.getItem(`silent-calls:gestures:${encodeURIComponent(profile)}`) || '{}');
+    const calibration=record.calibration;
+    return record.complete===true && calibration && Number.isInteger(calibration.goal) && calibration.goal>=30 && calibration.goal<=60 && Number.isInteger(calibration.accepted) && calibration.accepted>=calibration.goal && typeof calibration.completedAt==='string' && typeof gesture.completedAt==='string' && gesture.mode==='head' && gesture.startBy==='nod';
+  }catch{return false;}
+}
 function openWidget() {
   if (widget && !widget.isDestroyed()) { widget.show(); return; }
   const area = screen.getPrimaryDisplay().workArea;
@@ -68,7 +81,19 @@ app.whenReady().then(() => {
     callback(trusted(contents) && permission === 'media' && details.mediaTypes?.every(type => ['video', 'audio'].includes(type)) === true);
   });
   session.defaultSession.setPermissionCheckHandler((contents, permission) => trusted(contents) && permission === 'media');
-  ipcMain.handle('widget:open', event => { if (trusted(event.sender)) openWidget(); });
+  ipcMain.handle('widget:open', async event => {
+    if(!trusted(event.sender))return;
+    let ready=false;
+    if(mainWindow && !mainWindow.isDestroyed()){
+      try{ready=await mainWindow.webContents.executeJavaScript(`(${readSetupGate.toString()})()`);}catch{}
+    }
+    if(!ready){
+      hold.stop();if(widget && !widget.isDestroyed())widget.close();
+      if(!mainWindow || mainWindow.isDestroyed())createMain();
+      load(mainWindow,'#/onboarding');mainWindow.show();mainWindow.focus();return;
+    }
+    openWidget();
+  });
   ipcMain.handle('widget:close', event => { if (widget && event.sender === widget.webContents) widget.close(); });
   // Compact companion: a short strip at the top centre of the screen, just under the webcam, sized to its
   // content (height in px); null goes back to the full panel at the bottom right.
@@ -86,7 +111,7 @@ app.whenReady().then(() => {
     compactAt ||= { x: area.x + Math.round((area.width - width) / 2), y: area.y + 6 };
     widget.setBounds({ x: compactAt.x, y: compactAt.y, width, height: h });
   });
-  ipcMain.handle('main:show', (event, route) => { if (trusted(event.sender)) { if (!mainWindow || mainWindow.isDestroyed()) createMain(); if(route==='workspace' || route==='audio-setup' || route==='library')load(mainWindow,`#/${route}`); mainWindow.show(); mainWindow.focus(); } });
+  ipcMain.handle('main:show', (event, route) => { if (trusted(event.sender)) { if (!mainWindow || mainWindow.isDestroyed()) createMain(); if(route==='workspace' || route==='audio-setup' || route==='library' || route==='onboarding')load(mainWindow,`#/${route}`); mainWindow.show(); mainWindow.focus(); } });
   function localVoiceCaller(event) {
     if (!trusted(event.sender)) throw new Error('Desktop app window required.');
   }

@@ -11,7 +11,7 @@ export interface DesktopAPI {
   closeWidget(): Promise<void>;
   /** Compact companion at the top of the screen, sized to this height; null for the full panel. */
   setCompact(height:number|null): Promise<void>;
-  showMain(route?:'workspace'|'audio-setup'|'library'): Promise<void>;
+  showMain(route?:'workspace'|'audio-setup'|'library'|'onboarding'): Promise<void>;
   startGlobalHold(key: HoldKey): Promise<HoldStatus>;
   stopGlobalHold(): Promise<HoldStatus>;
   getGlobalHoldStatus(): Promise<HoldStatus>;

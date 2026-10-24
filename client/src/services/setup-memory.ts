@@ -13,12 +13,14 @@ export function savedCalibration(settings:ServiceSettings):CalibrationMemory|nul
   const value=read(settings).calibration;
   return value && Number.isInteger(value.goal) && value.goal>=30 && value.goal<=60 && Number.isInteger(value.accepted) && value.accepted>=value.goal && typeof value.completedAt==='string'?value:null;
 }
-export function setupComplete(settings:ServiceSettings){
-  if(read(settings).complete===true)return true;
-  // Bind the previous single-profile completion flag to the current profile once.
-  try{if(localStorage.getItem('silent-calls:onboarding')==='complete'){rememberSetup(settings);localStorage.removeItem('silent-calls:onboarding');return true;}}catch{ /* Setup remains accessible if storage is unavailable. */ }
-  return false;
+export function gesturesPracticed(settings:ServiceSettings){
+  try{const value=JSON.parse(localStorage.getItem(`silent-calls:gestures:${encodeURIComponent(settings.profileId.trim())}`) || '{}');return typeof value.completedAt==='string' && value.mode==='head' && value.startBy==='nod';}catch{return false;}
 }
+export function setupComplete(settings:ServiceSettings){
+  // Old global flags must never unlock a different profile or skip first-run steps.
+  return read(settings).complete===true && Boolean(savedCalibration(settings)) && gesturesPracticed(settings);
+}
+
 function write(settings:ServiceSettings,value:ReturnType<typeof read>){
   localStorage.setItem(key(settings),JSON.stringify(value));
   window.dispatchEvent(new Event('silent-calls:setup'));
@@ -26,7 +28,10 @@ function write(settings:ServiceSettings,value:ReturnType<typeof read>){
 export function rememberCalibration(settings:ServiceSettings,goal:number,accepted:number){
   write(settings,{...read(settings),calibration:{goal,accepted,completedAt:new Date().toISOString()}});
 }
-export function rememberSetup(settings:ServiceSettings){write(settings,{...read(settings),complete:true});}
+export function rememberSetup(settings:ServiceSettings){
+  if(!savedCalibration(settings) || !gesturesPracticed(settings))throw new Error('Finish personal calibration and gesture practice in the main app first.');
+  write(settings,{...read(settings),complete:true});
+}
 export function repeatSetup(settings:ServiceSettings){
   localStorage.removeItem('silent-calls:onboarding');
   write(settings,{...read(settings),complete:false});
