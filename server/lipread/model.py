@@ -157,7 +157,8 @@ def decode(avsr: AVSR, crop: np.ndarray, nbest: int = 10,
         used = avsr.names.set_words(vocab)
         if len(used) < len(vocab):
             log.info("vocab: can't spell %s with the model's pieces", sorted(set(vocab) - set(used)))
-        search = avsr.biased_search
+        if used:
+            search = avsr.biased_search
     t0 = time.perf_counter()
     x = to_input(crop).to(avsr.device)
     enc = avsr.model.encode(x)
