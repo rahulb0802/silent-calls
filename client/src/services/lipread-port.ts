@@ -1,6 +1,6 @@
 import type {CaptureClip, Frame} from '../capture/buffer';
 import type {Decision} from '../desktop';
-import type {Candidate, MeetingEvent, MeetingPort, Route, UtteranceStart} from './meeting-port';
+import type {Candidate, MeetingEvent, MeetingPort, QualityData, Route, UtteranceStart} from './meeting-port';
 import {vocabularyTerms} from './personal-library';
 import type {CopilotState} from './use-local-voice';
 import type {ServiceSettings} from './settings';
@@ -22,6 +22,16 @@ function jpegBytes(frame: Frame): Uint8Array {
   const bytes = new Uint8Array(binary.length);
   for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
   return bytes;
+}
+/** The numeric fields and flags of the server's quality report, for the camera coach. */
+export function qualityNumbers(value: unknown): QualityData | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const out: QualityData = {};
+  for (const [key, item] of Object.entries(value).slice(0, 40)) {
+    if (typeof item === 'number' && Number.isFinite(item)) out[key.slice(0, 40)] = item;
+    if (key === 'flags' && Array.isArray(item)) out.flags = item.filter((flag): flag is string => typeof flag === 'string').slice(0, 10).map(flag => flag.slice(0, 120));
+  }
+  return out;
 }
 /** Names to bias toward, sent with each utterance so the lip-reader can spell them (PROTOCOL.md, vocab): your
  * saved vocabulary, your profile name (usually your own name), and the call's names from the local service
@@ -153,7 +163,7 @@ export class LipreadPort implements MeetingPort {
       if (data.type === 'error') {
         if (id !== this.active || !this.active) return;
         const message = friendlyErrors[data.code] || (typeof data.message === 'string' ? data.message.slice(0,1000) : 'The GPU could not read this capture. Please try again.');
-        this.resetUtterance(); this.emit({type:'error', utteranceId:id, message}); return;
+        this.resetUtterance(); this.emit({type:'error', utteranceId:id, message, ...(typeof data.code === 'string' ? {code:data.code.slice(0,40)} : {})}); return;
       }
       if (data.type !== 'candidates' || id !== this.active || !this.waiting || !Array.isArray(data.candidates)) return;
       const scored = (data.candidates as unknown[]).slice(0,40).flatMap(value => {
@@ -178,13 +188,14 @@ export class LipreadPort implements MeetingPort {
       }
       const confidence = typeof data.confidence === 'number' && data.confidence >= 0 && data.confidence <= 1 ? data.confidence : undefined;
       const quality = data.quality == null ? '' : (typeof data.quality === 'string' ? data.quality : JSON.stringify(data.quality)).slice(0,600);
+      const qualityData = qualityNumbers(data.quality);
       // Nothing is spoken automatically: the decision layer only reorders, and every result requires the user's pick.
       const adapter = typeof data.adapter === 'string' ? data.adapter.slice(0,128) : null;
       void this.rank(id, candidates, scored).then(ranked => {
         if (this.active !== id || this.waiting || this.capturing) return;
         this.choices = ranked.candidates;
         if (ranked.timings) Object.assign(timings, ranked.timings);
-        this.emit({type:'candidates',utteranceId:id,candidates:ranked.candidates,confidence:ranked.confidence ?? confidence,timings,quality,adapter,route:ranked.route,ranker:ranked.ranker});
+        this.emit({type:'candidates',utteranceId:id,candidates:ranked.candidates,confidence:ranked.confidence ?? confidence,timings,quality,qualityData,adapter,route:ranked.route,ranker:ranked.ranker});
         this.watchRepair(id);
       });
     };
