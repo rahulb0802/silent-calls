@@ -66,7 +66,15 @@ def main() -> None:
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--include-aloud", action="store_true")
     p.add_argument("--tag")
+    p.add_argument("--dump-scores", action="store_true", help="score every sentence per clip for simulate()")
+    p.add_argument("--simulate", help="scores.jsonl from --dump-scores: sweep the prior bonus offline")
     args = p.parse_args()
+    if args.simulate:
+        print(simulate(Path(args.simulate), args.distractors, args.seed))
+        return
+    if args.dump_scores:
+        print(dump_scores(args))
+        return
 
     sentences = load_sentences()
     texts = {sid: r["sentence"] for sid, r in sentences.items()}
@@ -141,3 +149,65 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+def dump_scores(args) -> Path:
+    """Per clip: the beam's top 10 and every sentence of the set scored against the video, so any given-list
+    condition and prior bonus can be simulated offline (simulate())."""
+    sentences = load_sentences()
+    texts = {sid: r["sentence"] for sid, r in sentences.items()}
+    reader = LipReader(cfg=DecodeConfig())
+    out = RESULTS_DIR / (args.tag or "given_scores") / "scores.jsonl"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with open(out, "w", encoding="utf-8") as f:
+        for (person, mode, sid), _ in find_clips(Path(args.clips)):
+            cp = CACHE_DIR / f"{person}_{mode}_{sid}.npz"
+            if mode != "silent" or not cp.exists():
+                continue
+            z = np.load(cp, allow_pickle=True)
+            if not z["crop"].size:
+                continue
+            crop = z["crop"]
+            res = reader.read_crop(crop)
+
+            def run():
+                enc = reader.avsr.model.encode(to_input(crop).to(reader.device))
+                return {t: (s, n) for t, s, n in score_texts(reader.avsr, enc, list(texts.values()))}
+            scored = reader._gpu.submit(run).result()
+            f.write(json.dumps({"person": person, "id": sid, "truth": normalize_text(texts[sid]),
+                                "beam": [[t, s, n] for (t, s), n in zip(res.candidates, res.n_tokens)],
+                                "sentences": {normalize_text(t): v for t, v in scored.items()}}) + "\n")
+            print(f"[{person} {sid}] scored", flush=True)
+    return out
+
+
+def simulate(path: Path, distractors: int = 4, seed: int = 0, bonuses=(0, 2, 4, 6, 8, 10, 12, 15, 20)) -> str:
+    """Top-1 accuracy of the merged ranking when given sentences get a prior bonus B (log-prob), and how often
+    a wrong given sentence wins when the truth isn't in the list."""
+    clips = [json.loads(line) for line in open(path, encoding="utf-8")]
+    rng = random.Random(seed)
+    trials = []
+    for c in clips:
+        others = [t for t in c["sentences"] if t != c["truth"]]
+        if c["truth"] not in c["sentences"]:
+            continue
+        trials.append((c, "random", [c["truth"]] + rng.sample(others, distractors)))
+        trials.append((c, "hard", [c["truth"]] + lookalikes(c["truth"], others, distractors)))
+        trials.append((c, "absent", rng.sample(others, distractors + 1)))
+    lines = ["| prior bonus B | truth in list (random): top 1 | truth in list (look-alikes): top 1 | "
+             "truth not in list: still right | truth not in list: wrong reply wins |", "|---|---|---|---|---|"]
+    for b in bonuses:
+        acc = {"random": [], "hard": [], "absent_right": [], "absent_wrong": []}
+        for c, cond, given in trials:
+            pool = {t: s for t, s, _ in c["beam"]}
+            for g in given:
+                pool[g] = max(pool.get(g, -1e9), c["sentences"][g][0] + b)
+            top = max(pool, key=pool.get)
+            if cond == "absent":
+                acc["absent_right"].append(top == c["truth"])
+                acc["absent_wrong"].append(top in given)
+            else:
+                acc[cond].append(top == c["truth"])
+        m = {k: sum(v) / len(v) for k, v in acc.items()}
+        lines.append(f"| {b} | {m['random']:.0%} | {m['hard']:.0%} | {m['absent_right']:.0%} | {m['absent_wrong']:.0%} |")
+    return "\n".join(lines)

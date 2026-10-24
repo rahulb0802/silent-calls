@@ -211,6 +211,23 @@ def decode(avsr: AVSR, crop: np.ndarray, nbest: int = 10, vocab: list[str] | Non
     return out, timings
 
 
+_ONES = "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen".split()
+_TENS = "_ _ twenty thirty forty fifty sixty seventy eighty ninety".split()
+
+
+def _number_words(digits: str) -> str:
+    """How a number is mouthed: 0-99 as words ("thirty"), longer ones digit by digit (order numbers)."""
+    n = int(digits)
+    if len(digits) <= 2 and n < 100:
+        return _ONES[n] if n < 20 else _TENS[n // 10] + ("" if n % 10 == 0 else " " + _ONES[n % 10])
+    return " ".join(_ONES[int(d)] for d in digits)
+
+
+def spoken_form(text: str) -> str:
+    """Text as the model would spell what is mouthed: numbers in words ("3:30" -> "three thirty")."""
+    return normalize_text(re.sub(r"\d+", lambda m: f" {_number_words(m.group())} ", text.replace(":", " ")))
+
+
 def normalize_text(text: str) -> str:
     """How the model writes text: lowercase words, the model's characters only."""
     return " ".join(re.sub(r"[^a-z0-9' ]+", " ", text.lower().replace("’", "'")).split())
@@ -230,7 +247,7 @@ def score_texts(avsr: AVSR, enc: torch.Tensor, texts: list[str],
     lm = bs.full_scorers.get("lm")
     out = []
     for text in dict.fromkeys(normalize_text(t) for t in texts):
-        ids = avsr.names.ids(text) if text else None
+        ids = avsr.names.ids(spoken_form(text)) if text else None
         if not ids:
             continue
         y = torch.tensor(ids, device=enc.device)
