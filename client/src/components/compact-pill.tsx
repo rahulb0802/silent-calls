@@ -1,4 +1,4 @@
-import {useEffect, useRef} from 'react';
+import {useEffect, useRef, type ReactNode} from 'react';
 import {CalendarDays, ChevronDown, ChevronUp, Maximize2, Mic, Sparkles, Volume2} from 'lucide-react';
 import type {Candidate, Route} from '../services/meeting-port';
 import {CopilotPanel} from './copilot-panel';
@@ -25,6 +25,7 @@ type Props = {
   onStart: () => void;
   starting: boolean;
   work: {ranker?: 'jev' | 'lip'; route?: Route; confidence?: number; adapter?: string | null};
+  tip?: ReactNode;           // the camera coach's current recommendation, if any
 };
 
 const STATUS: Record<PillPhase, string> = {
@@ -75,6 +76,7 @@ export function CompactPill(p: Props) {
       <p className="pill-hint">{p.hint}</p>
     </div>}
     {(p.phase === 'listening' || p.phase === 'capturing') && <CopilotPanel compact pick={p.replyPick} hint={p.replyHint}/>}
+    {p.tip}
     {p.error && <p className="pill-error" role="alert">{p.error}</p>}
     {p.showWork && <div className="pill-work">
       <h2>What the lip-reader saw</h2>
