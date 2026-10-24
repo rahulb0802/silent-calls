@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FaceLandmarker } from '@mediapipe/tasks-vision';
-export function useMouthTracking(enabled:boolean,modelBuffer:Uint8Array|null) {
+import { headPose, mouthMovement, type FaceSample } from './hands-free';
+export function useMouthTracking(enabled:boolean,modelBuffer:Uint8Array|null,onSample?:(sample:FaceSample)=>void) {
   const model=useRef<FaceLandmarker|null>(null);
-  const last=useRef(0), previous=useRef(0), smoothed=useRef(0);
+  const last=useRef(0), previous=useRef(0), smoothed=useRef(0), shapes=useRef<Record<string,number>|null>(null), lastMeter=useRef(0);
+  const listener=useRef(onSample);listener.current=onSample;
   const [tracking,setTracking]=useState({level:0,coaching:'Enable your camera for mouth tracking.',available:false});
   useEffect(()=>{
-    let disposed=false;previous.current=0;smoothed.current=0;last.current=0;
+    let disposed=false;previous.current=0;smoothed.current=0;last.current=0;shapes.current=null;
     if(!enabled){setTracking({level:0,coaching:'Camera is off.',available:false});return;}
     if(!modelBuffer){setTracking({level:0,coaching:'Choose a local MediaPipe face landmark model to enable mouth tracking.',available:false});return;}
     setTracking({level:0,coaching:'Loading mouth tracking…',available:false});
@@ -14,7 +16,7 @@ export function useMouthTracking(enabled:boolean,modelBuffer:Uint8Array|null) {
         const {FaceLandmarker,FilesetResolver}=await import('@mediapipe/tasks-vision');
         const base=new URL(import.meta.env.BASE_URL,location.href);
         const vision=await FilesetResolver.forVisionTasks(new URL('vendor/vision',base).href);
-        const tracker=await FaceLandmarker.createFromOptions(vision,{baseOptions:{modelAssetBuffer:modelBuffer,delegate:'CPU'},runningMode:'VIDEO',numFaces:1});
+        const tracker=await FaceLandmarker.createFromOptions(vision,{baseOptions:{modelAssetBuffer:modelBuffer,delegate:'CPU'},runningMode:'VIDEO',numFaces:1,outputFaceBlendshapes:true,outputFacialTransformationMatrixes:true});
         if(disposed){tracker.close();return;}
         model.current=tracker;setTracking({level:0,coaching:'Center your face in the camera.',available:true});
       }catch{if(!disposed)setTracking({level:0,coaching:'Mouth tracking unavailable. Run npm run prepare:assets; camera capture still works.',available:false});}
@@ -22,12 +24,28 @@ export function useMouthTracking(enabled:boolean,modelBuffer:Uint8Array|null) {
     return ()=>{disposed=true;model.current?.close();model.current=null;};
   },[enabled,modelBuffer]);
   const sample=useCallback((video:HTMLVideoElement,now:number)=>{
-    // Five landmark passes per second keep the meter independent of the 25fps capture target.
-    if(!model.current || now-last.current<200)return;
-    last.current=now;
+    // About 15 landmark passes per second: fast enough for hands-free start/stop and head gestures. The
+    // meter on screen still updates five times a second.
+    if(!model.current || now-last.current<60)return;
+    const dt=now-last.current;last.current=now;
     try{
-      const face=model.current.detectForVideo(video,now).faceLandmarks[0];
-      if(!face){previous.current=0;smoothed.current=0;setTracking({level:0,coaching:'No face found. Face the camera in good light.',available:true});return;}
+      const result=model.current.detectForVideo(video,now);
+      const face=result.faceLandmarks[0];
+      if(!face){
+        previous.current=0;smoothed.current=0;shapes.current=null;
+        listener.current?.({t:now,face:false,mouth:0,yaw:0,pitch:0,brows:0,blink:0});
+        if(now-lastMeter.current>=200){lastMeter.current=now;setTracking({level:0,coaching:'No face found. Face the camera in good light.',available:true});}
+        return;
+      }
+      const current:Record<string,number>={};
+      for(const category of result.faceBlendshapes?.[0]?.categories||[])current[category.categoryName]=category.score;
+      const matrix=result.facialTransformationMatrixes?.[0]?.data;
+      listener.current?.({t:now,face:true,mouth:mouthMovement(shapes.current,current,dt),...(matrix?headPose(Array.from(matrix)):{yaw:0,pitch:0}),
+        brows:((current.browInnerUp??0)+(current.browOuterUpLeft??0)+(current.browOuterUpRight??0))/3,
+        blink:Math.min(current.eyeBlinkLeft??0,current.eyeBlinkRight??0)});
+      shapes.current=current;
+      if(now-lastMeter.current<200)return;
+      lastMeter.current=now;
       const distance=(a:number,b:number)=>Math.hypot(face[a].x-face[b].x,face[a].y-face[b].y);
       const opening=distance(13,14)/Math.max(.001,distance(78,308));
       const movement=Math.min(1,Math.abs(opening-previous.current)*12);

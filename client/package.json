@@ -15,6 +15,7 @@
     "package:mac": "npm run build && electron-builder --mac",
     "package:win": "npm run build && electron-builder --win",
     "prepare:assets": "node scripts/prepare-assets.mjs",
+    "fetch:face-model": "node scripts/fetch-face-model.mjs",
     "postinstall": "npm run prepare:assets"
   },
   "dependencies": {

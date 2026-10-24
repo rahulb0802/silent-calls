@@ -131,6 +131,9 @@ def check_client() -> None:
     electron = client / "node_modules" / "electron" / "path.txt"
     report(OK if electron.exists() else BAD, "Electron", "installed" if electron.exists()
            else "run: cd client && node node_modules/electron/install.js")
+    face = client / "public" / "models" / "face_landmarker.task"
+    report(OK if face.exists() else SKIP, "Face model (mouth meter, hands-free)", "present" if face.exists()
+           else "run: cd client && npm run fetch:face-model", False)
     with socket.socket() as s:
         s.settimeout(0.5)
         running = s.connect_ex(("127.0.0.1", 8765)) == 0
