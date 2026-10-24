@@ -63,6 +63,12 @@ export function GestureOnboarding({settings,onComplete,onLockChange}:{settings:S
     }
     if(current===5){lipRange.current.min=Math.min(lipRange.current.min,sample.open);lipRange.current.max=Math.max(lipRange.current.max,sample.open);if(sample.mouth>.3 || lipRange.current.max-lipRange.current.min>.015)mouthSeen.current=true;}
     const events=engine.current.push(sample,'choosing');
+    const other=events.find(event=>event!==expected[current] && ['send','next','cancel'].includes(event));
+    if(other && !events.includes(expected[current]!)){
+      const seen={send:'a nod',next:'a turn',cancel:'a shake'}[other as 'send'|'next'|'cancel'];
+      const want={send:'a small nod: down, then back to center',next:'a turn to one side, then back to center',cancel:'a quick shake: left and right, then center'}[expected[current] as 'send'|'next'|'cancel'];
+      setHint(`That looked like ${seen}. Try ${want}.`);
+    }
     if(events.includes(expected[current]!)){
       if(current===5 && !mouthSeen.current){setHint('Mouth the sentence first, then nod to finish.');return;}
       advance(current+1,sample.t);

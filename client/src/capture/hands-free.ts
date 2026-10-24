@@ -40,7 +40,8 @@ const NOISE_GAIN = 3;       // adaptive threshold: this many times the resting n
 const STILL_HEAD = 45;      // deg/s: faster head motion is a gesture, not mouthing
 const FACING = 30;          // deg from the resting pose: beyond this the user looked away
 // Head gestures
-const YAW_T = 12, PITCH_T = 8;       // deg from the resting pose to count as a turn / nod
+// A natural nod is small: about 4-6 degrees in a recording of a real face (head still to ~0.5 degree at rest).
+const YAW_T = 10, PITCH_T = 4.5;     // deg from the resting pose to count as a turn / nod
 const RETURN = 0.4;                  // back within this fraction of the threshold = returned
 const NOD_MAX_MS = 1200, TURN_MIN_MS = 120, TURN_MAX_MS = 2500;
 const REFRACTORY_MS = 450;
