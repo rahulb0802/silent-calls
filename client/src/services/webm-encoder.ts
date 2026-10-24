@@ -38,9 +38,14 @@ export class WebmEncoder {
       throw new Error('This browser cannot record webcam frames on demand.');
     }
     this.track = track;
-    this.recorder = new MediaRecorder(this.stream, {
-      mimeType: 'video/webm;codecs=vp8', videoBitsPerSecond: 2_000_000,
-    });
+    try {
+      this.recorder = new MediaRecorder(this.stream, {
+        mimeType: 'video/webm;codecs=vp8', videoBitsPerSecond: 2_000_000,
+      });
+    } catch (reason) {
+      this.stopTrack();
+      throw reason;
+    }
     this.recorder.ondataavailable = event => {
       if (this.closed || !event.data.size) return;
       this.bytes += event.data.size;
@@ -63,7 +68,12 @@ export class WebmEncoder {
         this.resolveEnd?.();
       }).catch(reason => this.abort(reason instanceof Error ? reason : new Error('WebM upload failed.')));
     };
-    this.recorder.start(100);
+    try {
+      this.recorder.start(100);
+    } catch (reason) {
+      this.stopTrack();
+      throw reason;
+    }
     this.timer = setInterval(() => { void this.drawNext(); }, FRAME_MS);
   }
 
