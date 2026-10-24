@@ -5,6 +5,9 @@ protocol.registerSchemesAsPrivileged([{scheme:'silent',privileges:{standard:true
 const { createSetupService } = require('./setup-service.cjs');
 const { LocalVoice } = require('./local-voice.cjs');
 const { createGlobalHold } = require('./global-hold.cjs');
+// Keep the opt-in capture window responsive while Meet/Zoom is foreground.
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('disable-background-timer-throttling');
 let mainWindow, widget;
 const voice = new LocalVoice(status => {
   for (const win of [mainWindow, widget]) {
@@ -37,7 +40,7 @@ function createMain() {
 function openWidget() {
   if (widget && !widget.isDestroyed()) { widget.show(); return; }
   const area = screen.getPrimaryDisplay().workArea;
-  widget = new BrowserWindow({ width: 390, height: Math.min(740, area.height - 48), x: area.x + area.width - 414, y: area.y + Math.max(24, area.height - 764), resizable: false, frame: false, alwaysOnTop: true, skipTaskbar: true, backgroundColor: '#1c2624', webPreferences: preferences });
+  widget = new BrowserWindow({ width: 390, height: Math.min(740, area.height - 48), x: area.x + area.width - 414, y: area.y + Math.max(24, area.height - 764), resizable: false, frame: false, alwaysOnTop: true, skipTaskbar: true, backgroundColor: '#1c2624', webPreferences: { ...preferences, backgroundThrottling: false } });
   widget.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   widget.webContents.setBackgroundThrottling(false);
   widget.webContents.on('did-start-loading', () => hold.stop());
@@ -91,9 +94,10 @@ app.whenReady().then(() => {
   ipcMain.handle('hold:start', (event, key) => { if (!widgetOnly(event)) throw new Error('Widget required'); return hold.start(key); });
   ipcMain.handle('hold:stop', event => { if (!widgetOnly(event)) throw new Error('Widget required'); return hold.stop(); });
   ipcMain.handle('hold:status', event => { if (!widgetOnly(event)) throw new Error('Widget required'); return hold.getStatus(); });
-  ipcMain.handle('hold:settings', event => {
+  ipcMain.handle('hold:settings', (event, topic = 'accessibility') => {
     if (!widgetOnly(event)) return;
-    if (process.platform === 'darwin') return shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility');
+    if (!['accessibility', 'input-monitoring'].includes(topic)) throw new Error('Unknown keyboard permission.');
+    if (process.platform === 'darwin') return shell.openExternal(`x-apple.systempreferences:com.apple.preference.security?${topic === 'input-monitoring' ? 'Privacy_ListenEvent' : 'Privacy_Accessibility'}`);
   });
   powerMonitor.on('suspend', () => hold.stop('Global capture disabled because the computer went to sleep. Enable the camera and key again.'));
   powerMonitor.on('lock-screen', () => hold.stop('Global capture disabled because the screen was locked. Enable the camera and key again.'));

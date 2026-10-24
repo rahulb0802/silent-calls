@@ -11,7 +11,7 @@ contextBridge.exposeInMainWorld('desktop', {
   startGlobalHold: key => ipcRenderer.invoke('hold:start', key),
   stopGlobalHold: () => ipcRenderer.invoke('hold:stop'),
   getGlobalHoldStatus: () => ipcRenderer.invoke('hold:status'),
-  openKeyboardSettings: () => ipcRenderer.invoke('hold:settings'),
+  openKeyboardSettings: topic => ipcRenderer.invoke('hold:settings', topic),
   getSetupStatus: () => ipcRenderer.invoke('setup:status'),
   connectSetupVoice: () => ipcRenderer.invoke('setup:connect'),
   openSetupKeyboardSettings: () => ipcRenderer.invoke('setup:keyboard'),
