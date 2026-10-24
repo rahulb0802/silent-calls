@@ -1,6 +1,7 @@
 import type {CaptureClip, Frame} from '../capture/buffer';
 import type {Decision} from '../desktop';
 import type {Candidate, MeetingEvent, MeetingPort, QualityData, Route, UtteranceStart} from './meeting-port';
+import {personalIntroduction} from './personal-introduction';
 import {vocabularyTerms} from './personal-library';
 import {LEARNED, learningOn} from './learning';
 import {dictationNames, dictationOn, formatDictation} from './dictation';
@@ -207,7 +208,7 @@ export class LipreadPort implements MeetingPort {
           this.written.set(top, window.desktop.punctuate({text: top, names: dictationNames([...vocabularyTerms(), this.settings.profileId.trim()], this.callNames)}));
         }
         if (ranked.timings) Object.assign(timings, ranked.timings);
-        this.emit({type:'candidates',utteranceId:id,candidates:ranked.candidates,confidence:ranked.confidence ?? confidence,timings,quality,qualityData,adapter,route:ranked.route,ranker:ranked.ranker});
+        this.emit({type:'candidates',utteranceId:id,candidates:ranked.candidates,confidence:ranked.candidates[0]?.source==='personal'?undefined:ranked.confidence ?? confidence,timings,quality,qualityData,adapter,route:ranked.route,ranker:ranked.ranker});
         this.watchRepair(id);
       });
     };
@@ -249,7 +250,8 @@ export class LipreadPort implements MeetingPort {
     const ranked = rankByDecision(id, candidates, decision);
     const timings: Record<string,number> = {};
     if (decision) for (const [key,value] of Object.entries(decision.timings)) timings[`decide_${key}`] = value;
-    return {...ranked, timings};
+    const personalized=personalIntroduction(id,ranked.candidates,this.settings.profileId);
+    return {...ranked,candidates:personalized,timings,...(personalized[0]?.source==='personal'?{route:'choose' as Route,confidence:undefined}:{})};
   }
   /** Claude's repair arrives after the ranking; it is offered as one more choice, never spoken unasked. */
   private watchRepair(id: string) {

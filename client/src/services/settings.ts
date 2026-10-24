@@ -1,3 +1,4 @@
+import {ensureOwnName} from './personal-library';
 export type ServiceSettings={websocketUrl:string;apiUrl:string;profileId:string};
 const STORAGE='silent-calls:services:v1';
 export function loadSettings():ServiceSettings{
@@ -15,5 +16,6 @@ export function saveSettings(settings:ServiceSettings){
   }
   if(!settings.profileId.trim())throw new Error('Enter a profile ID for enrollment.');
   localStorage.setItem(STORAGE,JSON.stringify(settings));
+  ensureOwnName(settings.profileId);
   window.dispatchEvent(new Event('silent-calls:settings'));
 }

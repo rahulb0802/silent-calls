@@ -73,7 +73,7 @@ export function CompactPill(p: Props) {
       <button className="pill-icon" aria-label="Open the full companion" onClick={p.onExpand}><Maximize2 size={14}/></button>
     </div>
     {p.phase === 'choosing' && top && <div className="pill-choices">
-      <button className={`pill-top ${repairPicked ? 'is-dimmed' : ''}`} onClick={() => p.onPick(top)}><span>{top.text}</span>{top.source === 'copilot' && <CalendarDays size={13} aria-label="co-pilot reply"/>}{top.source === 'memory' && <History size={13} aria-label="something you've said before"/>}<Volume2 size={14}/></button>
+      <button className={`pill-top ${repairPicked ? 'is-dimmed' : ''}`} onClick={() => p.onPick(top)}><span>{top.text}{top.source==='personal' && <small className="personal-name-label">Uses your saved name</small>}</span>{top.source === 'copilot' && <CalendarDays size={13} aria-label="co-pilot reply"/>}{top.source === 'memory' && <History size={13} aria-label="something you've said before"/>}<Volume2 size={14}/></button>
       <div className="pill-others">{shown.map((c, i) => c === top ? null : <button key={c.id} onClick={() => p.onPick(c)}><kbd>{i + 1}</kbd>{c.text}{c.source === 'copilot' && <CalendarDays size={11}/>}</button>)}
         {p.repair && <button className={`pill-repair ${repairPicked ? 'is-picked' : ''}`} aria-current={repairPicked ? 'true' : undefined} onClick={p.onRepair}><Sparkles size={11}/>{p.repair}</button>}</div>
       <p className="pill-hint">{p.hint}</p>
@@ -85,7 +85,7 @@ export function CompactPill(p: Props) {
     {p.showWork && <div className="pill-work">
       <h2>What the lip-reader saw</h2>
       {p.candidates.length ? <ol>{p.candidates.slice(0, 10).map(c => <li key={c.id} className={c.source === 'copilot' ? 'from-copilot' : undefined}>
-        <span>{c.text}</span><small>{c.source === 'copilot' ? 'co-pilot reply, scored on your lips' : 'lip-reading'}{c.prob !== undefined ? ` · ${Math.round(c.prob * 100)}%` : ''}</small></li>)}</ol>
+        <span>{c.text}</span><small>{c.source === 'personal' ? 'saved-name correction, not a model score' : c.source === 'copilot' ? 'co-pilot reply, scored on your lips' : 'lip-reading'}{c.prob !== undefined ? ` · ${Math.round(c.prob * 100)}%` : ''}</small></li>)}</ol>
         : <p className="pill-muted">Mouth something to see the raw guesses.</p>}
       {p.candidates.length > 0 && <p className="pill-muted">{p.work.ranker === 'jev' ? 'Ranked with the conversation (Jev)' : 'Ranked by lip-reading alone'}{p.work.confidence !== undefined ? ` · confidence ${Math.round(p.work.confidence * 100)}%` : ''}{p.work.adapter ? ' · your personal model' : ''}</p>}
     </div>}
