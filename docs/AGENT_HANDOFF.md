@@ -133,3 +133,7 @@ Useful docs: TYPED_SPEECH.md, GUIDED_ONBOARDING.md, GPU_LIPREADING_CLIENT.md, PE
 3. Improve per-user vocabulary biasing with backend only after agreeing schema; current suggestions are explicit local mappings.
 4. Finish real installer distribution: bundled signed Python service/runtime, code signing/notarization, stable app permission/Keychain identity, guided driver flow. Do not call current checkout launcher a standalone packaged runtime.
 5. Don't start autonomous agents or unrelated features; user's requests and source instructions govern scope.
+
+## Final sync note
+
+During the authorized final push, `git fetch` found shared main had advanced from 439950b to 62e3800 and discovered `origin/p2/lipread-service`. All nine local feature/doc commits rebased onto the new origin/main without conflicts. Their commit hashes consequently changed; use current Git history. The statements above about Person 2 source not yet being pushed describe the earlier implementation context. The next agent should inspect the newly available branch/source before assuming GPU code remains unavailable or planning further backend integration. No runtime verification or model calls were performed during this sync.
