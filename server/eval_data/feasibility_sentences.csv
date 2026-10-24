@@ -1,0 +1,31 @@
+id,category,sentence,prior_turn
+01,greeting,hey can you hear me okay,Hello? Are you there?
+02,greeting,hi sorry I'm in the library right now,Hey! Is now a good time?
+03,yes_no,yes that works for me,Does Thursday afternoon work for you?
+04,yes_no,no I haven't heard back yet,Did the landlord ever reply to you?
+05,yes_no,sure go ahead,Mind if I share my screen?
+06,time,I'll be there in ten minutes,Where are you? We're about to start.
+07,time,can we move it to three thirty,The meeting is at two. Does that still work?
+08,time,let's meet tomorrow morning,When do you want to go over the slides?
+09,number,my number is the same as before,What's the best number to reach you at?
+10,number,it was about forty dollars,How much did dinner end up costing?
+11,question,what time does it start,The game is on tonight if you want to come.
+12,question,where should I park,Just come by the office whenever you're ready.
+13,question,did you get my email,I've been waiting on the final version from you.
+14,question,how did the interview go,Hey I just got back home.
+15,request,can you send me the link,I'm setting up the call now.
+16,request,please call me back later,Sorry is this a bad time?
+17,request,could you say that again,The code is seven two nine four.
+18,request,can you speak a little louder,I think we should push the deadline to Friday.
+19,status,I'm running a little late,The bus is here. Where are you?
+20,status,I just finished my homework,Are you free to talk now?
+21,status,I'm not feeling very well today,You sound tired. Is everything okay?
+22,status,the doctor said I need to rest,How did your appointment go?
+23,opinion,that sounds like a great idea,What if we get pizza for the team tonight?
+24,opinion,I don't think that's a good plan,Let's just skip the practice round and present.
+25,opinion,I really like the new design,Did you see the mockups I sent over?
+26,logistics,I'll pick up the groceries on the way home,Can you grab milk and eggs?
+27,logistics,leave the package at the front door,Hi this is the delivery driver. Nobody's answering.
+28,logistics,we need to book the tickets tonight,Prices are going up tomorrow.
+29,closing,thanks so much talk to you soon,Alright I'll send it over tonight.
+30,closing,okay bye see you later,I've got to run. Catch you later.

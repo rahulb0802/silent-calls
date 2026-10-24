@@ -1,0 +1,19 @@
+# Lip-reading service + LoRA trainer (Python 3.11, Linux, CUDA). Installed by server/setup_gpu.sh.
+# PyPI's Linux torch 2.4.1 wheels bundle CUDA 12.1, which runs on the Vultr 580 driver.
+torch==2.4.1
+torchvision==0.19.1
+torchaudio==2.4.1
+# mediapipe 0.10.14 needs numpy 1.x. This pins the whole server env, including silentcalls/.
+numpy<2
+mediapipe==0.10.14
+av==12.3.0
+scikit-image
+scipy
+six
+sentencepiece
+jiwer
+gdown
+fastapi
+uvicorn[standard]
+python-multipart
+pytest
