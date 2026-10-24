@@ -29,12 +29,12 @@ video re-encode), so everything below is comparable to it.
 
 Each clip is replayed through `LipReader.on_frame()` / `finish()` as 25 fps JPEG frames (quality 80), at the
 height the client would send. "Realtime" feeds frames at 25 fps, so face detection happens while the user is
-still mouthing, which is how it behaves in a real call.
+still mouthing, which is how it behaves in a real call. (LM weight 0.3 here, the setting before section 4.)
 
 | run | frame size | upload | WER | exact@1 | exact@5 | exact@10 | key release → candidates (median) |
 |---|---|---|---|---|---|---|---|
 | [`stream_720p_q80`](../server/results/stream_720p_q80_beam40/summary.md) | 720p | 2.2 MB/s | 35% | 34% | 43% | 51% | — |
-| [`stream_480p_q80`](../server/results/stream_480p_q80_beam40/summary.md) | 480p | 1.1 MB/s | 37% | 32% | 51% | 54% | — |
+| `stream_480p_q80` (folder since overwritten by the LM 0.2 rerun in section 3) | 480p | 1.1 MB/s | 37% | 32% | 51% | 54% | — |
 | [`stream_360p_q80`](../server/results/stream_360p_q80_beam40/summary.md) | 360p | 0.7 MB/s | 38% | 32% | 48% | 50% | — |
 | [`stream_480p_q80_realtime`](../server/results/stream_480p_q80_realtime_beam40/summary.md) | 480p | 1.1 MB/s | 37% | 32% | 51% | 54% | **918 ms** |
 
@@ -91,6 +91,16 @@ Lower JPEG quality on full 480p frames barely saves bandwidth (JPEG has no inter
 | 360p, 250 kbps | 32 KB/s | 49% | 24% | 36% | 41% |
 
 <!-- VP8B -->
+
+**End to end over the venue Wi-Fi** (laptop → SSH tunnel → server, 12 clips, real time):
+
+| client sends | upload | key release → candidates (median) | range |
+|---|---|---|---|
+| JPEG 480p q80 | 1.0-1.4 MB/s | **10.7 s** | 1.8-23 s |
+| VP8 webm 480p 1 Mbps | 125 KB/s | **1.29 s** | 0.93-2.1 s |
+
+Server-side share of the webm run: decode + face detection 0.18-0.45 s, crop 20-50 ms, model 0.7-1.6 s (GPU 1
+was training at the same time, so CPU was contended). The rest (~0.1 s) is the network.
 
 These are pessimistic: our clips were already VP9-compressed by the browser, so this is a second lossy
 generation; a live MediaRecorder stream is encoded once, straight from the camera. Decoding + face detection

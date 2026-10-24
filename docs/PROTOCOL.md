@@ -69,3 +69,10 @@ Served by the GPU server (`server/lipread/routes.py`, mounted with `app.include_
 | `GET /train/{user_id}/report` | | full report: per-sentence before/after, loss curve, and the feasibility-clip before/after if the user has them |
 
 The adapter is used automatically once it exists, for sessions with `use_adapter: true`.
+
+## PROPOSED by Person 2: `encoding` on `utterance.start` (needs sign-off)
+Optional field, default `"jpeg"` (today's behaviour). With `"encoding": "webm"`, the binary messages of that
+utterance are the chunks of one `MediaRecorder` recording (VP8, e.g. 1 Mbps, `start(100)`), in order. The server
+decodes them on `utterance.end`. Upload drops from ~1.1 MB/s to ~125 KB/s, which the venue Wi-Fi can carry
+(JPEG frames took 5-23 s to arrive there); it costs ~0.2 s after release and a few points of accuracy.
+See docs/RESULTS.md, section 3. `server/lipread/dev_app.py` already supports both.

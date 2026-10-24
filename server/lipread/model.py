@@ -18,7 +18,7 @@ from pipelines.model import AVSR  # noqa: E402
 class DecodeConfig:
     beam: int = 40
     ctc_weight: float = 0.1
-    lm_weight: float = 0.3  # 0 disables the LM
+    lm_weight: float = 0.2  # 0 disables the LM; 0.2 won the sweep (docs/RESULTS.md)
     nbest: int = 10
 
 

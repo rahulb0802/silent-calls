@@ -301,7 +301,7 @@ def main() -> None:
     p.add_argument("--face-margin", type=float, default=2.0, help="face crop side = margin x face box")
     p.add_argument("--gray", action="store_true", help="stream mode: grayscale JPEGs")
     p.add_argument("--beam", type=int, default=40)
-    p.add_argument("--lm-weight", type=float, default=0.3)
+    p.add_argument("--lm-weight", type=float, default=0.2)
     p.add_argument("--ctc-weight", type=float, default=0.1)
     p.add_argument("--sweep", nargs="*", help="e.g. lm=0,0.1,0.3 ctc=0.1,0.3 beam=20,40 (file mode)")
     p.add_argument("--adapter", action="store_true", help="use each person's LoRA adapter if one exists")
@@ -334,7 +334,7 @@ def main() -> None:
     if args.mode == "video":
         stream_tag = f"_vp8_{args.height}p_{args.bitrate}" + ("_chunks" if args.chunks else "")
     tag = args.tag or (f"{args.mode}" + (stream_tag if args.mode != "file" else "")
-                       + ("_realtime" if args.realtime else "") + f"_beam{cfg.beam}" + ("_adapter" if args.adapter else ""))
+                       + ("_realtime" if args.realtime else "") + f"_beam{cfg.beam}_lm{cfg.lm_weight}" + ("_adapter" if args.adapter else ""))
     run(args, cfg, tag)
 
 

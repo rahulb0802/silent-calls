@@ -72,5 +72,8 @@ reader.cancel(utt_id)                     # on utterance.cancel / disconnect
 
 Notes for the other components:
 - The server env pins `numpy<2` (mediapipe 0.10.14 needs it); `silentcalls/` runs fine on it.
-- Frames must arrive at 25 fps (the model doesn't resample). Send ≤720p; 480p is enough (see RESULTS.md).
+- JPEG frames must arrive at 25 fps (the model doesn't resample). Send ≤720p; 480p is enough (see RESULTS.md).
+- On a slow uplink (the venue Wi-Fi), send a MediaRecorder webm stream instead: `utterance.start` with
+  `encoding: "webm"`, then call `reader.on_chunk(utt_id, data)` for each binary message (not `on_frame`).
+- Decoder settings: beam 40, LM weight 0.2, CTC weight 0.1 (the `DecodeConfig` default; RESULTS.md section 4).
 - On a 2-GPU box, live inference uses `cuda:0` and LoRA training `cuda:1`, so training never slows a call.
