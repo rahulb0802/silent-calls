@@ -170,6 +170,8 @@ async def main() -> None:
         await voice.start()
 
     pipeline = Pipeline(settings, voice, broadcast, use_jev=not args.no_jev, use_claude=not args.no_claude)
+    if pipeline.jev:
+        pipeline.jev.start()
     tasks = []
     if not args.no_captions:
         tasks.append(asyncio.create_task(CallCaptioner(settings, pipeline.on_caption).run()))

@@ -13,6 +13,7 @@ Claude repair runs in parallel with Jev and never delays the decision; its sugge
 offered as an extra option.
 """
 
+import asyncio
 import json
 import logging
 import time
@@ -96,11 +97,31 @@ class Jev:
 
     def __init__(self, s: Settings):
         self.s = s
+        # A cold request (TLS handshake) takes ~1 s, twice the 0.5 s budget: keep the connection open between
+        # utterances (keepalive + a cheap GET every 60 s) and open it at startup (warm()).
         self._http = httpx.AsyncClient(
-            headers={"Authorization": f"Bearer {s.jev_api_key}"}, timeout=s.jev_timeout_s
+            headers={"Authorization": f"Bearer {s.jev_api_key}"}, timeout=s.jev_timeout_s,
+            limits=httpx.Limits(keepalive_expiry=300),
         )
+        self._keepalive: asyncio.Task | None = None
+
+    async def warm(self) -> None:
+        """Open the connection now and keep it open, so the first real request isn't a cold one."""
+        origin = str(httpx.URL(self.s.jev_url).copy_with(path="/", query=None))
+        while True:
+            try:
+                await self._http.get(origin, timeout=5.0)  # any status is fine: only the connection matters
+            except httpx.HTTPError as e:
+                log.debug("jev keepalive: %s", e)
+            await asyncio.sleep(60)
+
+    def start(self) -> None:
+        if self._keepalive is None:
+            self._keepalive = asyncio.create_task(self.warm())
 
     async def close(self) -> None:
+        if self._keepalive:
+            self._keepalive.cancel()
         await self._http.aclose()
 
     async def score(self, context: str, cands: list[Candidate], names: list[str] | None = None) -> list[float]:
