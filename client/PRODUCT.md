@@ -59,3 +59,7 @@ The required meeting test-phrase panel and its acknowledgement checkbox have bee
 ## Remembered personal setup
 
 A completed onboarding session is remembered per profile and enrollment server. Subsequent launches land in the workspace, with an explicit action to open the meeting widget. Successful calibration stores a local completion receipt (count, goal and date), so the calibration view shows saved readiness rather than asking the user to record again. Accepted data and trained weights remain on the GPU. Reviewing setup preserves that training, and new profiles retain the full first-run flow. OS/device capture permissions remain explicit. No tests or runtime validation were run for this change.
+
+## Consumer desktop presentation (current)
+
+The main workspace is now a consumer home with Open companion as its primary action, plus My voice & practice, My words and Preferences. The compact companion separates Talk, Type, Suggestions and Settings. An explicit Start companion combines existing service connection and camera/key enablement; it never starts recording or speech automatically. Technical service URLs, ports, model files, frame counters and provider traces are secondary settings. Candidate confirmation, saved personal data, explicit permissions and training/voice consent remain. Existing voice creation is collapsed when a voice is ready. See docs/CONSUMER_FRONTEND.md. This increment was implemented without tests or a verification pass at user request.

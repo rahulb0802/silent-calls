@@ -171,3 +171,9 @@ The required meeting test-phrase panel and its acknowledgement checkbox have bee
 ## Returning users
 
 Returning users land in the existing workspace. Calibration reuses its completion surface to show the saved profile, accepted count and date, with a quieter optional action to review or add sentences. Review setup remains available without discarding saved training. No new visual system or automatic camera/speech action is introduced.
+
+## Consumer desktop presentation (current)
+
+The existing cream canvas, forest actions, bundled DM Sans and dark companion remain the visual foundation. Returning users see a spacious home with a 50–88px conversational heading, an explicit Open companion action, a single saved-practice row and a restrained wave-bar illustration. Primary navigation is Home / My voice & practice / My words; Preferences holds secondary configuration. The widget uses four labeled tools and leads with one camera/hold interaction rather than a vertical stack of service panels. Connection controls, metrics and optional model-file inputs sit behind settings/disclosures. The typed composer and suggestions use shorter consumer copy while preserving provenance and errors.
+
+Motion follows meaning: one bounded wave-bar arrival at home, a short masked step/tool transition, a capped candidate-list arrival, and an activity signal during actual recording/processing. Hidden-tool/document activity pauses. Reduced-motion paths remove spatial motion and keep state text visible. Focus rings and keyboard-native controls remain. No previews, screenshots, automated checks or verification passes were performed, per user instruction.
