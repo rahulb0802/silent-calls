@@ -65,6 +65,19 @@ export function usePersonalLibrary() {
   return {...state,saveVocabulary,savePhrase,remove};
 }
 
+const PRACTICE = 'silent-calls:practice:v1';
+/** Practice sentences approved from a post-call review; they join the personal calibration prompts. */
+export function practiceSentences():string[] {
+  try { const value = JSON.parse(localStorage.getItem(PRACTICE) || '[]'); return Array.isArray(value) ? value.filter(s => typeof s === 'string').slice(0, 5) : []; }
+  catch { return []; }
+}
+export function addPractice(sentence:string) {
+  const text = sentence.trim().slice(0, 200);
+  if (!text) return;
+  const next = [text, ...practiceSentences().filter(s => s.toLowerCase() !== text.toLowerCase())].slice(0, 5);
+  localStorage.setItem(PRACTICE, JSON.stringify(next));
+}
+
 /** Saved vocabulary terms (not their alternate readings), for the lip-reader and decision layer to bias toward. */
 export function vocabularyTerms():string[] {
   try { return read().vocabulary.map(entry=>entry.term); }

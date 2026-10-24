@@ -62,3 +62,13 @@ test('co-pilot replies are kept with their facts, and an empty list clears them'
   deliver({type:'copilot',for_line:'',latency_ms:0,replies:[]});
   assert.equal(voice.snapshot().copilot,null);
 });
+
+test('review request and result',()=>{
+  const {voice,sent,deliver}=connected();
+  voice.review(['Rahul','',5]);
+  assert.deepEqual(sent.at(-1),{type:'review',vocab:['Rahul']});
+  assert.equal(voice.snapshot().review.pending,true);
+  deliver({type:'review',summary:'Names were hard.',moments:3,latency_ms:9000,proposals:[{kind:'vocabulary',value:'Devansh',reason:'ask the bunch'},{kind:'delete',value:'x'}]});
+  const r=voice.snapshot().review;
+  assert.equal(r.pending,false);assert.deepEqual(r.proposals,[{kind:'vocabulary',value:'Devansh',reason:'ask the bunch'}]);
+});

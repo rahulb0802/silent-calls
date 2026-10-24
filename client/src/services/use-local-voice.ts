@@ -8,6 +8,14 @@ export type CopilotState = {
   steps: { tool: string; query: string; results: number }[];
 };
 
+export type ReviewState = {
+  pending: boolean;
+  summary: string;
+  proposals: { kind: 'vocabulary' | 'practice'; value: string; reason: string }[];
+  moments: number;
+  latencyMs: number | null;
+};
+
 export type VoiceState = {
   revision: number;
   connection: 'disconnected' | 'connecting' | 'connected' | 'error';
@@ -26,6 +34,7 @@ export type VoiceState = {
   liveCaption?: { speaker: string; text: string } | null;
   callNames?: string[];
   copilot?: CopilotState | null;
+  review?: ReviewState | null;
 };
 
 const initial: VoiceState = {

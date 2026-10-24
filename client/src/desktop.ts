@@ -24,6 +24,7 @@ export interface DesktopAPI {
   speakText(text:string): Promise<VoiceState>;
   cloneVoice(wav:Uint8Array,name:string): Promise<VoiceState>;
   decide(input:DecisionInput): Promise<Decision|null>;
+  reviewCall(vocab:string[]): Promise<VoiceState>;
   onVoiceStatus(callback:(state:VoiceState)=>void):()=>void;
   openAudioHelp(topic:'blackhole'|'vbcable'|'zoom'|'meet'|'facetime'|'cartesia'):Promise<void>;
   onGlobalHold(callback: (event: HoldEvent) => void): () => void;

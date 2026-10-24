@@ -59,6 +59,7 @@ class LocalVoice {
       personalVoiceReady: false,
       voiceName: '',
       hasVoice: false,
+      review: null, // {pending} while the coach works, then {summary, proposals:[{kind, value, reason}], moments, latencyMs}
       copilot: null, // {replies:[{text, facts:[{source, detail}]}], forLine, latencyMs, steps:[{tool, query, results}]}
       callNames: [], // names likely in this call (service's VOCAB + names heard), sent to the lip-reader too
       liveCaption: null, // {speaker, text}: the other person's line while they are still speaking
@@ -66,7 +67,7 @@ class LocalVoice {
     };
   }
 
-  snapshot() { return { ...this.state, captions: this.state.captions.map(line => ({ ...line })), repair: this.state.repair && { ...this.state.repair }, liveCaption: this.state.liveCaption && { ...this.state.liveCaption }, callNames: [...this.state.callNames], copilot: this.state.copilot && JSON.parse(JSON.stringify(this.state.copilot)) }; }
+  snapshot() { return { ...this.state, captions: this.state.captions.map(line => ({ ...line })), repair: this.state.repair && { ...this.state.repair }, liveCaption: this.state.liveCaption && { ...this.state.liveCaption }, callNames: [...this.state.callNames], copilot: this.state.copilot && JSON.parse(JSON.stringify(this.state.copilot)), review: this.state.review && JSON.parse(JSON.stringify(this.state.review)) }; }
   update(patch) {
     this.state = { ...this.state, ...patch, revision: this.state.revision + 1 };
     this.onChange(this.snapshot());
@@ -109,7 +110,7 @@ class LocalVoice {
     try { socket = new WebSocket(endpoint); }
     catch { return this.update({ connection: 'error', phase: 'idle', message: 'Could not open a local connection. Start the Python voice service and retry.' }); }
     this.socket = socket;
-    this.update({ port, endpoint, connection: 'connecting', phase: 'idle', message: 'Connecting to the local voice service…', captions: [], liveCaption: null, callNames: [], copilot: null, personalVoiceReady: false, hasVoice: false, voiceName: '', lastSpoken: '' });
+    this.update({ port, endpoint, connection: 'connecting', phase: 'idle', message: 'Connecting to the local voice service…', captions: [], liveCaption: null, callNames: [], copilot: null, review: null, personalVoiceReady: false, hasVoice: false, voiceName: '', lastSpoken: '' });
     this.connectTimer = setTimeout(() => {
       if (this.socket !== socket) return;
       this.detach();
@@ -173,6 +174,13 @@ class LocalVoice {
       const firstAudioMs = typeof message.first_audio_ms === 'number' && Number.isFinite(message.first_audio_ms) && message.first_audio_ms >= 0 ? message.first_audio_ms : null;
       this.update({ phase: 'idle', lastSpoken: text, firstAudioMs, message: 'Service acknowledged the phrase. Confirm that the meeting receives audio.', captions: [...this.state.captions.slice(-2), { speaker: 'You', text }] });
     }
+    if (message.type === 'review' && Array.isArray(message.proposals)) {
+      const proposals = message.proposals.slice(0, 8).flatMap(p => (
+        p && ['vocabulary', 'practice'].includes(p.kind) && typeof p.value === 'string' && p.value.trim()
+          ? [{ kind: p.kind, value: p.value.trim().slice(0, 200), reason: typeof p.reason === 'string' ? p.reason.slice(0, 300) : '' }] : []));
+      this.update({ review: { pending: false, summary: typeof message.summary === 'string' ? message.summary.slice(0, 1000) : '', proposals,
+        moments: Number.isInteger(message.moments) ? message.moments : 0, latencyMs: Number.isFinite(message.latency_ms) ? message.latency_ms : null } });
+    }
     if (message.type === 'copilot') {
       const copilot = parseCopilot(message);
       if (copilot) this.update({ copilot: copilot.replies.length ? copilot : null });
@@ -223,6 +231,13 @@ class LocalVoice {
       try { this.socket.send(JSON.stringify({ type: 'candidates', utterance_id: id, candidates, vocab, auto_speak: false })); }
       catch { this.decisions.delete(id); done(null); }
     });
+  }
+  /** Ask the post-call coach to review this call (coach.py). The result arrives as state.review. */
+  review(vocab) {
+    if (this.state.connection !== 'connected' || !this.socket || this.socket.readyState !== 1) throw new Error('Connect the local voice service first.');
+    const words = Array.isArray(vocab) ? vocab.filter(w => typeof w === 'string' && w.trim() && w.length <= 120).slice(0, 200) : [];
+    this.socket.send(JSON.stringify({ type: 'review', vocab: words }));
+    return this.update({ review: { pending: true, summary: '', proposals: [], moments: 0, latencyMs: null } });
   }
   say(input) {
     if (typeof input !== 'string' || !input.trim() || input.trim().length > 5000) throw new Error('Enter between 1 and 5000 characters.');
