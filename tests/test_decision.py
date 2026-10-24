@@ -76,3 +76,28 @@ def test_pipeline_names_from_vocab_and_captions():
     names = p.names(p.transcript.render())
     assert names[:2] == ["rahul", "nilesh"] and {"sarvajith", "priya"} <= set(names)
     assert "other" not in names and "user" not in names
+
+
+def test_jev_through_vercel_gateway():
+    import json
+
+    import httpx
+
+    from silentcalls.decision import Jev
+
+    seen = {}
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        seen.update(url=str(req.url), auth=req.headers["authorization"], body=json.loads(req.content))
+        return httpx.Response(200, json={"model": "typesafe-ai/jev", "answers": {"reply": {
+            "type": "choice", "choice": "c1", "probabilities": {"c0": 0.2, "c1": 0.8}}}})
+
+    s = Settings(ai_gateway_api_key="vck_test", jev_url="https://ai-gateway.vercel.sh/v1/evaluate",
+                 jev_model="typesafe-ai/jev")
+    jev = Jev(s)
+    jev._http = httpx.AsyncClient(transport=httpx.MockTransport(handler),
+                                  headers={"Authorization": f"Bearer {s.jev_api_key}"})
+    probs = asyncio.run(jev.score("Other person: hi", cands(("hi server", 0.0), ("hi sarva", -1.0)), ["sarva"]))
+    assert probs == [0.2, 0.8]
+    assert seen["url"] == "https://ai-gateway.vercel.sh/v1/evaluate" and seen["auth"] == "Bearer vck_test"
+    assert seen["body"]["model"] == "typesafe-ai/jev" and "sarva" in seen["body"]["state"]

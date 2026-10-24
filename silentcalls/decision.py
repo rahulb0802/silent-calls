@@ -27,7 +27,6 @@ from .protocol import Candidate, Option
 
 log = logging.getLogger(__name__)
 
-JEV_URL = "https://api.typesafe.ai/v1/systemone"
 EPS = 1e-6
 
 
@@ -92,12 +91,13 @@ def normalize(text: str) -> str:
 
 
 class Jev:
-    """TypeSafe's Jev: one Choice question over the candidates, given the conversation as state."""
+    """TypeSafe's Jev: one Choice question over the candidates, given the conversation as state. Called through
+    Vercel AI Gateway (`AI_GATEWAY_API_KEY`) or TypeSafe directly (`TYPESAFE_API_KEY`); same request and answers."""
 
     def __init__(self, s: Settings):
         self.s = s
         self._http = httpx.AsyncClient(
-            headers={"Authorization": f"Bearer {s.typesafe_api_key}"}, timeout=s.jev_timeout_s
+            headers={"Authorization": f"Bearer {s.jev_api_key}"}, timeout=s.jev_timeout_s
         )
 
     async def close(self) -> None:
@@ -121,7 +121,7 @@ class Jev:
                 }
             },
         }
-        resp = await self._http.post(JEV_URL, json=body)
+        resp = await self._http.post(self.s.jev_url, json=body)
         resp.raise_for_status()
         probs = resp.json()["answers"]["reply"]["probabilities"]
         return [float(probs.get(f"c{i}", 0.0)) for i in range(len(cands))]

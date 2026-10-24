@@ -29,7 +29,7 @@ class Pipeline:
         self.voice = voice
         self.emit = emit
         self.transcript = Transcript(s.context_lines)
-        self.jev = Jev(s) if use_jev and s.typesafe_api_key else None
+        self.jev = Jev(s) if use_jev and s.jev_api_key else None
         self.repairer = Repairer(s) if use_claude else None
         self._repairs: dict[str, asyncio.Task] = {}
 

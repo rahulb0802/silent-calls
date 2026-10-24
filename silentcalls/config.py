@@ -45,7 +45,8 @@ class Weights:
 class Settings:
     # API keys
     cartesia_api_key: str = _env("CARTESIA_API_KEY")
-    typesafe_api_key: str = _env("TYPESAFE_API_KEY")  # Jev
+    typesafe_api_key: str = _env("TYPESAFE_API_KEY")  # Jev, direct
+    ai_gateway_api_key: str = _env("AI_GATEWAY_API_KEY")  # Jev through Vercel AI Gateway (preferred if set)
 
     # Cartesia
     cartesia_version: str = _env("CARTESIA_VERSION", "2026-08-14")
@@ -66,7 +67,10 @@ class Settings:
     silence_rms: float = _float("SILENCE_RMS", 0.01)
 
     # Decision layer
-    jev_model: str = _env("JEV_MODEL", "jev-latest")
+    # Vercel AI Gateway's decision endpoint takes TypeSafe's request shape and returns the same `answers`.
+    jev_url: str = _env("JEV_URL", "https://ai-gateway.vercel.sh/v1/evaluate" if _env("AI_GATEWAY_API_KEY")
+                        else "https://api.typesafe.ai/v1/systemone")
+    jev_model: str = _env("JEV_MODEL", "typesafe-ai/jev" if _env("AI_GATEWAY_API_KEY") else "jev-latest")
     jev_top_k: int = _int("JEV_TOP_K", 10)
     jev_timeout_s: float = _float("JEV_TIMEOUT_S", 0.5)
     claude_model: str = _env("CLAUDE_MODEL", "claude-opus-5-5")
@@ -78,6 +82,10 @@ class Settings:
         "OPENER_TEXT",
         "Hi, just so you know, I'm using a speech assistant, so there may be short pauses.",
     )
+
+    @property
+    def jev_api_key(self) -> str:
+        return self.ai_gateway_api_key or self.typesafe_api_key
 
     # Local server for the UI / lip-reading client
     host: str = _env("HOST", "127.0.0.1")

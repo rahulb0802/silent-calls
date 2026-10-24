@@ -40,6 +40,9 @@ Input: `LipResult.candidates` (top 10) + `context`.
    ```
    The response has `answers.reply.probabilities` (one per option, summing to 1) and
    `answers.reply.confidence`. Timeout 500 ms → lip-only.
+   Through Vercel AI Gateway instead: set `AI_GATEWAY_API_KEY`; the same body goes to
+   `POST https://ai-gateway.vercel.sh/v1/evaluate` with model `typesafe-ai/jev` (same `answers` back).
+   Check with `python tools/jev_smoke.py -n 5` (prints latency per request).
 2. **Combined**: `p_lip` = softmax of the lip log-probs over the top 10;
    `p_jev` = Jev's probabilities. `combined = softmax(w_lip·log p_lip + w_jev·log p_jev)`.
    `lip_score` = lip log-prob, `lm_score` = `log p_jev` in the protocol message.
