@@ -191,22 +191,27 @@ def simulate(path: Path, distractors: int = 4, seed: int = 0, bonuses=(0, 2, 4, 
         trials.append((c, "random", [c["truth"]] + rng.sample(others, distractors)))
         trials.append((c, "hard", [c["truth"]] + lookalikes(c["truth"], others, distractors)))
         trials.append((c, "absent", rng.sample(others, distractors + 1)))
-    lines = ["| prior bonus B | truth in list (random): top 1 | truth in list (look-alikes): top 1 | "
-             "truth not in list: still right | truth not in list: wrong reply wins |", "|---|---|---|---|---|"]
+        trials.append((c, "absent_hard", lookalikes(c["truth"], others, distractors + 1)))
+    lines = ["| prior bonus B | truth in list (random others): top 1 | truth in list (look-alikes): top 1 | "
+             "truth not in list (random): wrong reply wins | truth not in list (look-alikes): wrong reply wins | "
+             "truth not in list (look-alikes): still right |", "|---|---|---|---|---|---|"]
     for b in bonuses:
-        acc = {"random": [], "hard": [], "absent_right": [], "absent_wrong": []}
+        acc = {"random": [], "hard": [], "absent_wrong": [], "hard_absent_wrong": [], "hard_absent_right": []}
         for c, cond, given in trials:
             pool = {t: s for t, s, _ in c["beam"]}
             for g in given:
                 pool[g] = max(pool.get(g, -1e9), c["sentences"][g][0] + b)
             top = max(pool, key=pool.get)
             if cond == "absent":
-                acc["absent_right"].append(top == c["truth"])
                 acc["absent_wrong"].append(top in given)
+            elif cond == "absent_hard":
+                acc["hard_absent_wrong"].append(top in given)
+                acc["hard_absent_right"].append(top == c["truth"])
             else:
                 acc[cond].append(top == c["truth"])
         m = {k: sum(v) / len(v) for k, v in acc.items()}
-        lines.append(f"| {b} | {m['random']:.0%} | {m['hard']:.0%} | {m['absent_right']:.0%} | {m['absent_wrong']:.0%} |")
+        lines.append(f"| {b} | {m['random']:.0%} | {m['hard']:.0%} | {m['absent_wrong']:.0%} | "
+                     f"{m['hard_absent_wrong']:.0%} | {m['hard_absent_right']:.0%} |")
     return "\n".join(lines)
 
 
