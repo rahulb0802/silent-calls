@@ -103,13 +103,13 @@ class Jev:
     async def close(self) -> None:
         await self._http.aclose()
 
-    async def score(self, context: str, cands: list[Candidate]) -> list[float]:
+    async def score(self, context: str, cands: list[Candidate], names: list[str] | None = None) -> list[float]:
         state = (
             f"A phone call. Recent conversation:\n{context}\n\n"
             "The user cannot speak aloud, so they silently mouthed their next line to a camera. "
             "A lip-reading model produced the options below. Lip-reading confuses sounds that look "
             "alike on the lips (p/b/m, f/v, t/d/n, k/g), so options are often near-misses."
-        )
+        ) + names_note(names)
         body = {
             "model": self.s.jev_model,
             "state": state,
@@ -125,6 +125,15 @@ class Jev:
         resp.raise_for_status()
         probs = resp.json()["answers"]["reply"]["probabilities"]
         return [float(probs.get(f"c{i}", 0.0)) for i in range(len(cands))]
+
+
+def names_note(names: list[str] | None) -> str:
+    """Names the user may say (their list + names heard in the call). The lip-reader rarely gets a name right:
+    it reads a look-alike instead ("server jet" for "Sarvajith")."""
+    if not names:
+        return ""
+    return ("\n\nNames that may come up: " + ", ".join(names) + ". The lip-reader often turns a name into "
+            "ordinary words that look alike on the lips (e.g. \"server jet\" for \"Sarvajith\").")
 
 
 REPAIR_SYSTEM = """\
@@ -155,8 +164,9 @@ class Repairer:
         self.s = s
         self._client = anthropic.AsyncAnthropic()
 
-    async def repair(self, context: str, cands: list[Candidate]) -> str | None:
+    async def repair(self, context: str, cands: list[Candidate], names: list[str] | None = None) -> str | None:
         guesses = "\n".join(f"{i + 1}. {c.text}" for i, c in enumerate(cands[: self.s.claude_top_k]))
+        guesses += names_note(names)
         resp = await self._client.beta.messages.create(
             model=self.s.claude_model,
             max_tokens=2048,
@@ -179,13 +189,13 @@ class Repairer:
 
 
 async def score_with_jev(jev: Jev | None, context: str, cands: list[Candidate],
-                         w: Weights) -> tuple[Scored, float]:
+                         w: Weights, names: list[str] | None = None) -> tuple[Scored, float]:
     """Combine lip and Jev scores; falls back to lip-only if Jev is slow or down. Returns (scored, jev_ms)."""
     t0 = time.perf_counter()
     p_jev = None
     if jev is not None:
         try:
-            p_jev = await jev.score(context, cands)
+            p_jev = await jev.score(context, cands, names)
         except Exception as e:  # timeout, HTTP error, bad payload
             log.warning("jev failed (%s); using lip-reading scores only", e)
     jev_ms = (time.perf_counter() - t0) * 1000

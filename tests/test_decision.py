@@ -65,3 +65,14 @@ def test_pipeline_lip_only_speaks_confident_guess():
     kinds = [(e.type, getattr(e, "route", None)) for e in events]
     assert kinds == [("decision", "speak"), ("spoken", None), ("decision", "choose")]
     assert "User: yes" in p.transcript.render()
+
+
+def test_pipeline_names_from_vocab_and_captions():
+    async def emit(e):
+        pass
+
+    p = Pipeline(Settings(vocab="Rahul, Nilesh"), voice=None, emit=emit, use_jev=False, use_claude=False)
+    p.transcript.add("them", "Hey, it's Sarvajith. Did Priya send the deck?")
+    names = p.names(p.transcript.render())
+    assert names[:2] == ["rahul", "nilesh"] and {"sarvajith", "priya"} <= set(names)
+    assert "other" not in names and "user" not in names

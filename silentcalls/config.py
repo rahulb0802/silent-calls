@@ -71,6 +71,7 @@ class Settings:
     jev_timeout_s: float = _float("JEV_TIMEOUT_S", 0.5)
     claude_model: str = _env("CLAUDE_MODEL", "claude-opus-5-5")
     claude_top_k: int = _int("CLAUDE_TOP_K", 10)
+    vocab: str = _env("VOCAB")  # comma-separated names the user often says (their own, contacts), for Jev/Claude
 
     # Voice output
     opener_text: str = _env(

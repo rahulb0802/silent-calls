@@ -2,10 +2,13 @@
 
 import asyncio
 import logging
+import re
 import time
 from collections.abc import Awaitable, Callable
 
 from pydantic import BaseModel
+
+from server.lipread.vocab import clean, names_from_text  # pure Python, no GPU deps
 
 from .captions import Transcript
 from .config import Settings, Weights
@@ -46,6 +49,7 @@ class Pipeline:
     async def handle(self, msg: CandidatesMessage) -> DecisionEvent:
         t0 = time.perf_counter()
         context = self.transcript.render()
+        names = self.names(context)
         cands = top_k(msg.candidates, max(self.s.jev_top_k, 1))
         if not cands:
             event = DecisionEvent(utterance_id=msg.utterance_id, route="repeat", options=[])
@@ -55,10 +59,10 @@ class Pipeline:
         # Claude starts now, in parallel with Jev, and reports back on its own.
         if self.repairer:
             self._repairs[msg.utterance_id] = asyncio.create_task(
-                self._repair(msg.utterance_id, context, cands))
+                self._repair(msg.utterance_id, context, cands, names))
 
         try:
-            scored, jev_ms = await score_with_jev(self.jev, context, cands, self.w)
+            scored, jev_ms = await score_with_jev(self.jev, context, cands, self.w, names)
         except asyncio.CancelledError:
             self._cancel_repair(msg.utterance_id)
             raise
@@ -88,10 +92,15 @@ class Pipeline:
         first_ms = await self.voice.say(text) if self.voice else 0.0
         await self.emit(SpokenEvent(text=text, first_audio_ms=round(first_ms)))
 
-    async def _repair(self, utterance_id: str, context: str, cands) -> None:
+    def names(self, context: str) -> list[str]:
+        """The user's names (VOCAB) plus names heard in the conversation (speaker labels stripped)."""
+        heard = names_from_text(re.sub(r"(?m)^[^:\n]+:\s*", "", context))
+        return clean(self.s.vocab.split(",") + heard)
+
+    async def _repair(self, utterance_id: str, context: str, cands, names: list[str] | None = None) -> None:
         t0 = time.perf_counter()
         try:
-            text = await self.repairer.repair(context, cands)
+            text = await self.repairer.repair(context, cands, names)
         except asyncio.CancelledError:
             raise
         except Exception as e:
