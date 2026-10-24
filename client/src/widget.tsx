@@ -3,6 +3,7 @@ import {usePersonalLibrary,vocabularySuggestions} from './services/personal-libr
 import {LipreadPort} from './services/lipread-port';
 import {loadSettings} from './services/settings';
 import {VoicePanel} from './components/voice-panel';
+import {CallCaptions} from './components/call-captions';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, Camera, CameraOff, GripHorizontal, Pause, Play, Waves, X } from 'lucide-react';
 import {useMouthTracking} from './capture/mouth-tracking';
@@ -137,6 +138,7 @@ export function MeetingWidget({service:providedPort}:{service?:MeetingPort} = {}
       <p className="capture-help" role="status">{keyFeedback}</p>
       <p className="capture-help">{capture.cameraOn ? 'Camera on' : 'Camera off'} · {hook.active ? hook.receivedKey ? `${keyLabels[hook.key]} received by native listener` : `${keyLabels[hook.key]} listener on · press to confirm` : `${keyLabels[key]} works here only · enable global key for meetings`}</p>
       {!providedPort && <section className="gpu-connect" aria-label="GPU lip-reading connection"><div><strong>Lip-reading</strong><span className={`dot ${service.connected ? '' : 'amber'}`}/>{service.connected ? 'GPU connected' : 'Not connected'}</div><p role="status">{service.message}</p><div className="gpu-actions"><button className="hold-button" disabled={service.phase === 'queued' || service.phase === 'speaking' || busy} onClick={() => service.connected ? gpuPort.disconnect() : gpuPort.connect(loadSettings())}>{service.connected ? 'Disconnect GPU' : 'Connect lip-reading'}</button><button className="icon-text" onClick={() => window.desktop?.showMain('workspace')}>Connection settings <ArrowUpRight size={12}/></button></div><p className="capture-help">Connecting enables uploads while you hold the key. Keep the SSH tunnel open. Video is sent to the GPU for inference and stays in memory.</p></section>}
+      <CallCaptions/>
       <SavedPhrases disabled={busy || serviceBusy}/>
       <section className="meeting-results" aria-label="Lip-reading results">
         {service.phase==='processing' && <p className="capture-help" role="status">{service.upload.bufferedBytes > 0 ? `Uploading ${Math.ceil(service.upload.bufferedBytes/1024)} KB queued · ${service.upload.sentFrames} frames` : 'Finishing the video stream or waiting for the GPU to read your phrase…'}</p>}
