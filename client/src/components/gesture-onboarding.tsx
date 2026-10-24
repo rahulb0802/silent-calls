@@ -1,6 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import {ArrowRight,Camera,Check,RefreshCw} from 'lucide-react';
-import {HandsFree,type FaceSample,type HandsFreeEvent} from '../capture/hands-free';
+import {HandsFree,PRACTICE,personalGestures,type FaceSample,type HandsFreeEvent} from '../capture/hands-free';
 import {useMouthTracking} from '../capture/mouth-tracking';
 import {useHandsFree} from '../capture/use-hands-free';
 import {loadSettings,type ServiceSettings} from '../services/settings';
@@ -19,8 +19,10 @@ export function GestureOnboarding({settings,onComplete,onLockChange}:{settings:S
   const [stage,setStage]=useState(-1),[model,setModel]=useState<Uint8Array|null>(null),[cameraOn,setCameraOn]=useState(false);
   const [loading,setLoading]=useState(false),[error,setError]=useState(''),[hint,setHint]=useState('');
   const video=useRef<HTMLVideoElement>(null),stream=useRef<MediaStream|null>(null),alive=useRef(true),opening=useRef(false);
-  const stageRef=useRef(stage),quiet=useRef(0),rests=useRef<FaceSample[]>([]),engine=useRef(new HandsFree({mode:'head',startBy:'nod'}));
+  const stageRef=useRef(stage),quiet=useRef(0),rests=useRef<FaceSample[]>([]),engine=useRef(new HandsFree({mode:'head',startBy:'nod',...PRACTICE}));
   const lipRange=useRef<{min:number;max:number}>({min:Infinity,max:-Infinity});
+  // This person's own nod and turn: measured from their resting pose in steps 2 and 3, saved at the end.
+  const restPose=useRef({yaw:0,pitch:0}),peaks=useRef({nod:0,turn:0});
   const sampleCallback=useRef<(sample:FaceSample)=>void>(()=>{}),mouthSeen=useRef(false),finished=useRef(false),complete=useRef(onComplete);
   complete.current=onComplete;stageRef.current=stage;
   const calibration=useHandsFree('busy',-1e9,false,()=>{});
@@ -43,25 +45,31 @@ export function GestureOnboarding({settings,onComplete,onLockChange}:{settings:S
   useEffect(()=>{
     if(stage!==6 || calibration.calibration.step!=='done' || finished.current)return;
     try{
+      calibration.setPersonalGestures(personalGestures(peaks.current.nod,peaks.current.turn));
       calibration.setHeadGestures();
       localStorage.setItem(`silent-calls:gestures:${encodeURIComponent(settings.profileId.trim())}`,JSON.stringify({completedAt:new Date().toISOString(),mode:'head',startBy:'nod'}));
       finished.current=true;stop();setStage(7);complete.current();
     }catch{setError('Your gestures worked, but setup could not be saved. Allow app storage and try again.');}
   },[stage,calibration.calibration.step]);
-  function advance(next:number,t:number){stageRef.current=next;setStage(next);quiet.current=t+800;rests.current=[];engine.current=new HandsFree({mode:'head',startBy:'nod'});setHint('Good. Return to your comfortable resting position.');}
+  function advance(next:number,t:number){stageRef.current=next;setStage(next);quiet.current=t+800;rests.current=[];engine.current=new HandsFree({mode:'head',startBy:'nod',...PRACTICE});setHint('Good. Return to your comfortable resting position.');}
   sampleCallback.current=sample=>{
     if(calibration.recording && stageRef.current!==6)calibration.onSample(sample);  // tuning recording (numbers only)
     const current=stageRef.current;
     if(current<0 || current>6)return;
     if(current===6){calibration.onSample(sample);return;}
-    if(!sample.face){rests.current=[];engine.current=new HandsFree({mode:'head',startBy:'nod'});setHint('Keep your whole face in view. We’ll continue when you’re ready.');return;}
+    if(!sample.face){rests.current=[];engine.current=new HandsFree({mode:'head',startBy:'nod',...PRACTICE});setHint('Keep your whole face in view. We’ll continue when you’re ready.');return;}
     if(sample.t<quiet.current)return;
     if(current===0){
       rests.current.push(sample);rests.current=rests.current.filter(value=>value.t>=sample.t-2200);
       const values=rests.current;
-      if(values.length>=20 && sample.t-values[0].t>=2000 && Math.max(...values.map(v=>v.yaw))-Math.min(...values.map(v=>v.yaw))<6 && Math.max(...values.map(v=>v.pitch))-Math.min(...values.map(v=>v.pitch))<5)advance(1,sample.t);
+      if(values.length>=20 && sample.t-values[0].t>=2000 && Math.max(...values.map(v=>v.yaw))-Math.min(...values.map(v=>v.yaw))<6 && Math.max(...values.map(v=>v.pitch))-Math.min(...values.map(v=>v.pitch))<5){
+        restPose.current={yaw:values.reduce((a,v)=>a+v.yaw,0)/values.length,pitch:values.reduce((a,v)=>a+v.pitch,0)/values.length};
+        peaks.current={nod:0,turn:0};advance(1,sample.t);
+      }
       return;
     }
+    if(current===1)peaks.current.nod=Math.max(peaks.current.nod,Math.abs(sample.pitch-restPose.current.pitch));
+    if(current===2)peaks.current.turn=Math.max(peaks.current.turn,Math.abs(sample.yaw-restPose.current.yaw));
     if(current===5){lipRange.current.min=Math.min(lipRange.current.min,sample.open);lipRange.current.max=Math.max(lipRange.current.max,sample.open);if(sample.mouth>.3 || lipRange.current.max-lipRange.current.min>.015)mouthSeen.current=true;}
     const events=engine.current.push(sample,'choosing');
     const other=events.find(event=>event!==expected[current] && ['send','next','cancel'].includes(event));
@@ -84,7 +92,7 @@ export function GestureOnboarding({settings,onComplete,onLockChange}:{settings:S
       if(!alive.current){media.getTracks().forEach(track=>track.stop());return;}
       stream.current=media;video.current!.srcObject=media;await video.current!.play();
       media.getVideoTracks()[0].onended=()=>{if(alive.current){setCameraOn(false);setStage(-1);setError('Your camera disconnected. Reconnect it and begin again.');}};
-      engine.current=new HandsFree({mode:'head',startBy:'nod'});rests.current=[];mouthSeen.current=false;lipRange.current={min:Infinity,max:-Infinity};quiet.current=0;setCameraOn(true);setStage(0);setHint('Your movements stay on this computer. Nothing is sent to your call.');
+      engine.current=new HandsFree({mode:'head',startBy:'nod',...PRACTICE});rests.current=[];mouthSeen.current=false;lipRange.current={min:Infinity,max:-Infinity};quiet.current=0;setCameraOn(true);setStage(0);setHint('Your movements stay on this computer. Nothing is sent to your call.');
     }catch(reason){media?.getTracks().forEach(track=>track.stop());if(alive.current){setCameraOn(false);setStage(-1);setError(reason instanceof Error?reason.message:'Couldn’t open your camera. Try again.');}}
     finally{opening.current=false;if(alive.current)setLoading(false);}
   }

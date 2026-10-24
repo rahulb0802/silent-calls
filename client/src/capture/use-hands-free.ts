@@ -1,14 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { loadSettings } from '../services/settings';
 import { HandsFree, calibrate as calibrateFrom, type FaceSample, type GestureMode, type HandsFreeEvent, type HandsFreePhase, type StartBy } from './hands-free';
 
-const KEY = 'silent-calls:hands-free:v1';
-type Saved = { enabled: boolean; mode: GestureMode; startBy: StartBy; mouthOn?: number };
+// Saved per profile: each person's calibration and gesture sizes are their own.
+const BASE = 'silent-calls:hands-free:v1';
+function key(): string {
+  const profile = loadSettings().profileId.trim().toLowerCase();
+  return profile ? `${BASE}:${encodeURIComponent(profile)}` : BASE;
+}
+type Saved = { enabled: boolean; mode: GestureMode; startBy: StartBy; mouthOn?: number; nodDeg?: number; turnDeg?: number };
+const positive = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : undefined;
 function load(): Saved {
   try {
-    const value = JSON.parse(localStorage.getItem(KEY) || '{}');
-    return { enabled: true, mode: value.mode === 'face' ? 'face' : 'head', startBy: value.startBy === 'mouth' ? 'mouth' : 'nod', mouthOn: Number.isFinite(value.mouthOn) && value.mouthOn > 0 ? value.mouthOn : undefined };
+    // settings saved before they were per profile carry over until this profile saves its own
+    const value = JSON.parse(localStorage.getItem(key()) || localStorage.getItem(BASE) || '{}');
+    return { enabled: true, mode: value.mode === 'face' ? 'face' : 'head', startBy: value.startBy === 'mouth' ? 'mouth' : 'nod',
+      mouthOn: positive(value.mouthOn), nodDeg: positive(value.nodDeg), turnDeg: positive(value.turnDeg) };
   } catch { return { enabled: true, mode: 'head', startBy: 'nod' }; }
 }
+const engineConfig = (s: Saved) => ({ mode: s.mode, startBy: s.startBy, mouthOn: s.mouthOn, nodDeg: s.nodDeg, turnDeg: s.turnDeg });
 export type Calibration = { step: 'idle' | 'rest' | 'mouth' | 'done' | 'failed'; secondsLeft: number };
 const REST_MS = 4000, MOUTH_MS = 5000;
 
@@ -17,7 +27,7 @@ const REST_MS = 4000, MOUTH_MS = 5000;
  * 1.5 s after it (a caption that never finalizes can't block starts forever). */
 export function useHandsFree(phase: HandsFreePhase, talkingAt: number, suggestions: boolean, onEvent: (event: HandsFreeEvent) => void) {
   const [saved, setSaved] = useState<Saved>(load);
-  const engine = useRef(new HandsFree({ mode: saved.mode, startBy: saved.startBy, mouthOn: saved.mouthOn }));
+  const engine = useRef(new HandsFree(engineConfig(saved)));
   const state = useRef({ phase, talkingAt, suggestions, onEvent, enabled: saved.enabled });
   state.current = { phase, talkingAt, suggestions, onEvent, enabled: saved.enabled };
   const [meter, setMeter] = useState({ level: 0, threshold: engine.current.threshold });
@@ -33,8 +43,8 @@ export function useHandsFree(phase: HandsFreePhase, talkingAt: number, suggestio
   const save = useCallback((next: Saved) => {
     next={...next,enabled:true};
     setSaved(next);
-    engine.current.config = { mode: next.mode, startBy: next.startBy, mouthOn: next.mouthOn };
-    try { localStorage.setItem(KEY, JSON.stringify(next)); } catch { /* settings stay for this session */ }
+    engine.current.config = engineConfig(next);
+    try { localStorage.setItem(key(), JSON.stringify(next)); } catch { /* settings stay for this session */ }
   }, []);
 
   useEffect(()=>{
@@ -42,11 +52,14 @@ export function useHandsFree(phase: HandsFreePhase, talkingAt: number, suggestio
       if(!event || event.key==='silent-calls:gesture-practice:v1'){
         try{practiceUntil.current=JSON.parse(localStorage.getItem('silent-calls:gesture-practice:v1') || '{}').until || 0;}catch{practiceUntil.current=0;}
       }
-      if(event && (event.key===KEY || event.key===null)){
-        const next=load();setSaved(next);engine.current=new HandsFree({mode:next.mode,startBy:next.startBy,mouthOn:next.mouthOn});
+      // another window saved these settings (gesture practice in the main window), or the profile changed
+      if(event && (event.key===key() || event.key===null || event.key==='silent-calls:services:v1')){
+        const next=load();setSaved(next);engine.current=new HandsFree(engineConfig(next));
       }
     };
-    sync();window.addEventListener('storage',sync);return()=>window.removeEventListener('storage',sync);
+    const profile=()=>{const next=load();setSaved(next);engine.current=new HandsFree(engineConfig(next));};
+    sync();window.addEventListener('storage',sync);window.addEventListener('silent-calls:settings',profile);
+    return()=>{window.removeEventListener('storage',sync);window.removeEventListener('silent-calls:settings',profile);};
   },[]);
 
   const onSample = useCallback((sample: FaceSample) => {
@@ -95,11 +108,14 @@ export function useHandsFree(phase: HandsFreePhase, talkingAt: number, suggestio
 
   return {
     enabled: saved.enabled, mode: saved.mode, calibrated: saved.mouthOn !== undefined,
-    setMode: (mode: GestureMode) => save({ ...saved, mode }),
-    setHeadGestures: () => save({...saved,mode:'head',startBy:'nod'}),
+    setMode: (mode: GestureMode) => save({ ...load(), mode }),
+    setHeadGestures: () => save({ ...load(), mode: 'head', startBy: 'nod' }),
+    /** Save this person's nod and turn sizes, measured in gesture practice. */
+    setPersonalGestures: (sizes: { nodDeg: number; turnDeg: number }) => save({ ...load(), ...sizes }),
+    personal: saved.nodDeg !== undefined,
     startBy: saved.startBy,
-    setStartBy: (startBy: StartBy) => save({ ...saved, startBy }),
-    resetCalibration: () => save({ ...saved, mouthOn: undefined }),
+    setStartBy: (startBy: StartBy) => save({ ...load(), startBy }),
+    resetCalibration: () => save({ ...load(), mouthOn: undefined }),
     calibrate, calibration, meter, onSample, recording,
     /** Save the last calibration's readings (numbers only) as a JSON file, to tune from. */
     saveCalibration: () => {

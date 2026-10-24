@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { HandsFree, calibratedThreshold, headPose, mouthMovement, type FaceSample, type HandsFreeEvent, type HandsFreePhase } from '../src/capture/hands-free';
+import { HandsFree, calibratedThreshold, headPose, mouthMovement, personalGestures, type FaceSample, type HandsFreeEvent, type HandsFreePhase } from '../src/capture/hands-free';
 
 const STEP = 66;
 const rest = {face: true, mouth: 0.3, open: 0.05, yaw: 2, pitch: 10, brows: 0.1, blink: 0};
@@ -154,13 +154,24 @@ test('the first readings after the face comes back are ignored', () => {
 });
 
 test('a small nod that lands a little off rest still counts; a posture shift does not block later nods', () => {
-  // nod 5.5 degrees, come back to +2 (not exactly to rest)
+  // nod 7 degrees, come back to +3 (not exactly to rest)
   const sloppy = run([{ms: 1000, phase: 'idle'}, {ms: 600, phase: 'choosing'},
-    {ms: 1200, phase: 'choosing', at: t => ({pitch: 10 + (t < 2050 ? 5.5 : 2)})}]);
+    {ms: 1200, phase: 'choosing', at: t => ({pitch: 10 + (t < 2050 ? 7 : 3)})}]);
   assert.deepEqual(names(sloppy), ['send']);
   // lean forward and stay there for 3 s, then nod from the new position
   const shifted = run([{ms: 1000, phase: 'idle'}, {ms: 600, phase: 'choosing'},
     {ms: 3200, phase: 'choosing', at: {pitch: 17}},
-    {ms: 1500, phase: 'choosing', at: t => ({pitch: 17 + (t > 4950 && t < 5300 ? 6 : 0)})}]);
+    {ms: 1500, phase: 'choosing', at: t => ({pitch: 17 + (t > 4950 && t < 5300 ? 8 : 0)})}]);
   assert.deepEqual(names(shifted), ['send']);
+});
+
+test('personal gesture sizes: 60% of the practiced nod and turn, within bounds; used by the detector', () => {
+
+  assert.deepEqual(personalGestures(5, 20), {nodDeg: 3.5, turnDeg: 12});   // small nod: floor 3.5
+  assert.deepEqual(personalGestures(30, 60), {nodDeg: 10, turnDeg: 18});   // big movements: capped
+  // a 4-degree nod: missed with the default (6), caught with this person's size
+  const nod4 = (t: number) => ({pitch: 10 + (t > 1700 && t < 2050 ? 4 : 0)});
+  const script = [{ms: 1000, phase: 'idle' as const}, {ms: 600, phase: 'choosing' as const}, {ms: 1200, phase: 'choosing' as const, at: nod4}];
+  assert.deepEqual(names(run(script)), []);
+  assert.deepEqual(names(run(script, new HandsFree({mode: 'head', ...personalGestures(4.5, 20)}))), ['send']);
 });

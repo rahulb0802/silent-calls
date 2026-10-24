@@ -22,6 +22,8 @@ export type HandsFreeConfig = {
   // 'nod': nod (or raise your brows) to start reading and again to finish: reliable on any face.
   // 'mouth': start by mouthing, finish by stopping; needs clearly visible mouth movement.
   startBy?: StartBy;
+  nodDeg?: number;          // this person's nod / turn thresholds, learned in gesture practice (personalGestures)
+  turnDeg?: number;
   mouthOn?: number;         // fixed start threshold from calibration; otherwise adaptive
 };
 
@@ -40,8 +42,9 @@ const NOISE_GAIN = 3;       // adaptive threshold: this many times the resting n
 const STILL_HEAD = 45;      // deg/s: faster head motion is a gesture, not mouthing
 const FACING = 30;          // deg from the resting pose: beyond this the user looked away
 // Head gestures
-// A natural nod is small: about 4-6 degrees in a recording of a real face (head still to ~0.5 degree at rest).
-const YAW_T = 10, PITCH_T = 4.5;     // deg from the resting pose to count as a turn / nod
+// Defaults for someone who hasn't done gesture practice; practice measures their own nod and turn
+// (natural nods we've seen are 4-6 degrees; a still head wobbles about half a degree).
+const YAW_T = 10, PITCH_T = 6;       // deg from the resting pose to count as a turn / nod
 const RETURN = 0.4;                  // back within this fraction of the threshold = returned
 const NOD_MAX_MS = 1200, TURN_MIN_MS = 120, TURN_MAX_MS = 2500;
 const REFRACTORY_MS = 450;
@@ -172,7 +175,7 @@ export class HandsFree {
 
   /** A nod (down and back) sends, a turn (one side and back) moves to the next option, a shake (both sides) cancels. */
   private head(t: number, dyaw: number, dpitch: number): HandsFreeEvent | null {
-    const y = dyaw / YAW_T, p = dpitch / PITCH_T;
+    const y = dyaw / (this.config.turnDeg ?? YAW_T), p = dpitch / (this.config.nodDeg ?? PITCH_T);
     if (!this.out) {
       if (Math.max(Math.abs(y), Math.abs(p)) >= 1) {
         const axis = Math.abs(y) >= Math.abs(p) ? 'yaw' : 'pitch';
@@ -205,6 +208,15 @@ export class HandsFree {
     return gesture;
   }
 }
+
+/** Personal thresholds from the nod and turn someone made in gesture practice (their peak movement from
+ * rest, in degrees): 60% of it, within sane bounds. */
+export function personalGestures(nodPeak: number, turnPeak: number): {nodDeg: number; turnDeg: number} {
+  const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+  return {nodDeg: +clamp(0.6 * nodPeak, 3.5, 10).toFixed(1), turnDeg: +clamp(0.6 * turnPeak, 6, 18).toFixed(1)};
+}
+/** Lenient thresholds for gesture practice itself, so a small first nod still registers and can be measured. */
+export const PRACTICE = {nodDeg: 3.5, turnDeg: 7};
 
 const quantile = (xs: number[], f: number) => { const s = [...xs].sort((a, b) => a - b); return s[Math.min(s.length - 1, Math.floor(f * s.length))] ?? 0; };
 
