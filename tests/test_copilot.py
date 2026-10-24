@@ -199,3 +199,43 @@ def test_punctuation_is_used_only_when_every_word_is_kept():
     good = asyncio.run(Punctuator(Fake("Hi, my name is Rahul. Can you send me the Claude file?")).punctuate(text))
     reworded = asyncio.run(Punctuator(Fake("Hi, I'm Rahul. Could you send me the Claude file?")).punctuate(text))
     assert good == "Hi, my name is Rahul. Can you send me the Claude file?" and reworded is None
+
+
+def test_phrase_memory_recalls_past_replies_and_remembers_new_ones():
+    events = []
+
+    async def emit(e):
+        events.append(e)
+
+    class FakeMemory:
+        def __init__(self):
+            self.added, self._session = [], NS(doc_count=31)
+
+        async def open(self, profile):
+            return 31
+
+        async def recall(self, line):
+            return ["Sure, I'll send it over tonight."]
+
+        async def add(self, prompt, reply):
+            self.added.append((prompt, reply))
+
+        async def close(self):
+            pass
+
+    async def run():
+        mem = FakeMemory()
+        p = Pipeline(Settings(), voice=None, emit=emit, use_jev=False, use_claude=False, memory=mem)
+        await p.on_caption("Can you send me the deck?")  # memory off: nothing recalled or kept
+        await p.set_memory("Rahul", True)
+        await p.on_caption("Could you share the slides?")
+        p.dictated("Yes, I'll share them after lunch.")
+        await asyncio.sleep(0.01)
+        await p.close()
+        return mem
+
+    mem = asyncio.run(run())
+    memory = [e for e in events if e.type == "memory"]
+    assert memory[0].on and memory[0].count == 31
+    assert memory[-1].phrases == ["Sure, I'll send it over tonight."] and memory[-1].for_line == "Could you share the slides?"
+    assert mem.added == [("Could you share the slides?", "Yes, I'll share them after lunch.")]

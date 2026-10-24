@@ -97,6 +97,7 @@ export class LipreadPort implements MeetingPort {
   private callNames: string[] = [];
   private written = new Map<string, Promise<string | null>>();  // dictation: punctuated text, started early
   private copilot: CopilotState | null = null;
+  private recalled: string[] = [];  // phrase memory: your past replies to lines like the latest
   private desired = false;
   private retries = 0;
   private active = '';
@@ -181,9 +182,10 @@ export class LipreadPort implements MeetingPort {
         const item = value as {text?:unknown;lip_score?:unknown};
         if (typeof item.text !== 'string' || !item.text.trim() || item.text.length > 5000) return [];
         const reply = givenSet.has(item.text) ? this.copilot?.replies.find(r => normalize(r.text) === normalize(item.text as string)) : undefined;
-        // a co-pilot reply keeps its own wording (digits, punctuation) for display and speech
-        return [{id:`${id}:${index}`,text:reply?.text ?? item.text,lipScore:typeof item.lip_score === 'number' && Number.isFinite(item.lip_score) ? item.lip_score : undefined,
-          ...(givenSet.has(item.text) ? {source:'copilot' as const, facts:reply?.facts ?? []} : {})}];
+        const past = givenSet.has(item.text) && !reply ? this.recalled.find(p => normalize(p) === normalize(item.text as string)) : undefined;
+        // a co-pilot reply (or one of your past replies) keeps its own wording for display and speech
+        return [{id:`${id}:${index}`,text:reply?.text ?? past ?? item.text,lipScore:typeof item.lip_score === 'number' && Number.isFinite(item.lip_score) ? item.lip_score : undefined,
+          ...(reply ? {source:'copilot' as const, facts:reply.facts} : past ? {source:'memory' as const, facts:[]} : givenSet.has(item.text) ? {source:'copilot' as const, facts:[]} : {})}];
       });
       this.clearResultTimers(); this.waiting = false;
       const timings: Record<string,number> = {};
@@ -218,16 +220,19 @@ export class LipreadPort implements MeetingPort {
   }
   /** The co-pilot's prepared replies, scored by the lip-reader against this capture (unless turned off). */
   private given(): {given?: string[]} {
-    if (copilotOff() || !this.copilot?.replies.length) return {};
-    return {given: this.copilot.replies.map(reply => reply.text).slice(0, 8)};
+    // the co-pilot's replies, then your own past replies from phrase memory: scored against the video
+    const replies = copilotOff() ? [] : this.copilot?.replies.map(reply => reply.text) ?? [];
+    const given = [...new Set([...replies, ...this.recalled])].slice(0, 8);
+    return given.length ? {given} : {};
   }
   /** Follow the local service's list of names in this call and the co-pilot's prepared replies. */
   private watchNames() {
     this.removeNames?.(); this.removeNames = null;
     const desktop = window.desktop;
     if (!desktop?.onVoiceStatus) return;
-    const take = (state: {callNames?: string[]; copilot?: CopilotState | null}) => {
+    const take = (state: {callNames?: string[]; copilot?: CopilotState | null; memory?: {on: boolean; phrases: string[]} | null}) => {
       this.callNames = Array.isArray(state.callNames) ? state.callNames : [];
+      this.recalled = state.memory?.on && Array.isArray(state.memory.phrases) ? state.memory.phrases : [];
       this.copilot = state.copilot ?? null;
     };
     this.removeNames = desktop.onVoiceStatus(take);

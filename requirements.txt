@@ -1,5 +1,6 @@
 anthropic>=2.3
 httpx>=0.28
+moss>=1.21  # phrase memory (silentcalls/phrase_memory.py); optional, needs MOSS_PROJECT_ID / MOSS_PROJECT_KEY
 websockets>=14
 sounddevice>=0.5
 numpy>=2.0

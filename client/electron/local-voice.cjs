@@ -61,6 +61,7 @@ class LocalVoice {
       voiceName: '',
       hasVoice: false,
       review: null, // {pending} while the coach works, then {summary, proposals:[{kind, value, reason}], moments, latencyMs}
+      memory: null, // {on, count, phrases, forLine}: phrase memory (Moss), the user's past replies to lines like the latest
       copilot: null, // {replies:[{text, facts:[{source, detail}]}], forLine, latencyMs, steps:[{tool, query, results}]}
       callNames: [], // names likely in this call (service's VOCAB + names heard), sent to the lip-reader too
       liveCaption: null, // {speaker, text}: the other person's line while they are still speaking
@@ -68,7 +69,7 @@ class LocalVoice {
     };
   }
 
-  snapshot() { return { ...this.state, captions: this.state.captions.map(line => ({ ...line })), repair: this.state.repair && { ...this.state.repair }, liveCaption: this.state.liveCaption && { ...this.state.liveCaption }, callNames: [...this.state.callNames], copilot: this.state.copilot && JSON.parse(JSON.stringify(this.state.copilot)), review: this.state.review && JSON.parse(JSON.stringify(this.state.review)) }; }
+  snapshot() { return { ...this.state, captions: this.state.captions.map(line => ({ ...line })), repair: this.state.repair && { ...this.state.repair }, liveCaption: this.state.liveCaption && { ...this.state.liveCaption }, callNames: [...this.state.callNames], copilot: this.state.copilot && JSON.parse(JSON.stringify(this.state.copilot)), memory: this.state.memory && JSON.parse(JSON.stringify(this.state.memory)), review: this.state.review && JSON.parse(JSON.stringify(this.state.review)) }; }
   update(patch) {
     this.state = { ...this.state, ...patch, revision: this.state.revision + 1 };
     this.onChange(this.snapshot());
@@ -113,7 +114,7 @@ class LocalVoice {
     try { socket = new WebSocket(endpoint); }
     catch { return this.update({ connection: 'error', phase: 'idle', message: 'Could not open a local connection. Start the Python voice service and retry.' }); }
     this.socket = socket;
-    this.update({ port, endpoint, connection: 'connecting', phase: 'idle', message: 'Connecting to the local voice service…', captions: [], liveCaption: null, callNames: [], copilot: null, review: null, personalVoiceReady: false, hasVoice: false, voiceName: '', lastSpoken: '' });
+    this.update({ port, endpoint, connection: 'connecting', phase: 'idle', message: 'Connecting to the local voice service…', captions: [], liveCaption: null, callNames: [], copilot: null, memory: null, review: null, personalVoiceReady: false, hasVoice: false, voiceName: '', lastSpoken: '' });
     this.connectTimer = setTimeout(() => {
       if (this.socket !== socket) return;
       this.detach();
@@ -123,6 +124,7 @@ class LocalVoice {
       if (this.socket !== socket) return;
       clearTimeout(this.connectTimer); this.connectTimer = null;
       this.update({ connection: 'connected', message: 'Voice service connected. Meeting audio routing still needs to be checked.' });
+      if (this.memoryConfig) { try { socket.send(JSON.stringify({ type: 'memory', ...this.memoryConfig })); } catch { /* resent next time */ } }
     });
     socket.addEventListener('message', event => { if (this.socket === socket) this.handleMessage(event.data); });
     socket.addEventListener('close', () => {
@@ -183,6 +185,12 @@ class LocalVoice {
           ? [{ kind: p.kind, value: p.value.trim().slice(0, 200), reason: typeof p.reason === 'string' ? p.reason.slice(0, 300) : '' }] : []));
       this.update({ review: { pending: false, summary: typeof message.summary === 'string' ? message.summary.slice(0, 1000) : '', proposals,
         moments: Number.isInteger(message.moments) ? message.moments : 0, latencyMs: Number.isFinite(message.latency_ms) ? message.latency_ms : null } });
+    }
+    if (message.type === 'memory' && typeof message.on === 'boolean') {
+      const phrases = (Array.isArray(message.phrases) ? message.phrases : []).filter(p => typeof p === 'string' && p.trim() && p.length <= 300).slice(0, 5);
+      const previous = this.state.memory || { on: false, count: 0, phrases: [], forLine: '' };
+      this.update({ memory: { on: message.on, count: Number.isInteger(message.count) && message.count > 0 ? message.count : previous.count,
+        phrases: message.on ? (phrases.length || message.for_line ? phrases : previous.phrases) : [], forLine: typeof message.for_line === 'string' && message.for_line ? message.for_line.slice(0, 500) : previous.forLine } });
     }
     if (message.type === 'copilot') {
       const copilot = parseCopilot(message);
@@ -246,6 +254,17 @@ class LocalVoice {
     const words = Array.isArray(vocab) ? vocab.filter(w => typeof w === 'string' && w.trim() && w.length <= 120).slice(0, 200) : [];
     this.socket.send(JSON.stringify({ type: 'review', vocab: words }));
     return this.update({ review: { pending: true, summary: '', proposals: [], moments: 0, latencyMs: null } });
+  }
+  /** Phrase memory on or off for this profile (remembered, and sent again whenever the service reconnects). */
+  setMemory(input) {
+    const profile = input && typeof input.profile === 'string' ? input.profile.trim().slice(0, 80) : '';
+    this.memoryConfig = { profile, on: Boolean(input && input.on) && Boolean(profile) };
+    if (this.state.connection === 'connected' && this.socket && this.socket.readyState === 1) {
+      try { this.socket.send(JSON.stringify({ type: 'memory', ...this.memoryConfig })); } catch { /* resent on reconnect */ }
+    }
+  }
+  forgetPhrases() {
+    if (this.socket && this.socket.readyState === 1) { try { this.socket.send(JSON.stringify({ type: 'memory.forget' })); } catch { /* try again */ } }
   }
   /** Dictation: the picked words written out with capitals and punctuation (punctuate.py); null if not
    * available within 3.5 s or if a word would change. */

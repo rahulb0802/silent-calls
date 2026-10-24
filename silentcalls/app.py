@@ -21,6 +21,7 @@ from pydantic import BaseModel, ValidationError
 
 from .captions import CallCaptioner
 from .coach import Coach
+from .phrase_memory import PhraseMemory
 from .punctuate import Punctuator
 from .copilot import Copilot
 from .google_data import GoogleData
@@ -142,6 +143,11 @@ def handler(pipeline: Pipeline):
                     elif kind == "review":
                         vocab = msg.get("vocab") if isinstance(msg.get("vocab"), list) else []
                         launch(pipeline.review([w for w in vocab if isinstance(w, str)][:200]))
+                    elif kind == "memory":
+                        launch(pipeline.set_memory(text_field(msg, "profile")[:80] if msg.get("profile") else "",
+                                                   msg.get("on") is True))
+                    elif kind == "memory.forget":
+                        launch(pipeline.forget_phrases())
                     elif kind == "punctuate":
                         names = msg.get("names") if isinstance(msg.get("names"), list) else []
                         launch(pipeline.punctuate(text_field(msg, "request_id")[:100], text_field(msg, "text"),
@@ -189,7 +195,8 @@ async def main() -> None:
     coach = Coach(settings) if not args.no_claude and os.getenv("ANTHROPIC_API_KEY") else None
     punctuator = Punctuator() if not args.no_claude and os.getenv("ANTHROPIC_API_KEY") else None
     pipeline = Pipeline(settings, voice, broadcast, use_jev=not args.no_jev, use_claude=not args.no_claude,
-                        copilot=copilot, coach=coach, punctuator=punctuator)
+                        copilot=copilot, coach=coach, punctuator=punctuator,
+                        memory=PhraseMemory() if PhraseMemory.available() else None)
     if pipeline.jev:
         pipeline.jev.start()
     asyncio.create_task(pipeline.load_people())

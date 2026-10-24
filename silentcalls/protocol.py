@@ -67,6 +67,17 @@ class CaptionEvent(BaseModel):
     final: bool = True  # False: the line so far, still being spoken (display only; replaced by the next one)
 
 
+class MemoryEvent(BaseModel):
+    """Phrase memory (phrase_memory.py): the user's past replies to lines like the other person's latest, sent
+    to the lip-reader with the co-pilot's replies. Also the memory's state (on, how many phrases)."""
+
+    type: Literal["memory"] = "memory"
+    on: bool
+    phrases: list[str] = Field(default_factory=list)
+    for_line: str = ""
+    count: int = 0
+
+
 class PunctuatedEvent(BaseModel):
     """Dictation: the text written out (punctuate.py), or None to use the app's simple rules."""
 

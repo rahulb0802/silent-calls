@@ -1,5 +1,5 @@
 import {useEffect, useRef, type ReactNode} from 'react';
-import {CalendarDays, ChevronDown, ChevronUp, Keyboard, Maximize2, Mic, Sparkles, Volume2} from 'lucide-react';
+import {CalendarDays, History, ChevronDown, ChevronUp, Keyboard, Maximize2, Mic, Sparkles, Volume2} from 'lucide-react';
 import type {Candidate, Route} from '../services/meeting-port';
 import {CopilotPanel} from './copilot-panel';
 
@@ -73,7 +73,7 @@ export function CompactPill(p: Props) {
       <button className="pill-icon" aria-label="Open the full companion" onClick={p.onExpand}><Maximize2 size={14}/></button>
     </div>
     {p.phase === 'choosing' && top && <div className="pill-choices">
-      <button className={`pill-top ${repairPicked ? 'is-dimmed' : ''}`} onClick={() => p.onPick(top)}><span>{top.text}</span>{top.source === 'copilot' && <CalendarDays size={13} aria-label="co-pilot reply"/>}<Volume2 size={14}/></button>
+      <button className={`pill-top ${repairPicked ? 'is-dimmed' : ''}`} onClick={() => p.onPick(top)}><span>{top.text}</span>{top.source === 'copilot' && <CalendarDays size={13} aria-label="co-pilot reply"/>}{top.source === 'memory' && <History size={13} aria-label="something you've said before"/>}<Volume2 size={14}/></button>
       <div className="pill-others">{shown.map((c, i) => c === top ? null : <button key={c.id} onClick={() => p.onPick(c)}><kbd>{i + 1}</kbd>{c.text}{c.source === 'copilot' && <CalendarDays size={11}/>}</button>)}
         {p.repair && <button className={`pill-repair ${repairPicked ? 'is-picked' : ''}`} aria-current={repairPicked ? 'true' : undefined} onClick={p.onRepair}><Sparkles size={11}/>{p.repair}</button>}</div>
       <p className="pill-hint">{p.hint}</p>

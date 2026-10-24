@@ -30,6 +30,9 @@ export interface DesktopAPI {
   noteDictated(text:string): Promise<void>;
   /** Dictation: the words written out (capitals, punctuation, sentence breaks; no word changed), or null. */
   punctuate(input:{text:string;names:string[]}): Promise<string|null>;
+  /** Phrase memory (Moss) on or off for this profile. */
+  setMemory(input:{profile:string;on:boolean}): Promise<void>;
+  forgetPhrases(): Promise<void>;
   setWidgetFocusable(focusable:boolean): Promise<void>;
   cloneVoice(wav:Uint8Array,name:string): Promise<VoiceState>;
   decide(input:DecisionInput): Promise<Decision|null>;

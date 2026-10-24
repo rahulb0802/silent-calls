@@ -1,5 +1,5 @@
 import type {CaptureClip,Frame} from '../capture/buffer';
-export type Candidate={id:string;text:string;lipScore?:number;prob?:number;source?:'copilot';facts?:{source:string;detail:string}[]};
+export type Candidate={id:string;text:string;lipScore?:number;prob?:number;source?:'copilot'|'memory';facts?:{source:string;detail:string}[]};
 export type Route='speak'|'choose'|'repeat';
 /** The server's per-utterance quality report (numbers and flags only; server/lipread/frames.py quality()). */
 export type QualityData={[key:string]:number|string[]|undefined;flags?:string[]};

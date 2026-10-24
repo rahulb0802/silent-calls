@@ -14,8 +14,8 @@ from server.lipread.vocab import clean, names_from_text  # pure Python, no GPU d
 from .captions import Transcript
 from .config import Settings, Weights
 from .decision import Jev, Repairer, route, score_with_jev, top_k
-from .protocol import (CandidatesMessage, CaptionEvent, DecisionEvent, NamesEvent, PunctuatedEvent, RepairEvent,
-                       ReviewEvent, SpokenEvent)
+from .protocol import (CandidatesMessage, CaptionEvent, DecisionEvent, MemoryEvent, NamesEvent, PunctuatedEvent,
+                       RepairEvent, ReviewEvent, SpokenEvent)
 from .voice import VoiceOutput
 
 log = logging.getLogger(__name__)
@@ -25,7 +25,8 @@ Emit = Callable[[BaseModel], Awaitable[None]]
 
 class Pipeline:
     def __init__(self, s: Settings, voice: VoiceOutput | None, emit: Emit,
-                 use_jev: bool = True, use_claude: bool = True, copilot=None, coach=None, punctuator=None):
+                 use_jev: bool = True, use_claude: bool = True, copilot=None, coach=None, punctuator=None,
+                 memory=None):
         self.s = s
         self.w = Weights.load()
         self.voice = voice
@@ -41,6 +42,9 @@ class Pipeline:
         self.copilot = copilot  # Copilot, or None
         self.coach = coach  # Coach, or None
         self.punctuator = punctuator  # Punctuator (dictation), or None
+        self.memory = memory  # PhraseMemory (Moss), or None; used only while the user has it on
+        self.memory_on = False
+        self._last_them = ""  # the line the user's next reply answers, for phrase memory
         self._dictated: list[str] = []  # what was typed by dictation, as context for where sentences break
         # this call, in memory only, for the post-call review: every line, and for each line the user spoke,
         # the options they were shown
@@ -50,6 +54,8 @@ class Pipeline:
         self._last_repair = ""
 
     async def close(self) -> None:
+        if self.memory:
+            await self.memory.close()
         tasks = list(self._repairs.values())
         for t in tasks:
             t.cancel()
@@ -61,6 +67,9 @@ class Pipeline:
             await self.copilot.close()
 
     async def on_caption(self, line: str) -> None:
+        self._last_them = line
+        if self.memory_on:
+            asyncio.create_task(self._recall(line))
         self.transcript.add("them", line)
         self._call = (self._call + [("them", line)])[-200:]
         await self.emit(CaptionEvent(speaker="them", text=line))
@@ -150,6 +159,8 @@ class Pipeline:
     def dictated(self, text: str) -> None:
         """Dictation: the user's text was typed, not spoken; keep it as context (and for the post-call review)."""
         self._dictated = (self._dictated + [text])[-10:]
+        if self.memory_on:
+            asyncio.create_task(self._remember(text))
         self.transcript.add("me", text)
         self._call = (self._call + [("me", text)])[-200:]
         shown = self._shown[1] if self._shown and time.monotonic() - self._shown[0] < 120 else []
@@ -157,7 +168,43 @@ class Pipeline:
             self._moments = (self._moments + [{"said": text, "options": shown, "repair": self._last_repair}])[-100:]
         self._shown, self._last_repair = None, ""
 
+    async def set_memory(self, profile: str, on: bool) -> None:
+        """The app's phrase-memory setting for this profile (opt-in)."""
+        if not self.memory:
+            await self.emit(MemoryEvent(on=False))
+            return
+        self.memory_on = False
+        count = 0
+        if on and profile:
+            try:
+                count = await self.memory.open(profile)
+                self.memory_on = True
+            except Exception as e:  # Moss unreachable: carry on without it
+                log.info("memory: unavailable (%s)", type(e).__name__)
+        await self.emit(MemoryEvent(on=self.memory_on, count=count))
+
+    async def forget_phrases(self) -> None:
+        n = await self.memory.forget() if self.memory and self.memory_on else 0
+        log.info("memory: forgot %d phrases", n)
+        await self.emit(MemoryEvent(on=self.memory_on, count=self.memory._session.doc_count if self.memory_on else 0))
+
+    async def _recall(self, line: str) -> None:
+        try:
+            phrases = await self.memory.recall(line)
+        except Exception as e:
+            log.info("memory: recall failed (%s)", type(e).__name__)
+            return
+        await self.emit(MemoryEvent(on=True, phrases=phrases, for_line=line))
+
+    async def _remember(self, text: str) -> None:
+        if self.memory_on:
+            try:
+                await self.memory.add(self._last_them, text)
+            except Exception as e:
+                log.info("memory: add failed (%s)", type(e).__name__)
+
     async def speak(self, text: str) -> None:
+        asyncio.create_task(self._remember(text))
         self.transcript.add("me", text)
         self._call = (self._call + [("me", text)])[-200:]
         shown = self._shown[1] if self._shown and time.monotonic() - self._shown[0] < 120 else []

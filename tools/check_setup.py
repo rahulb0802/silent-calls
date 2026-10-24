@@ -51,6 +51,9 @@ def check_env() -> None:
     jev = os.getenv("AI_GATEWAY_API_KEY") or os.getenv("TYPESAFE_API_KEY")
     report(OK if jev else BAD, "Jev key", ("AI_GATEWAY_API_KEY" if os.getenv("AI_GATEWAY_API_KEY") else "TYPESAFE_API_KEY")
            if jev else "missing: set TYPESAFE_API_KEY (ranking falls back to lip scores)", False)
+    moss = os.getenv("MOSS_PROJECT_ID") and os.getenv("MOSS_PROJECT_KEY")
+    report(OK if moss else SKIP, "Moss (phrase memory)", "set" if moss
+           else "optional: set MOSS_PROJECT_ID and MOSS_PROJECT_KEY to remember your phrases", False)
 
 
 def check_python() -> None:

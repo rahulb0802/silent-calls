@@ -1,4 +1,4 @@
-import {CalendarDays, Mail, MessageSquare, Sparkles, Tag, Volume2} from 'lucide-react';
+import {CalendarDays, History, Mail, MessageSquare, Sparkles, Tag, Volume2} from 'lucide-react';
 import {useEffect, useState} from 'react';
 import {COPILOT_CHANGED, copilotOff, setCopilotOff} from '../services/lipread-port';
 import {useLocalVoice} from '../services/use-local-voice';
@@ -22,7 +22,9 @@ export function CopilotPanel({compact = false, pick = -1, hint = ''}: {compact?:
   useEffect(() => setSaying(''), [state.copilot]);
   if (state.connection !== 'connected') return null;
   const replies = state.copilot?.replies ?? [];
-  if (compact && (off || !replies.length)) return null;
+  // your own past replies to lines like this one (phrase memory), not already among the co-pilot's
+  const past = state.memory?.on ? state.memory.phrases.filter(p => !replies.some(r => r.text.toLowerCase() === p.toLowerCase())) : [];
+  if (compact && (off || !replies.length) && !past.length) return null;
   const busy = Boolean(saying) || state.phase === 'waiting';
   const say = (text: string) => { setSaying(text); void speak(text).finally(() => setSaying('')); };
   const steps = state.copilot?.steps.map(step => step.tool === 'calendar' ? 'checked your calendar'
@@ -30,7 +32,7 @@ export function CopilotPanel({compact = false, pick = -1, hint = ''}: {compact?:
   return <section className={`copilot-panel ${compact ? 'is-compact-list' : ''}`} aria-label="Suggested replies">
     <h2><Sparkles size={13}/> Suggested replies{!compact && <label><input type="checkbox" checked={!off} onChange={event => setCopilotOff(!event.target.checked)}/> on</label>}</h2>
     {off ? <p className="copilot-empty">Suggestions are paused.</p>
-      : !replies.length ? <p className="copilot-empty">After the other person speaks, 2–3 replies you might give appear here.</p>
+      : !replies.length ? compact ? null : <p className="copilot-empty">After the other person speaks, 2–3 replies you might give appear here.</p>
       : <>
         {!compact && <p className="copilot-how">Mouth one to pick it, or tap <strong>Say it</strong>.</p>}
         {hint && <p className="copilot-how">{hint}</p>}
@@ -45,5 +47,10 @@ export function CopilotPanel({compact = false, pick = -1, hint = ''}: {compact?:
         </li>)}</ul>
         {!compact && steps && <p className="copilot-meta">To prepare these it {steps}.</p>}
       </>}
+    {past.length > 0 && <>
+      <h2 className="copilot-past"><History size={13}/> You've said before</h2>
+      <ul>{past.map(text => <li key={text}><p className="copilot-reply">{text}</p>
+        <button className="copilot-say" disabled={busy} onClick={() => say(text)} aria-label={`Say: ${text}`}><Volume2 size={13}/>{saying === text ? 'Saying…' : 'Say it'}</button></li>)}</ul>
+    </>}
   </section>;
 }

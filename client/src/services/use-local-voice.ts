@@ -34,6 +34,7 @@ export type VoiceState = {
   liveCaption?: { speaker: string; text: string } | null;
   callNames?: string[];
   copilot?: CopilotState | null;
+  memory?: { on: boolean; count: number; phrases: string[]; forLine: string } | null;
   review?: ReviewState | null;
 };
 
