@@ -90,6 +90,8 @@ export function MeetingWidget({service:providedPort}:{service?:MeetingPort} = {}
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   // the camera Silent Calls reads your lips from, remembered (your meeting app can use a different one)
   const [device, setDeviceState] = useState(()=>{try{return localStorage.getItem('silent-calls:camera:v1')||'';}catch{return '';}});
+  // a remembered camera that's unplugged now: use the system default instead of failing to open it
+  useEffect(()=>{if(device && devices.some(d=>d.deviceId) && !devices.some(d=>d.deviceId===device))setDeviceState('');},[devices,device]);  // (ids are blank until camera permission)
   const setDevice=(id:string)=>{setDeviceState(id);try{if(id)localStorage.setItem('silent-calls:camera:v1',id);else localStorage.removeItem('silent-calls:camera:v1');}catch{/* this session only */}};
   const [keyFeedback, setKeyFeedback] = useState('Enable the camera, then hold T here—or enable the global key for your meeting.');
   const container = useRef<HTMLElement>(null);
