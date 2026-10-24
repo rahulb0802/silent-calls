@@ -134,7 +134,7 @@ flowchart LR
 
 1. **You mouth your reply** while holding a key. The lip-reader decodes it with your adapter and vocabulary.
 2. **The co-pilot's replies are scored against the same video.** While the other person was talking (captioned live
-   by Cartesia), Claude prepared up to 4 likely replies from the conversation and, read-only, your calendar and email.
+   by Cartesia), Claude prepared 2–3 likely replies from the conversation and, read-only, your calendar and email.
    The model scores each one on your lips: *your mouthing picks the reply*, and the co-pilot supplies what lips can't
    show (times, order numbers, names). With the right reply in the list, the top guess is right **77%** of the time
    instead of 36%; when it isn't, nothing gets worse.

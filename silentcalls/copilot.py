@@ -24,7 +24,7 @@ from .protocol import CopilotEvent, CopilotFact, CopilotReply, CopilotStep
 
 log = logging.getLogger(__name__)
 
-MAX_REPLIES = 4
+MAX_REPLIES = 3
 MAX_ROUNDS = 3  # model turns: at most two rounds of mail searches, then the answer
 # Replies must be ready before the user finishes mouthing, so ask for fast output (Opus 5.5 fast mode).
 FAST, FAST_BETA = {"speed": "fast"}, ["fast-mode-2026-02-01"]
@@ -35,7 +35,7 @@ camera; a lip-reading model reads it and a cloned voice speaks it. Right after t
 you prepare the replies the user is most likely to want to give, so the lip-reader can match their mouthing \
 against them.
 
-Write up to 4 short replies (at most 15 words each), in the user's own voice, first person, natural spoken \
+Write 2 or 3 short replies (at most 15 words each), in the user's own voice, first person, natural spoken \
 English: what they would actually say next. Cover the different directions a reply could take (e.g. yes / no / \
 not sure, or different times), most likely first.
 

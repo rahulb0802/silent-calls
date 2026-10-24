@@ -22,7 +22,7 @@ type Props = {
   onExpand: () => void;
   onStart: () => void;
   starting: boolean;
-  work: {ranker?: 'jev' | 'lip'; route?: Route; confidence?: number; timings: Record<string, number>; adapter?: string | null};
+  work: {ranker?: 'jev' | 'lip'; route?: Route; confidence?: number; adapter?: string | null};
 };
 
 const STATUS: Record<PillPhase, string> = {
@@ -31,7 +31,7 @@ const STATUS: Record<PillPhase, string> = {
 };
 
 /** The compact companion: a strip under the webcam with only what's needed right now. Everything else is
- * behind "show work" (what the lip-reader saw, the co-pilot's sources, timings) or the full panel. */
+ * behind "show work" (what the lip-reader saw and how it was ranked) or the full panel. */
 export function CompactPill(p: Props) {
   const root = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -50,7 +50,6 @@ export function CompactPill(p: Props) {
   }, []);
   const shown = p.candidates.slice(0, 3);
   const top = shown[p.highlight] ?? shown[0];
-  const timings = Object.entries(p.work.timings);
   return <main className={`compact-pill phase-${p.phase}`} ref={root} aria-label="Silent Calls companion">
     <div className="pill-bar">
       <div className="pill-thumb">{!p.cameraOn && <Mic size={16}/>}<span className="pill-dot"/></div>
@@ -72,6 +71,7 @@ export function CompactPill(p: Props) {
         {p.repair && <button className="pill-repair" onClick={p.onRepair}><Sparkles size={11}/>{p.repair}</button>}</div>
       <p className="pill-hint">{p.hint}</p>
     </div>}
+    {(p.phase === 'listening' || p.phase === 'capturing') && <CopilotPanel compact/>}
     {p.error && <p className="pill-error" role="alert">{p.error}</p>}
     {p.showWork && <div className="pill-work">
       <h2>What the lip-reader saw</h2>
@@ -79,8 +79,6 @@ export function CompactPill(p: Props) {
         <span>{c.text}</span><small>{c.source === 'copilot' ? 'co-pilot reply, scored on your lips' : 'lip-reading'}{c.prob !== undefined ? ` · ${Math.round(c.prob * 100)}%` : ''}</small></li>)}</ol>
         : <p className="pill-muted">Mouth something to see the raw guesses.</p>}
       {p.candidates.length > 0 && <p className="pill-muted">{p.work.ranker === 'jev' ? 'Ranked with the conversation (Jev)' : 'Ranked by lip-reading alone'}{p.work.confidence !== undefined ? ` · confidence ${Math.round(p.work.confidence * 100)}%` : ''}{p.work.adapter ? ' · your personal model' : ''}</p>}
-      {timings.length > 0 && <p className="pill-timings">{timings.map(([name, ms]) => <span key={name}>{name} {Math.round(ms)} ms</span>)}</p>}
-      <CopilotPanel/>
     </div>}
   </main>;
 }
