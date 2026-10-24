@@ -198,7 +198,7 @@ class LocalVoice {
     if (this.socket.bufferedAmount > 65536) throw new Error('The local connection is busy. Disconnect and reconnect before retrying.');
     const text = input.trim();
     this.pendingText = text;
-    this.update({ phase: 'waiting', message: 'Phrase sent. Waiting for the voice service to finish…' });
+    this.update({ phase: 'waiting', lastSpoken: '', message: 'Phrase sent. Waiting for the voice service to finish…' });
     try { this.socket.send(JSON.stringify({ type: 'say', text })); }
     catch { return this.disconnect('Could not send the phrase.'); }
     this.replyTimer = setTimeout(() => {
