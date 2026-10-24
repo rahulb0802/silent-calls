@@ -1,0 +1,62 @@
+{
+ "opus-5.5-fast": {
+  "runs": 36,
+  "errors": 0,
+  "right_in_list": 1.0,
+  "right_first": 0.9722222222222222,
+  "invented_fact": 0,
+  "searched_when_needed": 1.0,
+  "searched_when_not": 0.14285714285714285,
+  "too_long_replies": 3,
+  "ms_median": 1905.0,
+  "ms_p90": 2538,
+  "ms_median_no_search": 1410.5,
+  "ms_median_search": 2182.5,
+  "cost_per_line": 0.03154822222222222
+ },
+ "opus-5.5": {
+  "runs": 36,
+  "errors": 0,
+  "right_in_list": 1.0,
+  "right_first": 1.0,
+  "invented_fact": 0,
+  "searched_when_needed": 1.0,
+  "searched_when_not": 0.14285714285714285,
+  "too_long_replies": 0,
+  "ms_median": 4421.0,
+  "ms_p90": 5817,
+  "ms_median_no_search": 3308.0,
+  "ms_median_search": 4941.5,
+  "cost_per_line": 0.015971222222222227
+ },
+ "sonnet-5.5": {
+  "runs": 36,
+  "errors": 0,
+  "right_in_list": 1.0,
+  "right_first": 1.0,
+  "invented_fact": 0,
+  "searched_when_needed": 1.0,
+  "searched_when_not": 0.14285714285714285,
+  "too_long_replies": 2,
+  "ms_median": 3077.0,
+  "ms_p90": 5518,
+  "ms_median_no_search": 2255.0,
+  "ms_median_search": 3867.0,
+  "cost_per_line": 0.008028888888888887
+ },
+ "haiku-5.5": {
+  "runs": 36,
+  "errors": 0,
+  "right_in_list": 0.9722222222222222,
+  "right_first": 0.8055555555555556,
+  "invented_fact": 0,
+  "searched_when_needed": 0.9333333333333333,
+  "searched_when_not": 0.0,
+  "too_long_replies": 0,
+  "ms_median": 3298.5,
+  "ms_p90": 4393,
+  "ms_median_no_search": 2863.5,
+  "ms_median_search": 3830.0,
+  "cost_per_line": 0.0004691694444444446
+ }
+}

@@ -387,3 +387,33 @@ sentence); the user approves each in the widget. On a scripted 3-line call where
 used) and two practice sentences ("I will ask Devansh about the Figma file.", "Hi Priya, how are you?"), each with the
 quoted evidence, in **15.9 s**, and left the correctly read line alone. Approved words join the vocabulary (and so the
 decoder bias and the personal calibration sentences); approved practice sentences become calibration prompts.
+
+## 11. Which Claude model for the co-pilot
+
+`tools/copilot_bench.py`: 12 scripted calls against a fake calendar and inbox, through the real co-pilot
+prompt, tools and output schema (low effort), 3 runs each per model, interleaved. Each call is checked by a
+pattern: the right fact or direction must be in some reply (order number, confirmation code, hotel address,
+lease date, a calendar conflict, an honest "let me check" when the fact doesn't exist), and invented facts are
+counted. Results in `results/copilot_models/`. Total spend: about $2.
+
+| model | right reply in the list | right reply first | invented facts | searched email when needed / when not | median latency (no search / search) | p90 | cost per line |
+|---|---|---|---|---|---|---|---|
+| Opus 5.5, fast mode (current) | 100% | 97% | 0 | 100% / 14% | **1.4 s / 2.2 s** | 2.5 s | $0.032 |
+| Opus 5.5 | 100% | 100% | 0 | 100% / 14% | 3.3 s / 4.9 s | 5.8 s | $0.016 |
+| Sonnet 5.5 | 100% | 100% | 0 | 100% / 14% | 2.3 s / 3.9 s | 5.5 s | $0.008 |
+| Haiku 5.5 | 97% | 81% | 0 | 93% / 0% | 2.9 s / 3.8 s | 4.4 s | $0.0005 |
+
+- These scripted calls are too easy to separate Opus and Sonnet on quality; both got every one right. The
+  difference is speed: fast mode is the only setting that has replies ready in about 2 s, before the user has
+  finished mouthing.
+- Haiku is not faster here (median 3.3 s overall) and is the weakest: once it didn't search email for "did
+  Devansh send the Figma file?" and only hedged; once it offered "Yes, Friday at 5 works" with a flight that
+  evening; and on a request for a library card number it led with "Sorry, who is this?" rather than "let me
+  check". Haiku 5.5 also has no server-side refusal fallback.
+- The "searched when not needed" 14% is the library card case: Opus and Sonnet searched email for it (finding
+  nothing) before answering honestly.
+- Latencies include a fresh connection per line (the bench builds a new client each time), so they run a bit
+  above the live 2.3 s / 2.9 s in section 9; the ranking is the same.
+
+Decision: keep Opus 5.5 with fast mode for the co-pilot. Sonnet 5.5 is the fallback if fast mode's price or rate
+limit becomes a problem (a quarter of the cost, same accuracy here, about 1 s slower).
