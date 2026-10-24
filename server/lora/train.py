@@ -62,11 +62,15 @@ def hybrid_loss(model, xs_pad, xlens, ys_pad) -> tuple[torch.Tensor, float, floa
     return a * loss_ctc + (1 - a) * loss_att, float(loss_ctc), float(loss_att)
 
 
-def split(samples: list[Sample], test_frac: float, seed: int) -> tuple[list[Sample], list[Sample]]:
+def split(samples: list[Sample], test_frac: float, seed: int, fold: int | None = None,
+          folds: int = 5) -> tuple[list[Sample], list[Sample]]:
+    """Hold out whole sentences. With `fold`, the test set is that fold of a `folds`-way partition."""
     keys = sorted({s.key for s in samples})
     random.Random(seed).shuffle(keys)
-    n_test = max(1, round(len(keys) * test_frac))
-    test = set(keys[:n_test])
+    if fold is not None:
+        test = set(keys[fold * len(keys) // folds:(fold + 1) * len(keys) // folds])
+    else:
+        test = set(keys[:max(1, round(len(keys) * test_frac))])
     return [s for s in samples if s.key not in test], [s for s in samples if s.key in test]
 
 
@@ -107,7 +111,8 @@ class Status:
             tmp.replace(self.path)
 
 
-def train(args) -> dict:
+def train(args, avsr=None) -> dict:
+    """Train + evaluate one adapter. Pass `avsr` to reuse a loaded model (cross-validation)."""
     t_start = time.time()
     user_key = lora.adapter_key(args.user)
     status = Status(user_key, enabled=args.save)
@@ -119,14 +124,15 @@ def train(args) -> dict:
     if len(samples) < 8:
         status.update(state="failed", error=f"only {len(samples)} clips for {args.user}")
         raise SystemExit(f"only {len(samples)} {args.source} clips for {args.user}")
-    train_set, test_set = split(samples, args.test_frac, args.seed)
+    train_set, test_set = split(samples, args.test_frac, args.seed, args.fold, args.folds)
     val_set: list[Sample] = []
     if len(train_set) >= 30:  # small validation split from the training sentences, for picking the step
         train_set, val_set = split(train_set, 0.12, args.seed + 1)
     extra_test = load_feasibility(args.user) if args.test_feasibility and args.source != "feasibility" else []
 
-    avsr = load(DecodeConfig(beam=args.beam), args.device)
+    avsr = avsr or load(DecodeConfig(beam=args.beam), args.device)
     model = avsr.model
+    lora.drop(model, user_key)  # a previous fold's adapter
     tok = Tokenizer(avsr.token_list)
     cov = tok.coverage([s.text for s in samples])
     log.info("%d train / %d val / %d test clips, token coverage %.3f", len(train_set), len(val_set), len(test_set), cov)
@@ -150,6 +156,8 @@ def train(args) -> dict:
     use_amp = args.device.startswith("cuda")
     scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
 
+    eval_steps = {int(x) for x in args.eval_steps.split(",")} if args.eval_steps else set()
+    checkpoints: dict[int, dict] = {}
     curve, best = [], (float("inf"), None, 0)
     order: list[Sample] = []
     status.update(state="training", step=0, steps=args.steps, trainable_params=n_params)
@@ -177,6 +185,11 @@ def train(args) -> dict:
             if point["val_loss"] < best[0]:
                 best = (point["val_loss"], {k: v.clone() for k, v in lora.state(model, user_key).items()}, step)
         curve.append(point)
+        if step in eval_steps:  # accuracy on the held-out sentences at this step (for choosing --steps)
+            s_, rows_ = evaluate(avsr, test_set)
+            checkpoints[step] = {"test": s_, "rows": rows_,
+                                 "feasibility": evaluate(avsr, extra_test)[0] if extra_test else None}
+            log.info("step %d held-out: %s", step, s_)
         if step % 10 == 0 or step == 1:
             log.info("step %d %s", step, point)
             status.update(step=step, loss=point["loss"], val_loss=point.get("val_loss"))
@@ -211,8 +224,10 @@ def train(args) -> dict:
                    "trainable_params": n_params, "token_coverage": round(cov, 4)},
         "train_seconds": round(train_s, 1), "seconds_per_step": round(train_s / args.steps, 3),
         "total_seconds": round(time.time() - t_start, 1), "device": args.device,
-        "gpu_mem_peak_gb": round(torch.cuda.max_memory_allocated() / 2**30, 2) if use_amp else None,
+        "gpu_mem_peak_gb": round(torch.cuda.max_memory_allocated(args.device) / 2**30, 2) if use_amp else None,
         "curve": curve,
+        "before_rows": before_rows, "after_rows": after_rows,
+        "checkpoints": {str(k): v for k, v in sorted(checkpoints.items())},
     }
     if args.save:
         out = ADAPTER_DIR / user_key
@@ -247,9 +262,9 @@ def render_md(tag: str, r: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
-def main() -> None:
-    p = argparse.ArgumentParser(prog="python -m server.lora.train")
-    p.add_argument("--user", required=True)
+def build_parser(prog: str = "python -m server.lora.train") -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(prog=prog)
+    p.add_argument("--user", required=prog.endswith("train"))
     p.add_argument("--source", choices=["enroll", "feasibility"], default="enroll")
     p.add_argument("--device", default="cuda:1" if torch.cuda.device_count() > 1 else ("cuda:0" if torch.cuda.is_available() else "cpu"))
     p.add_argument("--r", type=int, default=8)
@@ -261,16 +276,24 @@ def main() -> None:
     p.add_argument("--batch", type=int, default=8)
     p.add_argument("--eval-every", type=int, default=25)
     p.add_argument("--test-frac", type=float, default=0.2)
+    p.add_argument("--fold", type=int, help="cross-validation: hold out this fold of the sentences")
+    p.add_argument("--folds", type=int, default=5)
+    p.add_argument("--eval-steps", help="e.g. 50,100,200: also score the held-out set at these steps")
     p.add_argument("--beam", type=int, default=40)
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--test-feasibility", action="store_true", help="also score on the user's 30 feasibility clips")
     p.add_argument("--save", action=argparse.BooleanOptionalAction, default=None,
                    help="write adapters/<user>/ (default: yes for enrollment, no for feasibility)")
     p.add_argument("--tag")
-    args = p.parse_args()
+    return p
+
+
+def main() -> None:
+    args = build_parser().parse_args()
     if args.save is None:
         args.save = args.source == "enroll"
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s")
+    logging.basicConfig(level=logging.WARNING, format="%(asctime)s %(name)s %(message)s")
+    log.setLevel(logging.INFO)
     try:
         train(args)
     except Exception as e:

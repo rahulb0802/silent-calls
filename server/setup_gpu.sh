@@ -13,7 +13,7 @@ REPO=$(cd "$(dirname "$0")/.." && pwd)
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-apt-get install -y -qq git unzip curl ffmpeg libgl1 libglib2.0-0 >/dev/null
+apt-get install -y -qq git unzip curl ffmpeg libgl1 libglib2.0-0 libportaudio2 >/dev/null
 
 if ! command -v uv >/dev/null; then
   curl -LsSf https://astral.sh/uv/install.sh | sh
