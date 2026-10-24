@@ -42,3 +42,7 @@ body:has(.meeting-widget){background:#1c2624;color:#ecf1e9}.meeting-widget{min-h
 .guided-setup .copy-column,.guided-setup .visual-column{min-width:0}
 .guided-setup .setup-first-phrase{position:sticky;top:24px}
 @media(max-width:760px){.guided-setup .setup-first-phrase{position:static}.voice-enrollment>.button{justify-self:stretch;justify-content:center}}
+
+.voice-reading-prompt{padding:18px 0;border-block:1px solid var(--line);min-width:0}
+.voice-reading-prompt h3{font-size:14px;font-weight:600;margin:0 0 12px;color:#315e4d}
+.voice-reading-prompt blockquote{font-size:clamp(17px,1.65vw,21px);line-height:1.6;margin:0 0 14px;color:#253d36;text-wrap:pretty}
