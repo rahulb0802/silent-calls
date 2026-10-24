@@ -3,7 +3,7 @@ import type {Decision} from '../desktop';
 import type {Candidate, MeetingEvent, MeetingPort, QualityData, Route, UtteranceStart} from './meeting-port';
 import {vocabularyTerms} from './personal-library';
 import {LEARNED, learningOn} from './learning';
-import {dictationOn} from './dictation';
+import {dictationNames, dictationOn, formatDictation} from './dictation';
 import type {CopilotState} from './use-local-voice';
 import type {ServiceSettings} from './settings';
 import {WebmEncoder} from './webm-encoder';
@@ -377,8 +377,10 @@ export class LipreadPort implements MeetingPort {
     try {
       const desktop = window.desktop;
       if (!desktop?.typeText) throw new Error('Use the Electron desktop app to type.');
-      await desktop.typeText(text.endsWith(' ') ? text : `${text} `);
-      void desktop.noteDictated?.(text).catch(() => undefined);
+      // written form (sentence case, "I", contractions, your names' spelling, punctuation), no rewording
+      const typed = formatDictation(text, dictationNames([...vocabularyTerms(), this.settings.profileId.trim()], this.callNames));
+      await desktop.typeText(`${typed} `);
+      void desktop.noteDictated?.(typed).catch(() => undefined);
       if (!current()) return;
       this.voicePending = false; this.resetUtterance();
       this.emit({type:'caption',speaker:'You',text}); this.emit({type:'speech.finished',utteranceId:id});
