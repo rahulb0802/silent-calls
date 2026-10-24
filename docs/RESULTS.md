@@ -241,3 +241,28 @@ back with `adapter: "routetest"` for that user and `adapter: null` for another, 
 `server/lora/enroll_sentences.csv` (none overlap the 30 test sentences) with `tools/record_enroll.html` or the
 app's enrollment screen, trains, and gets before/after on the 30 feasibility sentences as a fully separate test
 set (`--test-feasibility`, on by default from the endpoint).
+
+## 7. Names (vocab biasing) and decision weights
+
+**False-positive check** (no names are spoken in these clips): the 102 feasibility clips with 8 names
+(`sarvajith sarva nilesh rahul priya anika devansh kavya`) passed as the vocab on every clip, GPU 1.
+
+| run | silent WER | exact@1 | exact@5 | exact@10 | aloud exact@10 | beam_ms (median) |
+|---|---|---|---|---|---|---|
+| no vocab (`names_baseline`) | 37% | 36% | 49% | 56% | 83% | 868 |
+| beam bias 2.0 only (`names_vocab_biasonly`) | 37% | 36% | 49% | 56% | 83% | 942 |
+| + loose lip-shape swaps, 3/utterance (`names_vocab_bias2`) | 37% | 36% | 49% | 53% | 75% | 934 |
+| + rationed swaps, 1/utterance (`names_vocab_tight`) | 37% | 36% | 49% | 54% | 83% | 936 |
+
+- The beam bias is free of false positives here: no name appears anywhere in any top 10, and top-1 changed
+  on 2 clips, both already wrong. It costs ~75 ms of beam search.
+- Lip-shape swaps are noisy, because many ordinary words really do look like names ("like a" ~ "anika",
+  "pray" ~ "priya"). Even rationed, they added 21 swaps and pushed one true sentence out of
+  the top 10. So swaps are **off by default** (`DecodeConfig.name_variants`) until the name clips
+  (`server/eval_data/name_sentences.csv`, not recorded yet) show they recover names the bias misses.
+
+**Decision weights** (`silentcalls/fit_weights.py`, Jev through TypeSafe, top 10 from `names_baseline`):
+w_lip 0.5, w_jev 1.2. Top-1 31% → 42%, top-3 41% → 56% with Jev. Speak without asking at combined ≥ 0.97
+(14 of 90 clips, all correct); show the top 3 at ≥ 0.53 (49 clips, 57% contain the truth); below that, ask to
+repeat (27 clips). Fitted and scored on the same 90 clips, so treat the thresholds as optimistic. Jev latency
+after the first request: 76-236 ms (`tools/jev_smoke.py`).

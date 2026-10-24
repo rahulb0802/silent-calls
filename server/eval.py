@@ -7,7 +7,7 @@
     python -m server.eval --adapter                         # use each person's LoRA adapter, if trained
     python -m server.eval --dump-fit data/clips.jsonl       # JSONL for silentcalls/fit_weights.py
     python -m server.eval --vocab sarvajith nilesh rahul    # bias toward names (false-positive check on these clips)
-    python -m server.eval --clips /opt/lr/name_clips --sentences name_sentences.csv --vocab-from-csv
+    python -m server.eval --clips /opt/lr/name_clips --sentences name_sentences.csv --vocab-from-csv [--name-variants]
                                                             # name clips: does the name reach the top 1 / top 5?
 
 Writes server/results/<tag>/{summary.md, summary.json, per_clip.csv, nbest.jsonl}.
@@ -357,10 +357,10 @@ def main() -> None:
     p.add_argument("--vocab-from-csv", action="store_true", help="add every name in the sentence list's names column")
     p.add_argument("--name-bias", type=float, default=DecodeConfig.name_bias, help="beam bonus per name piece; "
                    "0 = lip-shape matching only")
-    p.add_argument("--no-name-variants", dest="name_variants", action="store_false",
-                   help="beam bias only, no lip-shape name swaps")
+    p.add_argument("--name-variants", action=argparse.BooleanOptionalAction, default=DecodeConfig.name_variants,
+                   help="also add lip-shape name swaps after decoding")
     args = p.parse_args()
-    suffix = ("" if args.sentences == DEFAULT_SENTENCES else f"_{Path(args.sentences).stem}")         + (f"_vocab_bias{args.name_bias}" + ("" if args.name_variants else "_novariants")
+    suffix = ("" if args.sentences == DEFAULT_SENTENCES else f"_{Path(args.sentences).stem}")         + (f"_vocab_bias{args.name_bias}" + ("_variants" if args.name_variants else "")
            if args.vocab or args.vocab_from_csv else "")
 
     if args.sweep:

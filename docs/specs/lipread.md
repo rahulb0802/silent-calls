@@ -79,8 +79,8 @@ Notes for the other components:
 - Decoder settings: beam 40, LM weight 0.2, CTC weight 0.1 (the `DecodeConfig` default; RESULTS.md section 4).
 - On a 2-GPU box, live inference uses `cuda:0` and LoRA training `cuda:1`, so training never slows a call.
 - Names: `reader.finish(..., vocab=["sarvajith"])` (plus the user's list from `PUT /vocab/{user_id}`) biases the
-  beam toward those spellings and adds lip-shape look-alike swaps ("server jet" -> "sarvajith") as extra
-  candidates; see `server/lipread/vocab.py`. Pass names heard in the call (`vocab.names_from_text(captions)`).
+  beam toward those spellings (optionally, `DecodeConfig.name_variants`, it also adds lip-shape look-alike swaps,
+  "server jet" -> "sarvajith", as extra candidates; off by default, see RESULTS.md section 7); see `server/lipread/vocab.py`. Pass names heard in the call (`vocab.names_from_text(captions)`).
 
 ## Running it (Vultr box 144.202.96.192)
 - The dev server runs as a systemd service: `systemctl status lipread`, `journalctl -u lipread -f`,
