@@ -1,5 +1,7 @@
 import type {CaptureClip, Frame} from '../capture/buffer';
-import type {Candidate, MeetingEvent, MeetingPort, UtteranceStart} from './meeting-port';
+import type {Decision} from '../desktop';
+import type {Candidate, MeetingEvent, MeetingPort, Route, UtteranceStart} from './meeting-port';
+import {vocabularyTerms} from './personal-library';
 import type {ServiceSettings} from './settings';
 import {WebmEncoder} from './webm-encoder';
 
@@ -20,6 +22,11 @@ function jpegBytes(frame: Frame): Uint8Array {
   for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
   return bytes;
 }
+/** Your saved vocabulary, sent with each utterance so the lip-reader can spell those names (PROTOCOL.md, vocab). */
+function vocabulary(): {vocab?: string[]} {
+  const vocab = vocabularyTerms();
+  return vocab.length ? {vocab} : {};
+}
 function endpoint(settings: ServiceSettings) {
   const url = new URL(settings.websocketUrl || 'ws://127.0.0.1:8000/ws/session');
   if (!['localhost', '127.0.0.1'].includes(url.hostname) || url.protocol !== 'ws:' || url.username || url.password || url.pathname !== '/ws/session') {
@@ -31,6 +38,24 @@ function endpoint(settings: ServiceSettings) {
   return url.toString();
 }
 
+const normalize = (text: string) => text.toLowerCase().replace(/[^\p{L}\p{N} ]+/gu, '').replace(/\s+/g, ' ').trim();
+
+/** Reorder the lip-reader's candidates by the decision layer's ranking; unchanged when there is none. */
+export function rankByDecision(id: string, candidates: Candidate[], decision: Decision | null):
+  {candidates: Candidate[]; confidence?: number; route?: Route; ranker: 'jev' | 'lip'} {
+  if (!decision?.options.length) return {candidates, ranker: 'lip'};
+  const used = new Set<string>();
+  const out: Candidate[] = [];
+  decision.options.forEach((option, index) => {
+    const match = candidates.find(item => !used.has(item.id) && normalize(item.text) === normalize(option.text));
+    const candidate = match || {id: `${id}:d${index}`, text: option.text};
+    used.add(candidate.id);
+    out.push({...candidate, prob: option.prob});
+  });
+  for (const item of candidates) if (!used.has(item.id) && !out.some(other => normalize(other.text) === normalize(item.text))) out.push(item);
+  return {candidates: out.slice(0, 10), confidence: decision.options[0].prob, route: decision.route, ranker: decision.jev ? 'jev' : 'lip'};
+}
+
 export class LipreadPort implements MeetingPort {
   private listeners = new Set<(event: MeetingEvent) => void>();
   private socket: WebSocket | null = null;
@@ -39,6 +64,7 @@ export class LipreadPort implements MeetingPort {
   private resultTimer: ReturnType<typeof setTimeout> | null = null;
   private progressTimer: ReturnType<typeof setInterval> | null = null;
   private removeVoice: (() => void) | null = null;
+  private removeRepair: (() => void) | null = null;
   private desired = false;
   private retries = 0;
   private active = '';
@@ -99,25 +125,64 @@ export class LipreadPort implements MeetingPort {
         this.resetUtterance(); this.emit({type:'error', utteranceId:id, message}); return;
       }
       if (data.type !== 'candidates' || id !== this.active || !this.waiting || !Array.isArray(data.candidates)) return;
+      const scored = (data.candidates as unknown[]).slice(0,40).flatMap(value => {
+        const item = value as {text?:unknown;lip_score?:unknown} | null;
+        return item && typeof item.text === 'string' && item.text.trim() && item.text.length <= 5000 && typeof item.lip_score === 'number' && Number.isFinite(item.lip_score)
+          ? [{text:item.text, score:item.lip_score}] : [];
+      });
       const candidates: Candidate[] = data.candidates.slice(0,10).flatMap((value: unknown, index: number) => {
         if (!value || typeof value !== 'object') return [];
         const item = value as {text?:unknown;lip_score?:unknown};
         if (typeof item.text !== 'string' || !item.text.trim() || item.text.length > 5000) return [];
         return [{id:`${id}:${index}`,text:item.text,lipScore:typeof item.lip_score === 'number' && Number.isFinite(item.lip_score) ? item.lip_score : undefined}];
       });
-      this.clearResultTimers(); this.waiting = false; this.choices = candidates;
+      this.clearResultTimers(); this.waiting = false;
       const timings: Record<string,number> = {};
       if (data.timings && typeof data.timings === 'object') for (const [key,value] of Object.entries(data.timings)) {
         if (typeof value === 'number' && Number.isFinite(value) && value >= 0) timings[key.slice(0,80)] = value;
       }
       const confidence = typeof data.confidence === 'number' && data.confidence >= 0 && data.confidence <= 1 ? data.confidence : undefined;
       const quality = data.quality == null ? '' : (typeof data.quality === 'string' ? data.quality : JSON.stringify(data.quality)).slice(0,600);
-      // This stand-in does not synthesize speech. Every result requires the user's pick.
+      // Nothing is spoken automatically: the decision layer only reorders, and every result requires the user's pick.
       const adapter = typeof data.adapter === 'string' ? data.adapter.slice(0,128) : null;
-      this.emit({type:'candidates',utteranceId:id,candidates,confidence,timings,quality,adapter});
+      void this.rank(id, candidates, scored).then(ranked => {
+        if (this.active !== id || this.waiting || this.capturing) return;
+        this.choices = ranked.candidates;
+        if (ranked.timings) Object.assign(timings, ranked.timings);
+        this.emit({type:'candidates',utteranceId:id,candidates:ranked.candidates,confidence:ranked.confidence ?? confidence,timings,quality,adapter,route:ranked.route,ranker:ranked.ranker});
+        this.watchRepair(id);
+      });
     };
     socket.onerror = () => { if (this.socket === socket) this.lost(); };
     socket.onclose = () => { if (this.socket === socket) this.lost(); };
+  }
+  /** Jev reranking through the local decision service, with the call captions and your vocabulary as context. */
+  private async rank(id: string, candidates: Candidate[], scored: {text:string;score:number}[]) {
+    const desktop = window.desktop;
+    let decision: Decision | null = null;
+    if (desktop?.decide && scored.length) {
+      try { decision = await desktop.decide({utteranceId:id, candidates:scored, vocab:vocabularyTerms()}); }
+      catch { decision = null; }
+    }
+    const ranked = rankByDecision(id, candidates, decision);
+    const timings: Record<string,number> = {};
+    if (decision) for (const [key,value] of Object.entries(decision.timings)) timings[`decide_${key}`] = value;
+    return {...ranked, timings};
+  }
+  /** Claude's repair arrives after the ranking; it is offered as one more choice, never spoken unasked. */
+  private watchRepair(id: string) {
+    this.removeRepair?.(); this.removeRepair = null;
+    const desktop = window.desktop;
+    if (!desktop?.onVoiceStatus) return;
+    let sent = '';
+    const check = (state: {repair?: {utteranceId:string;text:string} | null}) => {
+      const repair = state.repair;
+      if (this.active !== id || !repair || repair.utteranceId !== id || repair.text === sent) return;
+      sent = repair.text;
+      this.emit({type:'repair', utteranceId:id, text:repair.text});
+    };
+    this.removeRepair = desktop.onVoiceStatus(check);
+    void desktop.getVoiceStatus().then(check).catch(() => undefined);
   }
   private clearResultTimers() {
     if (this.resultTimer) clearTimeout(this.resultTimer);
@@ -125,6 +190,7 @@ export class LipreadPort implements MeetingPort {
     this.resultTimer = this.progressTimer = null;
   }
   private resetUtterance() {
+    this.removeRepair?.(); this.removeRepair = null;
     this.webm?.cancel(); this.webm = null;
     this.clearResultTimers(); this.active = ''; this.waiting = this.capturing = false; this.sentFrames = 0; this.choices = [];
   }
@@ -168,7 +234,7 @@ export class LipreadPort implements MeetingPort {
         });
       } catch { this.webm = null; }
     }
-    this.socket.send(JSON.stringify({type:'utterance.start',utt_id:this.active,fps:start.targetFps,t_press_ms:Math.round(performance.timeOrigin+start.pressedAtMs),...(this.webm?{encoding:'webm'}:{})}));
+    this.socket.send(JSON.stringify({type:'utterance.start',utt_id:this.active,fps:start.targetFps,t_press_ms:Math.round(performance.timeOrigin+start.pressedAtMs),...(this.webm?{encoding:'webm'}:{}),...vocabulary()}));
   }
   frame(utteranceId: string, _sequence: number, frame: Frame) {
     if (!this.capturing || utteranceId !== this.active || this.socket?.readyState !== WebSocket.OPEN) return;

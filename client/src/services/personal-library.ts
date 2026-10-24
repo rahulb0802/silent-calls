@@ -65,6 +65,12 @@ export function usePersonalLibrary() {
   return {...state,saveVocabulary,savePhrase,remove};
 }
 
+/** Saved vocabulary terms (not their alternate readings), for the lip-reader and decision layer to bias toward. */
+export function vocabularyTerms():string[] {
+  try { return read().vocabulary.map(entry=>entry.term); }
+  catch { return []; }
+}
+
 /** Explicit alternate readings only: offer a suggestion, never silently rewrite speech. */
 export function vocabularySuggestions(candidates:{text:string}[],entries:VocabularyEntry[]) {
   const suggestions:string[]=[];

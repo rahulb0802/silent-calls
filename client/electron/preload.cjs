@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('desktop', {
   disconnectVoice: () => ipcRenderer.invoke('voice:disconnect'),
   speakText: text => ipcRenderer.invoke('voice:say', text),
   cloneVoice: (wav, name) => ipcRenderer.invoke('voice:clone', wav, name),
+  decide: input => ipcRenderer.invoke('voice:decide', input),
   onVoiceStatus: callback => subscribe('voice:status', callback),
   openAudioHelp: topic => ipcRenderer.invoke('audio:help', topic),
   onGlobalHold: callback => subscribe('hold:event', callback),

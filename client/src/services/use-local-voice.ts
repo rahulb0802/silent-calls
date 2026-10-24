@@ -14,6 +14,7 @@ export type VoiceState = {
   personalVoiceReady: boolean;
   voiceName: string;
   hasVoice: boolean;
+  repair?: { utteranceId: string; text: string } | null;
 };
 
 const initial: VoiceState = {
