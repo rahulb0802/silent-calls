@@ -1,8 +1,10 @@
-"""Draw the app icon (lips with sound waves, in the DESIGN.md palette) to build/icon.png and build/icon.ico.
+"""Draw the app icon (a speech bubble holding a voice waveform, in the DESIGN.md palette) to build/icon.png
+and build/icon.ico. Other designs, for comparison: --variant bars | lens, with --out DIR.
 
     uv run --with pillow python scripts/make_icon.py
 """
 
+import argparse
 import math
 from pathlib import Path
 
@@ -10,43 +12,56 @@ from PIL import Image, ImageDraw
 
 S = 4  # supersampling
 N = 1024 * S
-BG, LIP, WAVE = "#315e4d", "#ecf1e9", "#c9dda9"
-OUT = Path(__file__).resolve().parent.parent / "build"
+BG, LIGHT, ACCENT, SOFT = "#315e4d", "#ecf1e9", "#315e4d", "#c9dda9"
+BUILD = Path(__file__).resolve().parent.parent / "build"
+HEIGHTS = (0.35, 0.7, 1.0, 0.6, 0.3)  # waveform bars, relative
 
 
-def bezier(p0, p1, p2, p3, n=60):
-    return [tuple(S * ((1 - t) ** 3 * a + 3 * (1 - t) ** 2 * t * b + 3 * (1 - t) * t ** 2 * c + t ** 3 * d)
-                  for a, b, c, d in zip(p0, p1, p2, p3)) for t in (i / n for i in range(n + 1))]
+def box(x0, y0, x1, y1):
+    return [S * x0, S * y0, S * x1, S * y1]
 
 
-def draw() -> Image.Image:
+def bars(d, cx, cy, height, width, gap, fill):
+    x = cx - (len(HEIGHTS) * width + (len(HEIGHTS) - 1) * gap) / 2
+    for h in HEIGHTS:
+        half = height * h / 2
+        d.rounded_rectangle(box(x, cy - half, x + width, cy + half), radius=width / 2 * S, fill=fill)
+        x += width + gap
+
+
+def bubble(d):
+    d.rounded_rectangle(box(170, 220, 854, 720), radius=150 * S, fill=LIGHT)
+    d.polygon([(S * 300, S * 690), (S * 300, S * 840), (S * 450, S * 700)], fill=LIGHT)  # tail
+    bars(d, 512, 470, 300, 56, 44, ACCENT)
+
+
+def lens(d):
+    d.ellipse(box(150, 322, 530, 702), fill=LIGHT)
+    d.ellipse(box(250, 422, 430, 602), fill=BG)
+    d.ellipse(box(300, 472, 380, 552), fill=SOFT)
+    bars(d, 720, 512, 380, 44, 30, SOFT)
+
+
+def draw(variant: str) -> Image.Image:
     img = Image.new("RGBA", (N, N), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     d.rounded_rectangle([0, 0, N - 1, N - 1], radius=230 * S, fill=BG)
-
-    left, right, cx, y = (150, 520), (630, 520), 390, 520
-    upper = (bezier(left, (230, 470), (290, 405), (335, 405))
-             + bezier((335, 405), (365, 405), (380, 440), (cx, 448))
-             + bezier((cx, 448), (400, 440), (415, 405), (445, 405))
-             + bezier((445, 405), (490, 405), (550, 470), right))
-    seam = bezier(right, (520, 548), (260, 548), left)
-    lower = bezier(left, (240, 650), (540, 650), right)
-    d.polygon(upper + seam, fill=LIP)
-    d.polygon(seam[::-1] + lower[::-1], fill=LIP)
-    d.line(seam, fill=BG, width=16 * S, joint="curve")
-
-    for r in (95, 175, 255):  # sound waves from the mouth's right corner
-        box = [S * (640 - r), S * (y - r), S * (640 + r), S * (y + r)]
-        d.arc(box, start=-38, end=38, fill=WAVE, width=38 * S)
-        for a in (-38, 38):  # round caps, on the stroke's centre line (PIL draws the width inwards)
-            px, py = S * (640 + (r - 19) * math.cos(math.radians(a))), S * (y + (r - 19) * math.sin(math.radians(a)))
-            d.ellipse([px - 19 * S, py - 19 * S, px + 19 * S, py + 19 * S], fill=WAVE)
+    if variant == "bubble":
+        bubble(d)
+    elif variant == "bars":
+        bars(d, 512, 512, 560, 92, 50, LIGHT)
+    else:
+        lens(d)
     return img.resize((1024, 1024), Image.LANCZOS)
 
 
 if __name__ == "__main__":
-    OUT.mkdir(exist_ok=True)
-    icon = draw()
-    icon.save(OUT / "icon.png")
-    icon.save(OUT / "icon.ico", sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
-    print("wrote", OUT / "icon.png", OUT / "icon.ico")
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--variant", default="bubble", choices=["bubble", "bars", "lens"])
+    ap.add_argument("--out", type=Path, default=BUILD)
+    args = ap.parse_args()
+    args.out.mkdir(parents=True, exist_ok=True)
+    icon = draw(args.variant)
+    icon.save(args.out / "icon.png")
+    icon.save(args.out / "icon.ico", sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
+    print("wrote", args.out / "icon.png")
