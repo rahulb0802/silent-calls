@@ -2,13 +2,20 @@
 
 Zoom/Meet/FaceTime speaker output is routed to a loopback device (CALL_AUDIO_DEVICE); we stream it to
 Cartesia's speech-to-text WebSocket and send `finalize` after a pause, so each turn becomes one line.
+
+On Windows, CALL_AUDIO_DEVICE=loopback (the default there) records what your speakers play through WASAPI
+loopback, so no second virtual cable is needed: `loopback` picks the default speaker unless that is a
+VB-CABLE (our own voice goes there), `loopback:Realtek` picks a speaker by name.
 Our own lines are added by the pipeline after they are spoken, so the context has both sides.
 """
 
 import asyncio
 import json
 import logging
+import sys
+import threading
 import time
+import warnings
 from collections import deque
 from collections.abc import Awaitable, Callable
 from urllib.parse import urlencode
@@ -24,6 +31,23 @@ log = logging.getLogger(__name__)
 
 STT_URL = "wss://api.cartesia.ai/stt/websocket"
 CHUNK_S = 0.1  # Cartesia recommends ~100 ms chunks
+LOOPBACK_RATE = 48000
+
+
+def loopback_speaker(spec: str):
+    """The Windows speaker to record for `loopback` / `loopback:<name>`: never a VB-CABLE, which carries our
+    own cloned voice into the meeting, not the call."""
+    import soundcard as sc  # Windows-only dependency
+
+    name = spec.partition(":")[2].strip().lower()
+    speakers = [s for s in sc.all_speakers() if "cable" not in s.name.lower()]
+    if name:
+        speakers = [s for s in speakers if name in s.name.lower()]
+    default = sc.default_speaker()
+    pick = next((s for s in speakers if s.name == default.name), speakers[0] if speakers else None)
+    if pick is None:
+        raise RuntimeError(f"No speaker to record for {spec!r}. Speakers: {[s.name for s in sc.all_speakers()]}")
+    return sc.get_microphone(id=str(pick.name), include_loopback=True), pick.name
 
 
 class Transcript:
@@ -63,12 +87,19 @@ class CallCaptioner:
                 await asyncio.sleep(backoff)
                 backoff = min(backoff * 2, 15.0)
 
-    async def _session(self) -> None:
-        device = find_device(self.s.call_audio_device, "input")
-        info = sd.query_devices(device)
-        rate = int(info["default_samplerate"])
-        channels = min(2, int(info["max_input_channels"]))
+    def _use_loopback(self) -> bool:
+        spec = self.s.call_audio_device
+        if spec.lower().startswith("loopback"):
+            return True
+        if sys.platform == "win32":
+            try:
+                find_device(spec, "input")
+            except RuntimeError:
+                log.warning("captions: no input device %r; recording the speakers instead (loopback)", spec)
+                return True
+        return False
 
+    async def _session(self) -> None:
         loop = asyncio.get_running_loop()
         audio_q: asyncio.Queue[np.ndarray] = asyncio.Queue(maxsize=20)
 
@@ -78,9 +109,6 @@ class CallCaptioner:
                 audio_q.get_nowait()
             audio_q.put_nowait(block)
 
-        def callback(indata, frames, t, status):
-            loop.call_soon_threadsafe(enqueue, indata.copy())
-
         query = urlencode({
             "model": self.s.stt_model,
             "encoding": "pcm_s16le",
@@ -88,6 +116,53 @@ class CallCaptioner:
             "cartesia_version": self.s.cartesia_version,
         })
         headers = {"X-API-Key": self.s.cartesia_api_key}
+
+        if self._use_loopback():
+            spec = self.s.call_audio_device if self.s.call_audio_device.lower().startswith("loopback") else "loopback"
+            stop = threading.Event()
+            started: asyncio.Future[str] = loop.create_future()  # the speaker's name, or the error
+            failed: asyncio.Future[None] = loop.create_future()
+
+            def settle(fut, value=None, error=None):
+                if not fut.done():
+                    fut.set_exception(error) if error else fut.set_result(value)
+
+            def pump():  # soundcard's recorder blocks, so it runs on its own thread, with its own COM init
+                import ctypes
+
+                import soundcard  # noqa: F401  (its import initializes COM for the importing thread)
+
+                ctypes.windll.ole32.CoInitializeEx(None, 0)  # this thread too, if soundcard was imported elsewhere
+                warnings.filterwarnings("ignore", message="data discontinuity")  # harmless glitches when idle
+                try:
+                    mic, name = loopback_speaker(spec)
+                    with mic.recorder(samplerate=LOOPBACK_RATE, channels=2, blocksize=int(LOOPBACK_RATE * CHUNK_S)) as rec:
+                        loop.call_soon_threadsafe(settle, started, name)
+                        while not stop.is_set():
+                            block = rec.record(numframes=int(LOOPBACK_RATE * CHUNK_S))
+                            loop.call_soon_threadsafe(enqueue, block.astype(np.float32))
+                except Exception as e:  # device gone, COM error, ...: end this session so run() retries
+                    loop.call_soon_threadsafe(settle, started, None, e)
+                    loop.call_soon_threadsafe(settle, failed, None, e)
+
+            thread = threading.Thread(target=pump, name="call-loopback", daemon=True)
+            thread.start()
+            try:
+                name = await started
+                async with websockets.connect(f"{STT_URL}?{query}", additional_headers=headers) as ws:
+                    log.info("captions: listening to %s (loopback)", name)
+                    await asyncio.gather(self._send(ws, audio_q, LOOPBACK_RATE), self._receive(ws), failed)
+            finally:
+                stop.set()
+            return
+
+        device = find_device(self.s.call_audio_device, "input")
+        info = sd.query_devices(device)
+        rate = int(info["default_samplerate"])
+        channels = min(2, int(info["max_input_channels"]))
+
+        def callback(indata, frames, t, status):
+            loop.call_soon_threadsafe(enqueue, indata.copy())
 
         with sd.InputStream(device=device, samplerate=rate, channels=channels, dtype="float32",
                             blocksize=int(rate * CHUNK_S), callback=callback):

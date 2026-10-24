@@ -39,7 +39,7 @@ Silent Calls lets someone mouth a phrase at a webcam, choose a recognized senten
 From root:
 ```
 cd ~/Desktop/Projects/calhacks
-.venv/bin/python -m silentcalls.app --no-captions
+.venv/bin/python -m silentcalls.app
 ```
 In another terminal:
 ```

@@ -63,7 +63,7 @@ Open **Meeting audio setup** in Electron. Connect to Nilesh's local voice servic
 For the voice-only path, run from the repository root:
 
 ```sh
-.venv/bin/python -m silentcalls.app --no-captions
+.venv/bin/python -m silentcalls.app
 ```
 
 Configure your real Cartesia key, cloned voice ID and `VIRTUAL_MIC_DEVICE` in `.env` first. In another terminal run `cd client && npm run dev`. This new typed-speech bridge connects only to localhost and sends no camera data; the GPU/lip-reading/enrollment adapters remain separate unfinished work. See [typed speech setup](docs/TYPED_SPEECH.md) for routing, Windows commands and acknowledgement limits. The feature has not been built, tested or launched during implementation.

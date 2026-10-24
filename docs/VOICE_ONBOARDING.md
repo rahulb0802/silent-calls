@@ -15,7 +15,7 @@ Clone requests do not retry automatically. A timeout prevents another clone unti
 3. From the repo root, start the updated local service:
    ```sh
    cd ~/Desktop/Projects/calhacks
-   .venv/bin/python -m silentcalls.app --no-captions --no-jev --no-claude
+   .venv/bin/python -m silentcalls.app
    ```
 4. In another terminal, start Electron:
    ```sh

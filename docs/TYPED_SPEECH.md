@@ -17,7 +17,7 @@ VIRTUAL_MIC_DEVICE=BlackHole 2ch
 Then:
 
 ```sh
-.venv/bin/python -m silentcalls.app --no-captions
+.venv/bin/python -m silentcalls.app
 ```
 
 These flags skip call-audio capture and the decision/repair services while retaining real voice output. Do not use `--no-voice` for meeting audio: that mode acknowledges commands without playing sound. Run the service on its default loopback host and port 8765, or choose the matching local port in the app. Restart it after changing environment/device settings.
@@ -51,7 +51,7 @@ Click Connect, type a phrase, then click **Speak now** or use Cmd/Ctrl+Enter. Qu
 - FaceTime on Mac: Video menu → Microphone section. [Official FaceTime instructions](https://support.apple.com/guide/facetime/fctm26739220/mac).
 - Keep the meeting unmuted when sending generated speech. Own-voice monitoring is not implemented; lack of playback in your headphones does not mean virtual-mic output failed.
 
-Send the visible setup phrase and watch the meeting's mic meter or ask the other participant whether they heard it. The user-confirmed checkbox is a manual check, not automatic audio verification. Incoming-call captions require a separate loopback capture path; keep `--no-captions` until that is configured to avoid feedback.
+Send the visible setup phrase and watch the meeting's mic meter or ask the other participant whether they heard it. The user-confirmed checkbox is a manual check, not automatic audio verification. Incoming-call captions record your speakers (Windows loopback) or BlackHole 16ch (Mac); keep the meeting's speaker on your real speakers, never the CABLE/BlackHole 2ch mic device, to avoid feedback.
 
 ## Bridge behavior and limits
 

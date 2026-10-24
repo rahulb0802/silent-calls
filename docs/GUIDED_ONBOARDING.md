@@ -6,7 +6,7 @@ Progress is saved under `silent-calls:setup-step:v2`. Legacy onboarding completi
 
 ## Native service convenience
 
-`setup-service.cjs` tries the existing localhost service first. If unreachable, it can spawn the checkout's fixed `.venv` Python executable with `-m silentcalls.app --no-captions`. It does not invoke a shell, install dependencies or accept an executable path from the renderer. Host/port are fixed to loopback/8765. Output is ignored to avoid leaking provider details. Existing external services remain owned by their terminal; only the managed child is stopped at Electron quit. Connection attempts are bounded and never replay speech.
+`setup-service.cjs` tries the existing localhost service first. If unreachable, it can spawn the checkout's fixed `.venv` Python executable with `-m silentcalls.app`. It does not invoke a shell, install dependencies or accept an executable path from the renderer. Host/port are fixed to loopback/8765. Output is ignored to avoid leaking provider details. Existing external services remain owned by their terminal; only the managed child is stopped at Electron quit. Connection attempts are bounded and never replay speech.
 
 On entering Your voice, the app automatically connects or starts the service once per visit. Connection failures expose a retry button; speech still requires the user to click Send. No provider account details appear in onboarding. The Python service uses the developer-managed process environment or root `.env`; no key is copied into the renderer, bundle, localStorage or repository. The old encrypted credential form and save IPC have been removed. Existing encrypted files from earlier versions are not read or migrated.
 

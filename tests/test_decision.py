@@ -121,3 +121,10 @@ def test_pipeline_no_auto_speak_and_app_vocab():
     p = asyncio.run(run())
     assert [(e.type, getattr(e, "route", None)) for e in events] == [("decision", "speak")]  # ranked, not spoken
     assert "User: yes" not in p.transcript.render()
+
+
+def test_captions_loopback_choice():
+    from silentcalls.captions import CallCaptioner
+
+    assert CallCaptioner(Settings(call_audio_device="loopback"), None)._use_loopback()
+    assert CallCaptioner(Settings(call_audio_device="loopback:Realtek"), None)._use_loopback()

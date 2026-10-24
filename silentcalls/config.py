@@ -2,6 +2,7 @@
 
 import json
 import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -56,9 +57,9 @@ class Settings:
 
     # Audio devices (substring of the device name, as listed by `python -m sounddevice`)
     # Mac: BlackHole 2ch = our voice into Zoom's mic; BlackHole 16ch = Zoom's speaker out.
-    # Windows: "CABLE Input" for the mic; Stereo Mix (or a second cable) for call audio.
-    virtual_mic_device: str = _env("VIRTUAL_MIC_DEVICE", "BlackHole 2ch")
-    call_audio_device: str = _env("CALL_AUDIO_DEVICE", "BlackHole 16ch")
+    # Windows: "CABLE Input" for the mic; call audio is recorded from the speakers ("loopback", captions.py).
+    virtual_mic_device: str = _env("VIRTUAL_MIC_DEVICE", "CABLE Input" if sys.platform == "win32" else "BlackHole 2ch")
+    call_audio_device: str = _env("CALL_AUDIO_DEVICE", "loopback" if sys.platform == "win32" else "BlackHole 16ch")
     output_sample_rate: int = _int("OUTPUT_SAMPLE_RATE", 48000)
 
     # Captions

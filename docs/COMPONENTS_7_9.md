@@ -30,9 +30,10 @@ You need two virtual devices, so your voice and the call audio don't loop into e
 - Zoom microphone → **BlackHole 2ch**. Our cloned voice is written here (`VIRTUAL_MIC_DEVICE`).
 - In Audio MIDI Setup, create a **Multi-Output Device** with your speakers and **BlackHole 16ch**, and set it as Zoom's speaker. You still hear the call, and we capture it from BlackHole 16ch (`CALL_AUDIO_DEVICE`).
 
-**Windows:** Zoom mic → **CABLE Output** (VB-Cable). Set `VIRTUAL_MIC_DEVICE=CABLE Input`. For
-call audio, enable **Stereo Mix** and set `CALL_AUDIO_DEVICE=Stereo Mix`, or use a second VB-Cable
-the same way as on Mac.
+**Windows:** Zoom mic → **CABLE Output** (VB-Cable). Set `VIRTUAL_MIC_DEVICE=CABLE Input`. Call audio
+needs no second cable: `CALL_AUDIO_DEVICE=loopback` (the Windows default) records what your speakers play
+(WASAPI loopback, `soundcard` package), skipping any VB-CABLE. Keep Zoom's speaker and the Windows default
+output on your real speakers, not CABLE Input, or the call would be fed back into your mic.
 
 List device names with `.venv/bin/python -m sounddevice`.
 

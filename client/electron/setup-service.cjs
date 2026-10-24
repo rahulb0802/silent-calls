@@ -38,7 +38,7 @@ function createSetupService({ app, systemPreferences, voice }) {
         env.VIRTUAL_MIC_DEVICE = process.platform === 'win32' ? 'CABLE Input' : 'BlackHole 2ch';
         // Never log or relay child output: provider errors can contain sensitive data.
         if (stopping) throw new Error('The app is closing.');
-        const processChild = spawn(python, ['-m', 'silentcalls.app', '--no-captions'], { cwd: root, env, stdio: 'ignore', windowsHide: true, shell: false });
+        const processChild = spawn(python, ['-m', 'silentcalls.app'], { cwd: root, env, stdio: 'ignore', windowsHide: true, shell: false });
         child = processChild;
         processChild.on('error', () => { if (child === processChild) child = null; });
         processChild.on('exit', () => {
