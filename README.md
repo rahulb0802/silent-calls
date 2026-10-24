@@ -115,7 +115,7 @@ including ones built from your own name and vocabulary, and the server trains an
 | **Recipe** | 100 steps, batch 8, AdamW lr 1e-3 with warm-up + cosine decay, fp16. The checkpoint's own loss (0.1 × CTC + 0.9 × attention). Augmentation from the AutoAVSR recipe: random 88×88 crops and adaptive time masking. |
 | **Where** | GPU 1 of the A16, as a subprocess, so training never slows a live call on GPU 0. ~0.35 s per step. |
 | **How we chose it** | Cross-validated sweeps: rank 8 vs 16, attention-only vs attention + feed-forward (overfits), 50–300 steps, 6–24 training sentences. Rank 16 at lr 1e-3 matches 300 steps of rank 8 in a third of the time. |
-| **Keeps learning** | Opt in to "Learn from my corrections" and every phrase you fix in a call (another option, an edit, or Claude's suggestion) keeps that capture's mouth crop with the text you confirmed. Retraining adds them to the training set only, so the before/after report stays honest. |
+| **Keeps learning** | Opt in to "Learn from my corrections", then separately approve that a corrected phrase is exactly what you mouthed. Picking something useful to say does not save a training example. Retrain after your call; correction examples matching held-out references are excluded. The candidate replaces your saved adapter only if held-out word error rate and exact-match results do not regress. See [correction learning safeguards](docs/CORRECTION_LEARNING.md). |
 | **Is it personal?** | Yes. Your adapter cuts WER by about a sixth on sentences it never saw; someone else's adapter on your lips does nothing (control below). |
 
 The adapter is written per user and loaded only for that user's requests; retraining reloads it on the next
@@ -492,7 +492,7 @@ python tools/check_setup.py --live   # also one tiny request each to Jev, Claude
   96×96 mouth crops with their sentence, per user.
 - **Your adapter and vocabulary are yours**, loaded only for your profile.
 - **Learning from corrections is opt-in.** A capture's mouth crop is held in memory for 3 minutes and saved only if
-  you've turned it on and confirm a correction; Settings shows how many are saved and deletes them.
+  you've turned it on and separately approved that the corrected text matches the words you mouthed; Settings shows how many are saved and deletes them. Picking a reply alone does not approve learning.
 - **The camera coach and gestures run locally.** Face landmarks and tiny pixel statistics are computed in the app
   and thrown away; nothing is stored or sent.
 - **Dictation puts your clipboard back** after it pastes, unless you copied something else meanwhile.

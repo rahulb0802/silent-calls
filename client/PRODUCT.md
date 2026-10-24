@@ -67,3 +67,8 @@ The main workspace is now a consumer home with Open companion as its primary act
 ## Default hands-free and gesture practice
 
 Hands-free is the default with no enable/disable toggle. The existing head/nod flow is taught in a new onboarding step after personal lip-reading training: rest, yes, next, no, start, finish, and mouth calibration. Gestures are recognized locally using the live gesture engine, without recording or speech. Onboarding only reaches the final screen after practice completes. My voice & practice exposes the same lesson without repeating enrollment. Camera activation stays explicit and Pause remains available. The model asset is prepared during dependency setup or development startup. See docs/GESTURE_ONBOARDING.md for persistence and recovery details. No tests or validation were run.
+
+
+## Confirmed correction learning
+
+Correction learning is opt-in and requires a separate approval that the proposed transcript is exactly what was mouthed. Choosing a useful reply alone does not save a training example. Speaking continues independently; the review supports buttons and hands-free confirmation, expires, and reports saves only after server acknowledgement. Training runs on an explicit after-call action. The GPU compares a candidate against the saved adapter on its existing held-out sentences and retains the active checkpoint if word error rate or exact-match metrics regress. Active enrollment counts remain distinct from a rejected attempt. Both client and GPU deployment are required; see docs/CORRECTION_LEARNING.md. No tests or runtime validation were run for this increment.

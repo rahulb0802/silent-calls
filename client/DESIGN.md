@@ -181,3 +181,8 @@ Motion follows meaning: one bounded wave-bar arrival at home, a short masked ste
 ## Guided gestures
 
 Onboarding now has seven stages, with Go hands-free between mouth calibration and the companion summary. A private mirrored preview sits beside one movement instruction, a seven-part practice progress indicator and local recognition feedback. A small geometric head outline briefly demonstrates nod/turn/shake; motion is bounded and omitted for reduced-motion users. The practice advances on real gesture events, rather than clicks or a fake timer. Camera/model failures keep the lesson recoverable. The widget replaces its hands-free checkbox with a short description of the default controls, retaining secondary mode/start preferences and Pause. No visual verification was performed.
+
+
+## Correction transcript approval
+
+A small dark card in both compact and expanded meeting views asks whether the displayed transcript is exactly what the user mouthed. The exact words are prominent, with explicit Save and Skip actions and a short gesture hint. This review is separate from selecting or speaking a candidate, and expires rather than interrupting capture. Settings explains opt-in retention, acknowledged save counts, after-call training, progress, and deletion. Training outcomes distinguish a promoted candidate from keeping the current model; older servers without a verdict are presented as unconfirmed. Existing focus treatment and dark surface tokens are reused. No preview or verification pass was performed, per user instruction.
