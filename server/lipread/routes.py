@@ -12,7 +12,8 @@ GET  /train/{user_id}/status       -> {state: queued|loading|evaluating|training
                                        loss, report: {before_wer, after_wer, before_top5, after_top5, n_train, n_test}}
 GET  /train/{user_id}/report       -> full report.json (per-sentence before/after, loss curve)
 GET  /vocab/{user_id}              -> {words}  names/rare words the lip-reader is biased toward (vocab.py)
-PUT  /vocab/{user_id}              {words: [...]} -> {words} (cleaned: lowercase, deduped, at most 200)
+PUT  /vocab/{user_id}              {words: [...], practice?: [...]} -> {words, practice} (cleaned; practice
+                                   sentences join the personal calibration prompts)
 """
 
 import json
@@ -123,9 +124,11 @@ def training_report(user_id: str) -> dict:
 
 @router.get("/vocab/{user_id}")
 def get_vocab(user_id: str) -> dict:
-    return {"user_id": user_id, "words": vb.load_user(user_id)}
+    return {"user_id": user_id, "words": vb.load_user(user_id), "practice": vb.load_practice(user_id)}
 
 
 @router.put("/vocab/{user_id}")
-def put_vocab(user_id: str, words: list[str] = Body(..., embed=True)) -> dict:
-    return {"user_id": user_id, "words": vb.save_user(user_id, words)}
+def put_vocab(user_id: str, words: list[str] = Body(..., embed=True),
+              practice: list[str] | None = Body(None, embed=True)) -> dict:
+    """practice: sentences to add to calibration (approved from the post-call review); omitted = keep."""
+    return {"user_id": user_id, "words": vb.save_user(user_id, words, practice), "practice": vb.load_practice(user_id)}

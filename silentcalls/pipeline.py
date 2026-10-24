@@ -14,7 +14,8 @@ from server.lipread.vocab import clean, names_from_text  # pure Python, no GPU d
 from .captions import Transcript
 from .config import Settings, Weights
 from .decision import Jev, Repairer, route, score_with_jev, top_k
-from .protocol import CandidatesMessage, CaptionEvent, DecisionEvent, NamesEvent, RepairEvent, SpokenEvent
+from .protocol import (CandidatesMessage, CaptionEvent, DecisionEvent, NamesEvent, RepairEvent, ReviewEvent,
+                       SpokenEvent)
 from .voice import VoiceOutput
 
 log = logging.getLogger(__name__)
@@ -24,7 +25,7 @@ Emit = Callable[[BaseModel], Awaitable[None]]
 
 class Pipeline:
     def __init__(self, s: Settings, voice: VoiceOutput | None, emit: Emit,
-                 use_jev: bool = True, use_claude: bool = True, copilot=None):
+                 use_jev: bool = True, use_claude: bool = True, copilot=None, coach=None):
         self.s = s
         self.w = Weights.load()
         self.voice = voice
@@ -35,6 +36,13 @@ class Pipeline:
         self._repairs: dict[str, asyncio.Task] = {}
         self._heard: list[str] = []  # names heard in this call, kept after their lines leave the transcript
         self.copilot = copilot  # Copilot, or None
+        self.coach = coach  # Coach, or None
+        # this call, in memory only, for the post-call review: every line, and for each line the user spoke,
+        # the options they were shown
+        self._call: list[tuple[str, str]] = []
+        self._moments: list[dict] = []
+        self._shown: tuple[float, list[str]] | None = None
+        self._last_repair = ""
 
     async def close(self) -> None:
         tasks = list(self._repairs.values())
@@ -49,6 +57,7 @@ class Pipeline:
 
     async def on_caption(self, line: str) -> None:
         self.transcript.add("them", line)
+        self._call = (self._call + [("them", line)])[-200:]
         await self.emit(CaptionEvent(speaker="them", text=line))
         if self.copilot:
             self.copilot.on_line(line, self.transcript.render(), self.call_names())
@@ -89,6 +98,7 @@ class Pipeline:
 
         event = DecisionEvent(utterance_id=msg.utterance_id, route=decided,
                               options=scored.options[:3], timings_ms=timings)
+        self._shown = (time.monotonic(), [o.text for o in scored.options[:3]])
         await self.emit(event)
         log.info("decision %s: %s %.2f %r %s", msg.utterance_id, decided, top.prob, top.text, timings)
 
@@ -104,10 +114,30 @@ class Pipeline:
 
     async def speak(self, text: str) -> None:
         self.transcript.add("me", text)
+        self._call = (self._call + [("me", text)])[-200:]
+        shown = self._shown[1] if self._shown and time.monotonic() - self._shown[0] < 120 else []
+        if shown:  # a spoken line that came from a capture (typed quick phrases have no options)
+            self._moments = (self._moments + [{"said": text, "options": shown, "repair": self._last_repair}])[-100:]
+        self._shown, self._last_repair = None, ""
         if self.copilot:
             await self.copilot.clear()
         first_ms = await self.voice.say(text) if self.voice else 0.0
         await self.emit(SpokenEvent(text=text, first_audio_ms=round(first_ms)))
+
+    async def review(self, vocab: list[str]) -> ReviewEvent:
+        """Post-call review: the coach proposes vocabulary and practice sentences from where lip-reading
+        struggled. Clears this call's log afterwards."""
+        if not self.coach or not self._moments:
+            event = ReviewEvent(summary="Nothing to review yet: mouth a few replies in a call first."
+                                if self.coach else "The coach needs ANTHROPIC_API_KEY.", proposals=[],
+                                moments=len(self._moments), latency_ms=0)
+        else:
+            event = await self.coach.review(self._call, self._moments, clean(vocab))
+            log.info("review: %d proposals from %d moments in %d ms", len(event.proposals), event.moments,
+                     event.latency_ms)
+            self._call, self._moments = [], []
+        await self.emit(event)
+        return event
 
     def call_names(self) -> list[str]:
         """The user's names (VOCAB) plus every name heard in this call so far."""
@@ -130,6 +160,7 @@ class Pipeline:
         finally:
             self._repairs.pop(utterance_id, None)
         if text:
+            self._last_repair = text
             await self.emit(RepairEvent(utterance_id=utterance_id, text=text,
                                         latency_ms=round((time.perf_counter() - t0) * 1000)))
 

@@ -43,18 +43,35 @@ def _path(user_id: str):
     return VOCAB_DIR / f"{re.sub(r'[^a-z0-9_]', '_', user_id.lower())}.json"  # same key as lora.adapter_key
 
 
+MAX_PRACTICE = 5
+
+
+def _load(user_id: str | None) -> dict:
+    p = _path(user_id) if user_id else None
+    return json.loads(p.read_text()) if p and p.exists() else {}
+
+
 def load_user(user_id: str | None) -> list[str]:
-    if not user_id:
-        return []
-    p = _path(user_id)
-    return clean(json.loads(p.read_text())["words"]) if p.exists() else []
+    return clean(_load(user_id).get("words", []))
 
 
-def save_user(user_id: str, words) -> list[str]:
+def load_practice(user_id: str | None) -> list[str]:
+    """Practice sentences the user approved (from the post-call coach), for calibration."""
+    return clean_sentences(_load(user_id).get("practice", []))
+
+
+def clean_sentences(sentences) -> list[str]:
+    out = [" ".join(re.sub(r"[^a-z0-9' ]+", " ", str(s).lower().replace("’", "'")).split()) for s in sentences or []]
+    return list(dict.fromkeys(s for s in out if 2 <= len(s.split()) <= 20))[:MAX_PRACTICE]
+
+
+def save_user(user_id: str, words, practice=None) -> list[str]:
+    """Save the user's words (and, if given, their practice sentences; otherwise the saved ones are kept)."""
     words = clean(words)
     p = _path(user_id)
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps({"words": words}, indent=1))
+    keep = clean_sentences(practice) if practice is not None else load_practice(user_id)
+    p.write_text(json.dumps({"words": words, "practice": keep}, indent=1))
     return words
 
 
@@ -215,12 +232,13 @@ def own_name(user_id: str | None) -> str | None:
     return name if re.fullmatch(r"[a-z][a-z' -]{1,39}", name) else None
 
 
-def personal_sentences(user_id: str | None, vocab: list[str]) -> list[dict]:
-    """[{id, sentence}]: "hi my name is <you>" if the profile id is a name, then one sentence per vocabulary
-    word, up to len(PERSONAL_SLOTS). Ids hash the text, so editing the vocabulary makes new prompts and
-    leaves the clips already recorded valid."""
+def personal_sentences(user_id: str | None, vocab: list[str], practice: list[str] | None = None) -> list[dict]:
+    """[{id, sentence}]: "hi my name is <you>" if the profile id is a name, the practice sentences the user
+    approved, then one sentence per vocabulary word, up to len(PERSONAL_SLOTS). Ids hash the text, so editing
+    the vocabulary makes new prompts and leaves the clips already recorded valid."""
     me = own_name(user_id)
     sentences = [f"hi my name is {me}"] if me else []
+    sentences += [s for s in clean_sentences(practice) if s not in sentences][:len(PERSONAL_SLOTS) - len(sentences)]
     words = [w for w in clean(vocab) if w != me]
     for i, w in enumerate(words[:len(PERSONAL_SLOTS) - len(sentences)]):
         sentences.append(TEMPLATES[i % len(TEMPLATES)].format(w=w))

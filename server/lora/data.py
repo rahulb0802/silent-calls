@@ -38,7 +38,7 @@ def enroll_sentences(user_id: str | None = None) -> list[dict]:
         prompts = list(csv.DictReader(f))
     if not user_id:
         return prompts
-    return vb.with_personal(prompts, vb.personal_sentences(user_id, vb.load_user(user_id)))
+    return vb.with_personal(prompts, vb.personal_sentences(user_id, vb.load_user(user_id), vb.load_practice(user_id)))
 
 
 def feasibility_sentences() -> dict[str, str]:

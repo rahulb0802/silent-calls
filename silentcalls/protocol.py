@@ -12,7 +12,8 @@ Desktop app <-> this process (ws://127.0.0.1:8765, see app.py):
   in:  {"type": "say", "text"}                   speak arbitrary text (typed fallback)
   in:  {"type": "opener"}                        play the "speech assistant" opener
   out: DecisionEvent, RepairEvent, CaptionEvent, SpokenEvent, NamesEvent (on connect and when a new name is heard),
-       CopilotEvent (prepared replies after each line from the other person; see copilot.py)
+       CopilotEvent (prepared replies after each line from the other person; see copilot.py),
+       ReviewEvent (after {"type": "review", "vocab": [...]}: the post-call coach's proposals; see coach.py)
 """
 
 from typing import Literal
@@ -97,6 +98,22 @@ class CopilotEvent(BaseModel):
     for_line: str
     latency_ms: int
     steps: list[CopilotStep] = Field(default_factory=list)
+
+
+class CoachProposal(BaseModel):
+    kind: Literal["vocabulary", "practice"]
+    value: str  # the word, or the practice sentence
+    reason: str  # evidence from the call
+
+
+class ReviewEvent(BaseModel):
+    """The post-call coach's review (coach.py): proposals the user approves or rejects in the app."""
+
+    type: Literal["review"] = "review"
+    summary: str
+    proposals: list[CoachProposal]
+    moments: int  # lines the user spoke in the call
+    latency_ms: int
 
 
 class SpokenEvent(BaseModel):

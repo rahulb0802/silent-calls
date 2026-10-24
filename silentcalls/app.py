@@ -20,6 +20,7 @@ import httpx
 from pydantic import BaseModel, ValidationError
 
 from .captions import CallCaptioner
+from .coach import Coach
 from .copilot import Copilot
 from .google_data import GoogleData
 from .config import settings
@@ -137,6 +138,9 @@ def handler(pipeline: Pipeline):
                         launch(pipeline.handle(CandidatesMessage.model_validate(msg)))
                     elif kind == "confirm":
                         launch(pipeline.confirm(text_field(msg, "utterance_id"), text_field(msg, "text")))
+                    elif kind == "review":
+                        vocab = msg.get("vocab") if isinstance(msg.get("vocab"), list) else []
+                        launch(pipeline.review([w for w in vocab if isinstance(w, str)][:200]))
                     elif kind == "say":
                         launch(pipeline.speak(text_field(msg, "text")))
                     elif kind == "voice.clone":
@@ -174,8 +178,9 @@ async def main() -> None:
     if not args.no_copilot and not args.no_claude and os.getenv("ANTHROPIC_API_KEY"):
         copilot = Copilot(settings, broadcast, GoogleData.connect())
         log.info("copilot: on (%s)", "calendar + email" if copilot.data else "no Google account connected")
+    coach = Coach(settings) if not args.no_claude and os.getenv("ANTHROPIC_API_KEY") else None
     pipeline = Pipeline(settings, voice, broadcast, use_jev=not args.no_jev, use_claude=not args.no_claude,
-                        copilot=copilot)
+                        copilot=copilot, coach=coach)
     if pipeline.jev:
         pipeline.jev.start()
     tasks = []
