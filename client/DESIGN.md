@@ -142,3 +142,7 @@ The live widget leads with a camera-independent Type to speak form. Its explicit
 ## Guided first-run setup
 
 The default route now presents five focused steps: welcome, optional camera framing, virtual microphone / meeting routing, real voice connection and a final companion summary. It preserves the cream/forest identity and gives each step one primary footer action. Functional camera, automatic voice connection, bounded local service startup and a user-triggered setup phrase replace placeholder voice/practice claims. Optional details disclose advanced troubleshooting only when needed. Provider credentials never appear in onboarding. Progress persists without secrets; route delivery is confirmed by the user, never inferred from a socket acknowledgement. Native approvals and driver installation remain explicit. No tests, builds, previews or service launches were run for this change at the user's direction.
+
+## GPU lip-reading connection
+
+The live widget leads with an explicit GPU connection action, followed by pending upload/inference state and confirmed candidate selection. Top three results support local 1/2/3 keys; remaining results and reported server details are disclosed on demand. An editable phrase is a separate explicit speech action. Typed speech remains available under Type instead / quick phrases. Existing dark widget colors, spacing, focused controls and native text inputs are preserved. No preview or verification pass was run, per user instruction.

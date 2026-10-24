@@ -89,3 +89,7 @@ Start the Python service from the repository root with real voice enabled: `.ven
 ## Guided first run
 
 Restart Electron after updating the main/preload files. The default setup route now guides camera framing, BlackHole/VB-Cable detection, meeting routing and voice connection. On Your voice, the app automatically reuses an existing local service or starts the checkout’s installed `.venv` voice-only service. Provider credentials stay in the developer-managed backend environment / root `.env`; onboarding never asks users to enter a key. Run setup again from the final page to revisit the flow. Packaged installers still need a bundled Python runtime; see [guided onboarding](../docs/GUIDED_ONBOARDING.md).
+
+## GPU lip-reading over SSH
+
+Keep the working port-8000 SSH tunnel open. In the widget click **Connect lip-reading**, enable the webcam and global key, hold F8 while mouthing a phrase, then release. Choose one of the GPU's candidates or edit it before speaking. The local voice service still outputs to BlackHole / VB-Cable; the GPU stand-in does not synthesize audio. Endpoint/profile settings are in Training & settings, defaulting to the loopback session endpoint and `sarvajith` for this checkout. See [manual steps and protocol boundaries](../docs/GPU_LIPREADING_CLIENT.md). Implementation is untested at the user's request and is not pushed until approved.

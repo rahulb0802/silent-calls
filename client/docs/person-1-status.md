@@ -28,3 +28,7 @@ Typed speech and quick phrases now have a dedicated Electron main-process bridge
 ## Guided onboarding
 
 Replaced stale voice-coming-later onboarding with camera-optional first run, explicit audio-device enumeration, app-specific routing, developer-managed backend credentials and automatic managed-local-service connection on the voice step. The final step distinguishes live connection, camera observation and user-confirmed route delivery. Training remains in the workspace and is not implied by setup completion. Native permissions, driver installation, Cartesia cloning and meeting microphone selection remain user actions. Bundled Python/service distribution is still TODO. Not built or tested per instruction.
+
+## GPU stand-in adapter
+
+Local implementation now wires held webcam JPEG frames to the user-provided SSH-tunneled lip-reading stand-in, displays candidates plus reported metadata, and routes an explicitly chosen/edited result to the working local voice service. GPU reconnect discards interrupted captures, and native camera/key must be re-enabled afterwards. The transport uses the supplied session/utterance messages; no protocol files were modified. No remote GPU calls, tests, verification passes or app launches were run. See docs/GPU_LIPREADING_CLIENT.md for user-run checks and remaining orchestration/training boundaries.

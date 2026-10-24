@@ -30,3 +30,7 @@ Typed speech and quick phrases connect, after an explicit user action, to Nilesh
 ## Guided onboarding increment
 
 First-run setup leads to real typed speech, with optional camera framing and later model enrollment. In a repository checkout with Python dependencies installed, the desktop can start the fixed voice-only service on user request and stop only its own child at app quit. Existing externally started services are reused. Cartesia credentials stay in the developer-managed backend environment / root `.env`. The onboarding never asks users for provider keys; entering the voice step automatically attempts a connection without speaking. A signed bundled Python runtime, automatic driver installation, in-app voice cloning, and automatic selection inside meeting apps are not shipped. Camera permission, temporary microphone enumeration and sending speech require explicit user action.
+
+## GPU stand-in client
+
+The widget can explicitly connect to the SSH-tunneled lip-reading service on loopback port 8000. Held captures send ordered JPEG frames with the existing pre/post buffers. The lip-reading-only stand-in provides candidates, not speech; the user selects or edits a phrase and the local voice service speaks it. Interrupted capture/inference never replays. The socket reconnects automatically, but the user re-enables camera/global capture after a lost connection. Model training, enrollment uploads and the full decision/caption orchestrator remain separate integrations.
