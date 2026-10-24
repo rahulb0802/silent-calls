@@ -6,7 +6,7 @@ Onboarding now includes personal lip-reading calibration as a required step befo
 
 1. Start at Welcome and choose your own profile name. Existing explicit profile settings are retained; a fresh install gets a unique local profile rather than another person's name.
 2. Enable and frame the camera. Check the virtual microphone, choose it inside the meeting app, and confirm routing.
-3. Connect or create your voice; send the test phrase and confirm the meeting received it.
+3. Connect or create your voice, then continue directly to calibration. No meeting test phrase is required.
 4. Choose 30, 45 or 60 practice sentences. Grant consent once for automatic upload after each recording and training after the chosen accepted count.
 5. Press Space to start; mouth the displayed sentence naturally; press Space to stop. The visible button does the same thing. Restart this sentence discards the current recording and begins again. Accepted clips save and advance automatically. Quality rejection keeps the same prompt for a retake. Capture stops at 14 seconds.
 6. Once the chosen count is accepted, training starts automatically. The consumer sees a short stage description, a progress bar, elapsed time and an explicitly approximate time estimate. Completion advances onboarding to the companion screen only after a saved adapter and sufficient report clip counts are confirmed.

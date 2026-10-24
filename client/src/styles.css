@@ -98,3 +98,7 @@ body:has(.meeting-widget){background:#1c2624;color:#ecf1e9}.meeting-widget{min-h
 .calibration-flow>.error{color:#9c3d30;margin-top:20px;font-size:13px;line-height:1.8;overflow-wrap:anywhere}
 @media(max-width:1000px){.calibration-recording{grid-template-columns:minmax(0,1fr);gap:24px}.calibration-camera{max-width:600px}.calibration-prompt{max-width:650px}.calibration-prompt blockquote{margin-top:20px}.calibration-goals{gap:8px}.calibration-goals button{padding:16px 12px}}
 @media(max-width:600px){.calibration-goals{grid-template-columns:1fr}.calibration-goals button{min-height:64px;display:flex;align-items:center;justify-content:space-between;gap:12px}.calibration-goals strong{margin:0}.calibration-goals span{text-align:right}.calibration-prompt>.button{width:100%;justify-content:center}.calibration-flow .calibration-estimate{display:grid;gap:6px}}
+
+/* Voice creation continues directly into personal calibration. */
+.guided-setup .voice-step{grid-template-columns:minmax(0,680px)}
+.guided-setup .voice-step .visual-column{display:none}

@@ -162,3 +162,8 @@ The voice step now records or imports a reviewed audio sample, asks for explicit
 ## Required calibration onboarding (current behavior)
 
 The six-step setup adds a full-width calibration surface within the existing cream/forest design. A compact 30/45/60 sentence selector precedes consent. During capture, a mirrored webcam preview sits beside one large sentence and the saved-count progress bar; Space toggles capture, Restart begins the same sentence again, and accepted uploads advance automatically. Narrow widths stack the camera and prompt. Recording state uses explicit text, elapsed seconds and a stop icon. Processing uses a restrained progress bar and one short stage description, with approximate remaining time and elapsed time. Training starts automatically and successful completion moves to the final companion step. Current setup requires camera, routing/test-phrase confirmation and calibration; earlier optional/eight-clip documentation is historical. Focus rings, real buttons, alerts and reduced-motion-compatible native progress controls preserve the existing accessibility patterns. No preview or runtime verification was performed, per user instruction.
+
+
+## Direct voice setup continuation
+
+The required meeting test-phrase panel and its acknowledgement checkbox have been removed from onboarding at user request. Voice setup now continues once a configured or newly created voice is connected and idle. The earlier meeting-device selection step remains; the final summary describes that selection without claiming audible delivery. Voice creation uses one column without an empty test panel. Detailed audio setup still offers manual speech checks. No tests or previews were run.

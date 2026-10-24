@@ -50,3 +50,8 @@ The voice step now records or imports a reviewed audio sample, asks for explicit
 ## Required guided calibration (current behavior)
 
 The current onboarding supersedes the earlier optional-camera/eight-clip flow: Welcome/profile, camera, meeting audio, voice/test phrase, 30–60 mouth-calibration sentences, then companion. Users choose 30/45/60 accepted prompts, consent once, use Space start/stop, and advance automatically after each accepted upload. Training begins automatically at the chosen count and advances setup only after a saved adapter and enough reported training/validation/test clips are confirmed. Saved server enrollment resumes by profile; fresh profiles are unique. Consumer progress shows brief stages, a stage-based bar and clearly approximate timing, without model metrics. The same saved profile drives widget inference with use_adapter=true. OS permissions and meeting routing remain explicit. No tests or runtime validation were run for this increment.
+
+
+## Direct voice setup continuation
+
+The required meeting test-phrase panel and its acknowledgement checkbox have been removed from onboarding at user request. Voice setup now continues once a configured or newly created voice is connected and idle. The earlier meeting-device selection step remains; the final summary describes that selection without claiming audible delivery. Voice creation uses one column without an empty test panel. Detailed audio setup still offers manual speech checks. No tests or previews were run.
