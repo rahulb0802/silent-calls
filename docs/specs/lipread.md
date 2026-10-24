@@ -51,7 +51,8 @@ Built in `server/lipread/` and `server/lora/`; results of every run are in `docs
 | `server/setup_gpu.sh` | one-time GPU box setup: Python 3.11 venv, AutoAVSR code + weights in `/opt/lr` |
 | `server/lipread/reader.py` | `LipReader` / `LipResult` as specified above (plus `n_tokens`, `quality`, `error`, `timings_ms`) |
 | `server/lipread/frames.py` | JPEG/video decode, MediaPipe face detection, mouth crop, input-quality flags |
-| `server/lipread/model.py` | model loading and N-best decoding |
+| `server/lipread/model.py` | model loading and N-best decoding, name biasing in the beam (`NameBias`) |
+| `server/lipread/vocab.py` | per-user name lists, names from captions, lip-shape name matching |
 | `server/lipread/routes.py` | enrollment + training HTTP endpoints (see PROTOCOL.md, HTTP section) |
 | `server/lipread/dev_app.py` | stand-in WebSocket server (lip-reading half of the protocol) until the orchestrator exists |
 | `server/eval.py` | the eval: whole-clip path, live (streamed JPEG) path, decoder sweeps, `--dump-fit` for `fit_weights.py` |
@@ -77,6 +78,9 @@ Notes for the other components:
   `encoding: "webm"`, then call `reader.on_chunk(utt_id, data)` for each binary message (not `on_frame`).
 - Decoder settings: beam 40, LM weight 0.2, CTC weight 0.1 (the `DecodeConfig` default; RESULTS.md section 4).
 - On a 2-GPU box, live inference uses `cuda:0` and LoRA training `cuda:1`, so training never slows a call.
+- Names: `reader.finish(..., vocab=["sarvajith"])` (plus the user's list from `PUT /vocab/{user_id}`) biases the
+  beam toward those spellings and adds lip-shape look-alike swaps ("server jet" -> "sarvajith") as extra
+  candidates; see `server/lipread/vocab.py`. Pass names heard in the call (`vocab.names_from_text(captions)`).
 
 ## Running it (Vultr box 144.202.96.192)
 - The dev server runs as a systemd service: `systemctl status lipread`, `journalctl -u lipread -f`,

@@ -11,6 +11,8 @@ POST /train/{user_id}?steps=100     -> {job_id, state}  (409 if already training
 GET  /train/{user_id}/status       -> {state: queued|loading|evaluating|training|done|failed, step, steps,
                                        loss, report: {before_wer, after_wer, before_top5, after_top5, n_train, n_test}}
 GET  /train/{user_id}/report       -> full report.json (per-sentence before/after, loss curve)
+GET  /vocab/{user_id}              -> {words}  names/rare words the lip-reader is biased toward (vocab.py)
+PUT  /vocab/{user_id}              {words: [...]} -> {words} (cleaned: lowercase, deduped, at most 200)
 """
 
 import json
@@ -21,11 +23,12 @@ import tempfile
 import time
 from pathlib import Path
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Body, File, Form, HTTPException, UploadFile
 
 from ..lora import data as lora_data
 from ..lora.lora import adapter_key
 from . import frames as fr
+from . import vocab as vb
 from .paths import ADAPTER_DIR, ENROLL_DIR
 
 router = APIRouter()
@@ -112,3 +115,13 @@ def training_report(user_id: str) -> dict:
     if not path.exists():
         raise HTTPException(404, "no report yet")
     return json.loads(path.read_text())
+
+
+@router.get("/vocab/{user_id}")
+def get_vocab(user_id: str) -> dict:
+    return {"user_id": user_id, "words": vb.load_user(user_id)}
+
+
+@router.put("/vocab/{user_id}")
+def put_vocab(user_id: str, words: list[str] = Body(..., embed=True)) -> dict:
+    return {"user_id": user_id, "words": vb.save_user(user_id, words)}

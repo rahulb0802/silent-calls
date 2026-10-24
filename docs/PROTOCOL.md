@@ -76,3 +76,14 @@ utterance are the chunks of one `MediaRecorder` recording (VP8, e.g. 1 Mbps, `st
 decodes them on `utterance.end`. Upload drops from ~1.1 MB/s to ~125 KB/s, which the venue Wi-Fi can carry
 (JPEG frames took 5-23 s to arrive there); it costs ~0.2 s after release and a few points of accuracy.
 See docs/RESULTS.md, section 3. `server/lipread/dev_app.py` already supports both.
+
+## PROPOSED by Person 2: `vocab` for names (needs sign-off)
+The lip-reader can't produce names it never saw in training ("Sarvajith" comes out as "server jet"), so it takes
+a list of names / rare words to bias toward (`server/lipread/vocab.py`):
+- Optional `vocab: [str]` on `session.start` (e.g. meeting attendees) and on `utterance.start` (e.g. names just
+  heard in the captions). Both add to the user's saved list.
+- `GET /vocab/{user_id}` → `{words}`, `PUT /vocab/{user_id}` with `{words: [...]}` → `{words}`: the user's own
+  list (their name, contacts, work terms), kept server-side, at most 200 words.
+
+Candidates may then include a name-swapped variant of a guess (listed in an extra `name_variants` field). Nothing
+else changes. `server/lipread/dev_app.py` already supports it.
