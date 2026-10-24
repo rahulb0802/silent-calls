@@ -18,7 +18,13 @@ export class EnrollmentApi {
     this.user=settings.profileId.trim();
     if(!this.user || this.user.length>128)throw new Error('Save a profile ID before enrolling.');
   }
+  private tunnelReady=false;
   private async request(path:string,signal:AbortSignal,init:RequestInit={}) {
+    if(!this.tunnelReady && window.desktop?.ensureTunnel){  // the desktop app opens the SSH tunnel itself
+      const result=await window.desktop.ensureTunnel(Number(new URL(this.base).port || 80));
+      if(!result.ok)throw new Error(result.message);
+      this.tunnelReady=true;
+    }
     const controller=new AbortController();
     const abort=()=>controller.abort();
     if(signal.aborted)controller.abort();else signal.addEventListener('abort',abort,{once:true});
@@ -32,7 +38,7 @@ export class EnrollmentApi {
       if(!response.ok)throw new EnrollmentHttpError(typeof data.detail==='string'?data.detail.slice(0,1000):`GPU request failed (${response.status}).`,response.status);
       return data;
     }catch(reason){
-      if(controller.signal.aborted && !signal.aborted)throw new Error('GPU request timed out. Keep the SSH tunnel open. Refresh status before retrying a training start.');
+      if(controller.signal.aborted && !signal.aborted){this.tunnelReady=false;throw new Error('GPU request timed out. Refresh status before retrying a training start.');}
       throw reason;
     }finally{clearTimeout(timeout);signal.removeEventListener('abort',abort);}
   }

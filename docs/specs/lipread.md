@@ -85,7 +85,8 @@ Notes for the other components:
 ## Running it (Vultr box 144.202.96.192)
 - The dev server runs as a systemd service: `systemctl status lipread`, `journalctl -u lipread -f`,
   `systemctl restart lipread` after pulling new code (`server/lipread.service`).
-- From a laptop: `ssh -i <key> -N -L 8000:localhost:8000 root@144.202.96.192`, then use
+- From a laptop: the desktop app opens this tunnel itself (`client/electron/tunnel.cjs`); by hand it is
+  `ssh -i <key> -N -L 8000:localhost:8000 root@144.202.96.192`, then use
   `ws://127.0.0.1:8000/ws/session` and `http://127.0.0.1:8000` (port 8000 isn't open on the host firewall).
 - Re-run the eval: `cd /root/voice && .venv/bin/python -m server.eval` (results in `server/results/`).
 - Train someone's adapter by hand: `.venv/bin/python -m server.lora.train --user <id> --test-feasibility`.

@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('desktop', {
   getSetupStatus: () => ipcRenderer.invoke('setup:status'),
   connectSetupVoice: () => ipcRenderer.invoke('setup:connect'),
   openSetupKeyboardSettings: () => ipcRenderer.invoke('setup:keyboard'),
+  ensureTunnel: port => ipcRenderer.invoke('tunnel:ensure', port),
   getVoiceStatus: () => ipcRenderer.invoke('voice:status'),
   connectVoice: port => ipcRenderer.invoke('voice:connect', port),
   disconnectVoice: () => ipcRenderer.invoke('voice:disconnect'),

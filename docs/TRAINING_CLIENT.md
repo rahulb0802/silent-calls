@@ -30,10 +30,10 @@ The bar maps actual reported stages to fixed milestones, and uses actual step/st
 
 The local GPU routes now require 30–60 accepted clips to start enrollment training and cap new saved enrollment prompts at 60. Uploads must use a known prompt ID and its canonical sentence. The low-level research trainer remains available for developer experiments; the consumer constraint is enforced at the HTTP entry point. Done-status summaries also include n_val. Rahul must deploy these server files and restart the GPU service to apply the server-side policy. The frontend already enforces the chosen minimum against existing endpoints.
 
-Keep the port-8000 SSH tunnel open. Provider credentials remain in the local Python service; onboarding asks for no API key. The checkout still requires installed Python dependencies and a running/launchable voice service; OS permissions, virtual audio driver installation, and meeting microphone selection require the user's system/application clicks.
+The app opens the port-8000 SSH tunnel itself (see client/README.md). Provider credentials remain in the local Python service; onboarding asks for no API key. The checkout still requires installed Python dependencies and a running/launchable voice service; OS permissions, virtual audio driver installation, and meeting microphone selection require the user's system/application clicks.
 
 ## Manual use after restart
 
-Quit Electron completely with Cmd+Q and run npm run dev from client. Keep the local voice service and SSH tunnel available. Walk through the six setup steps. Try Space start/stop, restart, pause/resume and one rejected recording; observe saved count, automatic training and automatic transition after completion. Connect the widget with the same profile and confirm Server details reports the personal adapter on a new phrase.
+Quit Electron completely with Cmd+Q and run npm run dev from client. Keep the local voice service available; the app opens the SSH tunnel. Walk through the six setup steps. Try Space start/stop, restart, pause/resume and one rejected recording; observe saved count, automatic training and automatic transition after completion. Connect the widget with the same profile and confirm Server details reports the personal adapter on a new phrase.
 
 No tests, builds, typechecks, app launches, live API requests or GPU training were run by the agent for this change, per user instruction. These manual steps are for the user.

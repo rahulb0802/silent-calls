@@ -5,6 +5,7 @@ protocol.registerSchemesAsPrivileged([{scheme:'silent',privileges:{standard:true
 const { createSetupService } = require('./setup-service.cjs');
 const { LocalVoice } = require('./local-voice.cjs');
 const { createGlobalHold } = require('./global-hold.cjs');
+const { Tunnel } = require('./tunnel.cjs');
 // Keep the opt-in capture window responsive while Meet/Zoom is foreground.
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
 app.commandLine.appendSwitch('disable-background-timer-throttling');
@@ -15,6 +16,7 @@ const voice = new LocalVoice(status => {
   }
 });
 const setup = createSetupService({app, systemPreferences, voice});
+const tunnel = new Tunnel();
 const audioHelp = {
   cartesia: 'https://play.cartesia.ai/voices',
   blackhole: 'https://existential.audio/blackhole/',
@@ -77,6 +79,7 @@ app.whenReady().then(() => {
     localVoiceCaller(event);
     if (process.platform === 'darwin') return shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility');
   });
+  ipcMain.handle('tunnel:ensure', (event, port) => { localVoiceCaller(event); return tunnel.ensure(port); });
   ipcMain.handle('voice:status', event => { localVoiceCaller(event); return voice.snapshot(); });
   ipcMain.handle('voice:connect', (event, port) => { localVoiceCaller(event); return voice.connect(port); });
   ipcMain.handle('voice:disconnect', event => { localVoiceCaller(event); return voice.disconnect(); });
@@ -106,4 +109,4 @@ app.whenReady().then(() => {
 });
 app.on('window-all-closed', () => { voice.disconnect(); if (process.platform !== 'darwin') app.quit(); });
 
-app.on('before-quit', () => { hold.stop(); voice.disconnect(); setup.stop(); });
+app.on('before-quit', () => { hold.stop(); voice.disconnect(); setup.stop(); tunnel.stop(); });

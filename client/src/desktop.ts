@@ -17,6 +17,7 @@ export interface DesktopAPI {
   getSetupStatus():Promise<SetupStatus>;
   connectSetupVoice():Promise<VoiceState>;
   openSetupKeyboardSettings():Promise<void>;
+  ensureTunnel(port:number): Promise<{ok:boolean;mode:'existing'|'started'|'none';message:string}>;
   getVoiceStatus(): Promise<VoiceState>;
   connectVoice(port:number): Promise<VoiceState>;
   disconnectVoice(): Promise<VoiceState>;

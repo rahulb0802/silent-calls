@@ -31,10 +31,14 @@ export function names(settings: ServiceSettings, callNames: string[] = []): stri
   const seen = new Set<string>();
   return all.filter(name => { const key = name.trim().toLowerCase(); if (!key || seen.has(key)) return false; seen.add(key); return true; }).slice(0, 200);
 }
+function tunnelPort(settings: ServiceSettings) {
+  const port = Number(new URL(settings.websocketUrl || 'ws://127.0.0.1:8000/ws/session').port || 80);
+  return Number.isInteger(port) ? port : 8000;
+}
 function endpoint(settings: ServiceSettings) {
   const url = new URL(settings.websocketUrl || 'ws://127.0.0.1:8000/ws/session');
   if (!['localhost', '127.0.0.1'].includes(url.hostname) || url.protocol !== 'ws:' || url.username || url.password || url.pathname !== '/ws/session') {
-    throw new Error('Use the SSH tunnel URL: ws://127.0.0.1:8000/ws/session. Keep your tunnel terminal open.');
+    throw new Error('Use the SSH tunnel URL: ws://127.0.0.1:8000/ws/session. The app opens the tunnel itself.');
   }
   if (!settings.profileId.trim() || settings.profileId.length > 128) throw new Error('Enter your profile ID in Training & settings.');
   url.hostname = '127.0.0.1';
@@ -80,7 +84,7 @@ export class LipreadPort implements MeetingPort {
   private webm: WebmEncoder | null = null;
   private choices: Candidate[] = [];
   private connected = false;
-  private message = 'Connect lip-reading to send captures through your SSH tunnel.';
+  private message = 'Connect lip-reading: the app opens the SSH tunnel to the GPU for you.';
   private voiceGeneration = 0;
   private voicePending = false;
   private disposed = false;
@@ -104,9 +108,21 @@ export class LipreadPort implements MeetingPort {
     catch (reason) { this.emit({type:'error', message: reason instanceof Error ? reason.message : 'Invalid lip-reading endpoint.'}); return; }
     this.desired = true; this.retries = 0; this.watchNames(); this.open();
   }
+  /** The desktop app opens the SSH tunnel itself (electron/tunnel.cjs); in a browser preview, open it by hand. */
   private open() {
     if (!this.desired || this.disposed) return;
-    this.connection(false, this.retries ? 'Reconnecting to GPU… Keep the SSH tunnel open.' : 'Connecting to GPU through your SSH tunnel…');
+    const desktop = window.desktop;
+    if (!desktop?.ensureTunnel) { this.openSocket(); return; }
+    this.connection(false, this.retries ? 'Reconnecting to GPU…' : 'Opening the SSH tunnel to the GPU…');
+    void desktop.ensureTunnel(tunnelPort(this.settings)).catch(() => ({ok:false, message:'Could not open the SSH tunnel.'})).then(result => {
+      if (!this.desired || this.disposed) return;
+      if (!result.ok) { this.connection(false, result.message); this.scheduleReconnect(); return; }
+      this.openSocket();
+    });
+  }
+  private openSocket() {
+    if (!this.desired || this.disposed) return;
+    this.connection(false, this.retries ? 'Reconnecting to GPU…' : 'Connecting to GPU…');
     let socket: WebSocket;
     try { socket = new WebSocket(endpoint(this.settings)); }
     catch { this.scheduleReconnect(); return; }
@@ -221,7 +237,7 @@ export class LipreadPort implements MeetingPort {
   private lost() {
     const interrupted = Boolean(this.active);
     this.resetUtterance(); this.closeSocket();
-    this.connection(false, interrupted ? 'Connection lost. The capture was discarded; nothing will be replayed.' : 'GPU disconnected. Keep your SSH tunnel open.');
+    this.connection(false, interrupted ? 'Connection lost. The capture was discarded; nothing will be replayed.' : 'GPU disconnected. Reconnecting…');
     this.scheduleReconnect();
   }
   private scheduleReconnect() {
