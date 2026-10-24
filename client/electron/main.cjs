@@ -2,8 +2,21 @@ const { app, BrowserWindow, ipcMain, screen, session, systemPreferences, shell, 
 const path = require('node:path');
 const {pathToFileURL}=require('node:url');
 protocol.registerSchemesAsPrivileged([{scheme:'silent',privileges:{standard:true,secure:true,supportFetchAPI:true,corsEnabled:true,stream:true}}]);
+const { LocalVoice } = require('./local-voice.cjs');
 const { createGlobalHold } = require('./global-hold.cjs');
 let mainWindow, widget;
+const voice = new LocalVoice(status => {
+  for (const win of [mainWindow, widget]) {
+    if (win && !win.isDestroyed() && !win.webContents.isDestroyed()) win.webContents.send('voice:status', status);
+  }
+});
+const audioHelp = {
+  blackhole: 'https://existential.audio/blackhole/',
+  vbcable: 'https://vb-audio.com/Cable/',
+  zoom: 'https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=KB0060836',
+  meet: 'https://support.google.com/meet/answer/10409699',
+  facetime: 'https://support.apple.com/guide/facetime/fctm26739220/mac',
+};
 function emitToWidget(channel, payload) { if (widget && !widget.isDestroyed()) widget.webContents.send(channel, payload); }
 const hold = createGlobalHold({systemPreferences, emit: event => emitToWidget('hold:event', event), statusChanged: status => emitToWidget('hold:status', status)});
 const devURL = process.env.ELECTRON_RENDERER_URL;
@@ -48,7 +61,21 @@ app.whenReady().then(() => {
   session.defaultSession.setPermissionCheckHandler((contents, permission) => trusted(contents) && permission === 'media');
   ipcMain.handle('widget:open', event => { if (trusted(event.sender)) openWidget(); });
   ipcMain.handle('widget:close', event => { if (widget && event.sender === widget.webContents) widget.close(); });
-  ipcMain.handle('main:show', (event, route) => { if (trusted(event.sender)) { if (!mainWindow || mainWindow.isDestroyed()) createMain(); if(route==='workspace')load(mainWindow,'#/workspace'); mainWindow.show(); mainWindow.focus(); } });
+  ipcMain.handle('main:show', (event, route) => { if (trusted(event.sender)) { if (!mainWindow || mainWindow.isDestroyed()) createMain(); if(route==='workspace' || route==='audio-setup')load(mainWindow,`#/${route}`); mainWindow.show(); mainWindow.focus(); } });
+  function localVoiceCaller(event) {
+    if (!trusted(event.sender)) throw new Error('Desktop app window required.');
+  }
+  ipcMain.handle('voice:status', event => { localVoiceCaller(event); return voice.snapshot(); });
+  ipcMain.handle('voice:connect', (event, port) => { localVoiceCaller(event); return voice.connect(port); });
+  ipcMain.handle('voice:disconnect', event => { localVoiceCaller(event); return voice.disconnect(); });
+  ipcMain.handle('voice:say', (event, text) => { localVoiceCaller(event); return voice.say(text); });
+  ipcMain.handle('audio:help', (event, topic) => {
+    localVoiceCaller(event);
+    if (typeof topic !== 'string' || !Object.hasOwn(audioHelp, topic)) throw new Error('Unknown audio setup guide.');
+    return shell.openExternal(audioHelp[topic]);
+  });
+  powerMonitor.on('suspend', () => voice.disconnect('Voice disconnected because the computer went to sleep.'));
+  powerMonitor.on('lock-screen', () => voice.disconnect('Voice disconnected because the screen was locked.'));
   function widgetOnly(event) { return widget && !widget.isDestroyed() && event.sender === widget.webContents; }
   ipcMain.handle('hold:start', (event, key) => { if (!widgetOnly(event)) throw new Error('Widget required'); return hold.start(key); });
   ipcMain.handle('hold:stop', event => { if (!widgetOnly(event)) throw new Error('Widget required'); return hold.stop(); });
@@ -62,6 +89,6 @@ app.whenReady().then(() => {
   createMain();
   app.on('activate', () => { if (!mainWindow || mainWindow.isDestroyed()) createMain(); });
 });
-app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+app.on('window-all-closed', () => { voice.disconnect(); if (process.platform !== 'darwin') app.quit(); });
 
-app.on('before-quit', () => hold.stop());
+app.on('before-quit', () => { hold.stop(); voice.disconnect(); });

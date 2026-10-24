@@ -12,6 +12,12 @@ contextBridge.exposeInMainWorld('desktop', {
   stopGlobalHold: () => ipcRenderer.invoke('hold:stop'),
   getGlobalHoldStatus: () => ipcRenderer.invoke('hold:status'),
   openKeyboardSettings: () => ipcRenderer.invoke('hold:settings'),
+  getVoiceStatus: () => ipcRenderer.invoke('voice:status'),
+  connectVoice: port => ipcRenderer.invoke('voice:connect', port),
+  disconnectVoice: () => ipcRenderer.invoke('voice:disconnect'),
+  speakText: text => ipcRenderer.invoke('voice:say', text),
+  onVoiceStatus: callback => subscribe('voice:status', callback),
+  openAudioHelp: topic => ipcRenderer.invoke('audio:help', topic),
   onGlobalHold: callback => subscribe('hold:event', callback),
   onGlobalHoldStatus: callback => subscribe('hold:status', callback),
 });
