@@ -53,7 +53,8 @@ def webm_chunks(path: str, height: int, bitrate: str) -> list[bytes]:
     return [data[i * step:(i + 1) * step] for i in range(n)]
 
 
-async def run(url: str, clips: list[str], height: int, quality: int, user: str, webm: str | None) -> None:
+async def run(url: str, clips: list[str], height: int, quality: int, user: str, webm: str | None,
+              given: list[str] | None = None) -> None:
     delays = []
     async with websockets.connect(f"{url}/ws/session?user_id={user}", max_size=None) as ws:
         await ws.send(json.dumps({"type": "session.start", "user_id": user, "use_adapter": True}))
@@ -65,7 +66,7 @@ async def run(url: str, clips: list[str], height: int, quality: int, user: str, 
                                 for f in frames_25fps(path, height)], 25
             utt = f"r{i}"
             await ws.send(json.dumps({"type": "utterance.start", "utt_id": utt, "fps": 25,
-                                      "encoding": "webm" if webm else "jpeg",
+                                      "encoding": "webm" if webm else "jpeg", **({"given": given} if given else {}),
                                       "t_press_ms": int(time.time() * 1000)}))
             t_start = time.perf_counter()
             for k, j in enumerate(frames):
@@ -80,7 +81,7 @@ async def run(url: str, clips: list[str], height: int, quality: int, user: str, 
             kb = sum(map(len, frames)) / 1024 / (len(frames) / rate)
             top = reply["candidates"][0]["text"] if reply.get("candidates") else reply.get("code")
             print(f"{path}: {ms:.0f} ms end->candidates | {kb:.0f} KB/s | {top!r} | adapter {reply.get('adapter')} "
-                  f"| {reply.get('timings')}")
+                  f"| given on top: {bool(reply.get('given')) and top in reply['given']} | {reply.get('timings')}")
     print(f"median end->candidates {statistics.median(delays):.0f} ms over {len(delays)} clips")
 
 
@@ -92,5 +93,6 @@ if __name__ == "__main__":
     p.add_argument("--quality", type=int, default=80)
     p.add_argument("--user", default="replay")
     p.add_argument("--webm", metavar="BITRATE", help="send a VP8 webm stream (e.g. 1000k) instead of JPEG frames")
+    p.add_argument("--given", nargs="*", help="co-pilot replies to send with each utterance (scored by the server)")
     a = p.parse_args()
-    asyncio.run(run(a.url, a.clips, a.height, a.quality, a.user, a.webm))
+    asyncio.run(run(a.url, a.clips, a.height, a.quality, a.user, a.webm, a.given))
