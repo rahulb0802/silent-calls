@@ -152,3 +152,15 @@ test('the first readings after the face comes back are ignored', () => {
   const events = run([{ms: 2000, phase: 'idle'}, {ms: 300, phase: 'idle', at: {face: false}}, {ms: 350, phase: 'idle', at: mouthing}, {ms: 1500, phase: 'idle'}]);
   assert.deepEqual(names(events), []);
 });
+
+test('a small nod that lands a little off rest still counts; a posture shift does not block later nods', () => {
+  // nod 5.5 degrees, come back to +2 (not exactly to rest)
+  const sloppy = run([{ms: 1000, phase: 'idle'}, {ms: 600, phase: 'choosing'},
+    {ms: 1200, phase: 'choosing', at: t => ({pitch: 10 + (t < 2050 ? 5.5 : 2)})}]);
+  assert.deepEqual(names(sloppy), ['send']);
+  // lean forward and stay there for 3 s, then nod from the new position
+  const shifted = run([{ms: 1000, phase: 'idle'}, {ms: 600, phase: 'choosing'},
+    {ms: 3200, phase: 'choosing', at: {pitch: 17}},
+    {ms: 1500, phase: 'choosing', at: t => ({pitch: 17 + (t > 4950 && t < 5300 ? 6 : 0)})}]);
+  assert.deepEqual(names(shifted), ['send']);
+});

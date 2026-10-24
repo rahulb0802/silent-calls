@@ -62,7 +62,8 @@ export class HandsFree {
   private recent: {t: number; on: boolean; off: boolean; open: number}[] = [];  // on: mouthing (and facing, head still); off: any movement
   private activeMs = 0;  // mouthing during the capture this started
   private lostAt = -1e9;  // when the face was last lost
-  private out: null | {axis: 'yaw' | 'pitch'; since: number; side: number; flips: number} = null;
+  private out: null | {axis: 'yaw' | 'pitch'; since: number; side: number; flips: number; peak: number} = null;
+  private rebase = false;  // a head movement never came back: take the current pose as the new rest
   private quietUntil = 0;
   private browSince = 0; private blinkSince = 0;
   private choosingSince = 0; private phase: HandsFreePhase = 'idle';
@@ -108,6 +109,7 @@ export class HandsFree {
     if (this.config.startBy === 'nod' && (phase === 'idle' || phase === 'capturing')) {
       // nod (or raise your brows) to start, again to finish; a turn picks a suggested reply
       const gesture = this.config.mode === 'head' ? this.head(s.t, dyaw, dpitch) : this.face(s);
+      if (this.rebase) { this.rebase = false; this.baseYaw = s.yaw; this.basePitch = s.pitch; }
       if (gesture && s.t >= this.quietUntil) {
         this.quietUntil = s.t + REFRACTORY_MS;
         if (phase === 'idle') { if (gesture === 'send') this.started = s.t; events.push(gesture); }
@@ -128,6 +130,7 @@ export class HandsFree {
       if (this.started && s.t - this.started > 1000) this.started = 0;  // the capture never began
       if (suggestions && !events.length) {
         const gesture = this.config.mode === 'head' ? this.head(s.t, dyaw, dpitch) : this.face(s);
+      if (this.rebase) { this.rebase = false; this.baseYaw = s.yaw; this.basePitch = s.pitch; }
         if (gesture && s.t >= this.quietUntil) { events.push(gesture); this.quietUntil = s.t + REFRACTORY_MS; }
       } else if (!suggestions) this.out = null;
     } else if (phase === 'capturing') {
@@ -139,6 +142,7 @@ export class HandsFree {
     } else if (phase === 'choosing') {
       if (s.t >= this.quietUntil && this.share(s.t, RESTART_WIN, 'on') >= START_FRAC && this.swings(s.t, RESTART_WIN) >= SPEECH_SWINGS) { this.recent = []; this.started = s.t; events.push('restart'); return events; }
       const gesture = this.config.mode === 'head' ? this.head(s.t, dyaw, dpitch) : this.face(s);
+      if (this.rebase) { this.rebase = false; this.baseYaw = s.yaw; this.basePitch = s.pitch; }
       if (gesture && s.t >= this.quietUntil) { events.push(gesture); this.quietUntil = s.t + REFRACTORY_MS; this.choosingSince = s.t; }
       else if (s.t - this.choosingSince > CHOOSE_TIMEOUT_MS) { events.push('cancel'); this.choosingSince = s.t; }
     }
@@ -172,13 +176,18 @@ export class HandsFree {
     if (!this.out) {
       if (Math.max(Math.abs(y), Math.abs(p)) >= 1) {
         const axis = Math.abs(y) >= Math.abs(p) ? 'yaw' : 'pitch';
-        this.out = {axis, since: t, side: Math.sign(axis === 'yaw' ? y : p), flips: 0};
+        this.out = {axis, since: t, side: Math.sign(axis === 'yaw' ? y : p), flips: 0, peak: Math.abs(axis === 'yaw' ? y : p)};
       }
       return null;
     }
     const value = this.out.axis === 'yaw' ? y : p;
+    this.out.peak = Math.max(this.out.peak, Math.abs(value));
     if (Math.abs(value) >= 1 && Math.sign(value) !== this.out.side) { this.out.side = Math.sign(value); this.out.flips++; }
-    if (Math.abs(y) >= RETURN || Math.abs(p) >= RETURN) return null;
+    if (t - this.out.since > TURN_MAX_MS) { this.out = null; this.rebase = true; return null; }  // settled somewhere new
+    // back: a nod counts once the head is halfway back (people rarely land exactly where they started); a
+    // turn must come right back, or a shake (through the middle to the other side) would read as a turn
+    const back = this.out.axis === 'pitch' ? Math.max(RETURN, 0.5 * this.out.peak) : RETURN;
+    if (Math.abs(value) >= back || Math.abs(this.out.axis === 'yaw' ? p : y) >= 1) return null;
     const {axis, since, flips} = this.out; this.out = null;
     const held = t - since;
     if (axis === 'pitch') return held <= NOD_MAX_MS ? 'send' : null;
