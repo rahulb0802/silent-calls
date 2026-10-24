@@ -36,7 +36,7 @@ export function useCapture(options:CaptureCallbacks = {}) {
     stop(); const token = generation.current; setError(''); setPhase('starting');
     try {
       const camera = await navigator.mediaDevices.getUserMedia({ video: {
-        width: { ideal: 640 }, height: { ideal: 360 }, frameRate: { ideal: FPS, max: FPS },
+        width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: FPS, max: FPS },
         ...(deviceId ? { deviceId: { exact: deviceId } } : {}),
       }, audio: false });
       if (token !== generation.current) { camera.getTracks().forEach(track => track.stop()); return; }
@@ -64,7 +64,7 @@ export function useCapture(options:CaptureCallbacks = {}) {
         try {
           if (element.currentTime !== lastVideoTime) {
             context.drawImage(element, 0, 0, canvas.width, canvas.height);
-            const frame={ timestampMs: now, jpeg: canvas.toDataURL('image/jpeg', 0.85) };
+            const frame={ timestampMs: now, jpeg: canvas.toDataURL('image/jpeg', 0.8) };
             const count=engine.current.count;
             engine.current.push(frame);
             if(engine.current.count>count)callbacks.current.onFrame?.(frame);

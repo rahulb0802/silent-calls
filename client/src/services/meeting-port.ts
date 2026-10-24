@@ -1,8 +1,9 @@
 import type {CaptureClip,Frame} from '../capture/buffer';
-export type Candidate={id:string;text:string};
+export type Candidate={id:string;text:string;lipScore?:number};
 export type UtteranceStart={utteranceId:string;pressedAtMs:number;width:number;height:number;targetFps:number};
 export type MeetingEvent=
-  | {type:'candidates';utteranceId:string;candidates:Candidate[]}
+  | {type:'candidates';utteranceId:string;candidates:Candidate[];confidence?:number;timings?:Record<string,number>;quality?:string}
+  | {type:'upload';utteranceId:string;sentFrames:number;bufferedBytes:number}
   | {type:'caption';speaker:string;text:string}
   | {type:'speech.started'|'speech.finished';utteranceId:string}
   | {type:'connection';connected:boolean;message:string}
@@ -14,7 +15,7 @@ export interface MeetingPort{
   frame(utteranceId:string,sequence:number,frame:Frame):void;
   end(clip:CaptureClip):void;
   cancel(utteranceId:string):void;
-  confirm(utteranceId:string,candidateId:string):void;
+  confirm(utteranceId:string,candidateId:string,editedText?:string):void;
   quickPhrase(utteranceId:string,text:string):void;
 }
 export type EnrollmentClip={prompt:string;blob:Blob;split:'train'|'eval'};

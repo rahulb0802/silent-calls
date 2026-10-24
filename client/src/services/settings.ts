@@ -3,8 +3,8 @@ const STORAGE='silent-calls:services:v1';
 export function loadSettings():ServiceSettings{
   let value:Partial<ServiceSettings>={};
   try{value=JSON.parse(localStorage.getItem(STORAGE)||'{}')||{};}catch{ /* Use a fresh local profile for invalid saved settings. */ }
-  const settings={websocketUrl:typeof value.websocketUrl==='string'?value.websocketUrl:'',apiUrl:typeof value.apiUrl==='string'?value.apiUrl:'',profileId:typeof value.profileId==='string' && value.profileId?value.profileId:`local-${crypto.randomUUID()}`};
-  if(!value.profileId)localStorage.setItem(STORAGE,JSON.stringify(settings));
+  const settings={websocketUrl:typeof value.websocketUrl==='string'?value.websocketUrl:'ws://127.0.0.1:8000/ws/session',apiUrl:typeof value.apiUrl==='string'?value.apiUrl:'',profileId:typeof value.profileId==='string' && value.profileId && !value.profileId.startsWith('local-')?value.profileId:'sarvajith'};
+  if(typeof value.profileId!=='string' || !value.profileId || value.profileId.startsWith('local-'))localStorage.setItem(STORAGE,JSON.stringify(settings));
   return settings;
 }
 export function saveSettings(settings:ServiceSettings){
