@@ -65,6 +65,12 @@ export function MeetingWidget({service:providedPort}:{service?:MeetingPort} = {}
     void desktop.getGlobalHoldStatus().then(setHook);
     return () => { removeEvent(); removeStatus(); void desktop.stopGlobalHold(); };
   }, []);
+  useEffect(()=>{
+    let profile=loadSettings().profileId;
+    const changed=()=>{const next=loadSettings().profileId;if(next!==profile){profile=next;armAfterCamera.current=false;gpuPort.disconnect();stopRef.current();void window.desktop?.stopGlobalHold();setKeyFeedback('Profile changed. Connect lip-reading and enable your camera/key for this person.');}};
+    window.addEventListener('storage',changed);window.addEventListener('silent-calls:settings',changed);
+    return()=>{window.removeEventListener('storage',changed);window.removeEventListener('silent-calls:settings',changed);};
+  },[gpuPort]);
   // A failed/disconnected camera must never leave the native listener armed.
   useEffect(() => { if (!capture.cameraOn) void window.desktop?.stopGlobalHold(); }, [capture.cameraOn]);
   useEffect(() => {
