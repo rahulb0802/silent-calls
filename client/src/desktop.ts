@@ -2,7 +2,7 @@ import type {VoiceState} from './services/use-local-voice';
 export type HoldKey = 'F8' | 'F9' | 'F10' | 'CtrlRight';
 export type HoldStatus = { active: boolean; key: HoldKey; message: string };
 export type HoldEvent = { type: 'down' | 'up' | 'cancel' };
-export type SetupStatus = {platform:string;canStartService:boolean;credentialsSaved:boolean;keyboardAllowed:boolean};
+export type SetupStatus = {platform:string;canStartService:boolean;keyboardAllowed:boolean};
 export interface DesktopAPI {
   openWidget(): Promise<void>;
   closeWidget(): Promise<void>;
@@ -12,7 +12,6 @@ export interface DesktopAPI {
   getGlobalHoldStatus(): Promise<HoldStatus>;
   openKeyboardSettings(): Promise<void>;
   getSetupStatus():Promise<SetupStatus>;
-  saveVoiceSetup(input:{apiKey:string;voiceId:string}):Promise<SetupStatus>;
   connectSetupVoice():Promise<VoiceState>;
   openSetupKeyboardSettings():Promise<void>;
   getVoiceStatus(): Promise<VoiceState>;

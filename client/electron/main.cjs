@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, screen, session, systemPreferences, shell, powerMonitor, protocol, net, safeStorage } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, session, systemPreferences, shell, powerMonitor, protocol, net } = require('electron');
 const path = require('node:path');
 const {pathToFileURL}=require('node:url');
 protocol.registerSchemesAsPrivileged([{scheme:'silent',privileges:{standard:true,secure:true,supportFetchAPI:true,corsEnabled:true,stream:true}}]);
@@ -11,7 +11,7 @@ const voice = new LocalVoice(status => {
     if (win && !win.isDestroyed() && !win.webContents.isDestroyed()) win.webContents.send('voice:status', status);
   }
 });
-const setup = createSetupService({app, safeStorage, systemPreferences, voice});
+const setup = createSetupService({app, systemPreferences, voice});
 const audioHelp = {
   cartesia: 'https://play.cartesia.ai/voices',
   blackhole: 'https://existential.audio/blackhole/',
@@ -69,7 +69,6 @@ app.whenReady().then(() => {
     if (!trusted(event.sender)) throw new Error('Desktop app window required.');
   }
   ipcMain.handle('setup:status', event => { localVoiceCaller(event); return setup.status(); });
-  ipcMain.handle('setup:save', (event, input) => { localVoiceCaller(event); return setup.save(input); });
   ipcMain.handle('setup:connect', event => { localVoiceCaller(event); return setup.connect(); });
   ipcMain.handle('setup:keyboard', event => {
     localVoiceCaller(event);

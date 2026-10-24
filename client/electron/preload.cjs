@@ -13,7 +13,6 @@ contextBridge.exposeInMainWorld('desktop', {
   getGlobalHoldStatus: () => ipcRenderer.invoke('hold:status'),
   openKeyboardSettings: () => ipcRenderer.invoke('hold:settings'),
   getSetupStatus: () => ipcRenderer.invoke('setup:status'),
-  saveVoiceSetup: input => ipcRenderer.invoke('setup:save', input),
   connectSetupVoice: () => ipcRenderer.invoke('setup:connect'),
   openSetupKeyboardSettings: () => ipcRenderer.invoke('setup:keyboard'),
   getVoiceStatus: () => ipcRenderer.invoke('voice:status'),

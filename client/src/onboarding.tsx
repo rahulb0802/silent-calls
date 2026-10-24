@@ -29,8 +29,6 @@ export function Onboarding() {
   const [deviceMessage, setDeviceMessage] = useState('');
   const [meeting, setMeeting] = useState('meet');
   const [heard, setHeard] = useState(false);
-  const [apiKey, setApiKey] = useState('');
-  const [voiceId, setVoiceId] = useState('');
   const [busy, setBusy] = useState('');
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
@@ -38,6 +36,7 @@ export function Onboarding() {
   const heading = useRef<HTMLHeadingElement>(null);
   const alive = useRef(true);
   const taskLock = useRef(false);
+  const autoConnectAttempted = useRef(false);
   const voice = useLocalVoice();
   const windows = (setup?.platform || voice.state.platform) === 'win32';
   const microphone = windows ? 'CABLE Output' : 'BlackHole 2ch';
@@ -67,6 +66,14 @@ export function Onboarding() {
     return () => { active = false; window.removeEventListener('focus', refresh); };
   }, []);
   useEffect(() => { if (stream) setCameraChecked(true); }, [stream]);
+  useEffect(() => {
+    if (step !== 3) { autoConnectAttempted.current = false; return; }
+    if (autoConnectAttempted.current) return;
+    autoConnectAttempted.current = true;
+    void perform('Connecting your voice…', connectVoice);
+    // One attempt per visit; manual retry remains available after a failure.
+    // StrictMode and repeated renders must not spawn duplicate services.
+  }, [step]);
 
   async function perform(label: string, task: () => Promise<void>) {
     if (taskLock.current) return;
@@ -100,14 +107,6 @@ export function Onboarding() {
     if (!window.desktop?.connectSetupVoice) throw new Error('Restart the Electron app to load the updated setup.');
     await window.desktop.connectSetupVoice();
   }
-  async function saveVoice() {
-    if (!window.desktop?.saveVoiceSetup) throw new Error('Restart the Electron app to load the updated setup.');
-    const next = await window.desktop.saveVoiceSetup({ apiKey, voiceId });
-    if (alive.current) {
-      setSetup(next); setApiKey(''); setVoiceId('');
-      setNotice('Voice details saved with system encryption. Existing running services keep their current voice until restarted.');
-    }
-  }
   async function openWidget() {
     if (!window.desktop) throw new Error('Open the Electron desktop app to use the floating companion.');
     await window.desktop.openWidget();
@@ -117,7 +116,7 @@ export function Onboarding() {
     ? `Google Meet → Settings → Audio → Microphone → ${microphone}`
     : meeting === 'zoom' ? `Zoom → Settings → Audio → Microphone → ${microphone}`
       : `FaceTime → Video → Microphone → ${microphone}`;
-  const nextLabel = step === 0 ? 'Set up Silent Calls' : step === 1 ? stream ? 'Camera looks good' : 'Continue with typing' : step === 2 ? 'Continue to my voice' : step === 3 ? connected ? 'Continue' : 'Connect my voice' : widgetOpened ? 'Show my companion' : 'Open my companion';
+  const nextLabel = step === 0 ? 'Set up Silent Calls' : step === 1 ? stream ? 'Camera looks good' : 'Continue with typing' : step === 2 ? 'Continue to my voice' : step === 3 ? connected ? 'Continue' : 'Retry connection' : widgetOpened ? 'Show my companion' : 'Open my companion';
   function next() {
     if (step === 4) { void perform('Opening your companion…', openWidget); return; }
     if (step === 3 && !connected) { void perform('Connecting your voice…', connectVoice); return; }
@@ -134,7 +133,7 @@ export function Onboarding() {
         {step === 0 && <div className="setup-overview"><p><Check size={17}/><span>Use the webcam you already have</span></p><p><Check size={17}/><span>Bring your voice into Zoom, Meet or FaceTime</span></p><p><Check size={17}/><span>Speak only when you choose</span></p><p className="small">Typed speech is available now. Lip-reading will connect when the model service is ready.</p></div>}
         {step === 1 && <div className="setup-overview"><p><Check size={17}/>Camera near eye level</p><p><Check size={17}/>Whole face in the guide</p><p><Check size={17}/>Light in front, not behind</p><p className="small">This preview stays on your computer. Enrollment and practice are available later in Training & settings.</p></div>}
         {step === 2 && <div className="setup-audio-copy"><h2>{driverFound ? 'Your audio bridge is available.' : windows ? 'Install VB-Cable once.' : 'Install BlackHole 2ch once.'}</h2><p>Follow the official installer and accept its system prompts. Reopen your calling app afterwards.</p><button className="text-button" disabled={!!busy} onClick={() => void help(windows ? 'vbcable' : 'blackhole')}>Open {windows ? 'VB-Cable' : 'BlackHole'} installer <ExternalLink size={14}/></button><button className="button setup-secondary" disabled={!!busy} onClick={() => void perform('Checking audio device…', detectDriver)}>{driverFound ? 'Check again' : 'Check audio device'}</button><p className="small" role="status">{deviceMessage || 'Checking asks for temporary microphone access to identify audio devices. No audio is saved.'}</p></div>}
-        {step === 3 && <div className="setup-voice-copy"><div className="setup-live-status" role="status"><span className={`dot ${connected ? '' : 'amber'}`}/>{connected ? 'Voice service connected' : busy || 'Let’s connect your voice'}</div><p className="small">We’ll use your existing setup and try to start the installed voice service for you. Your text is synthesized by Cartesia.</p><details className="setup-details"><summary>{setup?.credentialsSaved ? 'Update saved voice details' : 'First time? Add your voice details'}</summary><p>Your Cartesia key and voice ID are encrypted on this computer, outside the project. They are never saved in browser storage.</p><label htmlFor="setup-key">Cartesia API key</label><input id="setup-key" type="password" autoComplete="off" spellCheck={false} value={apiKey} onChange={event => setApiKey(event.target.value)} maxLength={512}/><label htmlFor="setup-voice">Voice ID</label><input id="setup-voice" autoComplete="off" spellCheck={false} value={voiceId} onChange={event => setVoiceId(event.target.value)} maxLength={128}/><button className="button" disabled={!!busy || !apiKey.trim() || !voiceId.trim()} onClick={() => void perform('Saving voice details…', saveVoice)}>Save voice details</button><button className="text-button" disabled={!!busy} onClick={() => void help('cartesia')}>Create or choose a voice in Cartesia <ExternalLink size={13}/></button></details><details className="setup-details"><summary>Advanced setup & troubleshooting</summary><p>{setup?.canStartService ? 'The installed Python service can be started from this app.' : 'The Python runtime is not bundled with the desktop installer yet. Install the repository’s Python dependencies or start the service separately.'} Existing .env configuration still works. For a custom port or manual setup, use the audio guide.</p><a className="text-button" href="#/audio-setup">Open detailed audio setup <ArrowRight size={14}/></a></details></div>}
+        {step === 3 && <div className="setup-voice-copy"><div className="setup-live-status" role="status"><span className={`dot ${connected ? '' : 'amber'}`}/>{connected ? 'Voice service connected' : busy || 'Let’s connect your voice'}</div><p className="small">Your voice connects automatically using the service configured for this app. No account details to enter. Your text is synthesized by Cartesia.</p><details className="setup-details"><summary>Advanced setup & troubleshooting</summary><p>{setup?.canStartService ? 'The installed Python service can be started from this app.' : 'The Python runtime is not bundled with the desktop installer yet. Install the repository’s Python dependencies or start the service separately.'} The service uses the developer’s backend configuration. If connection fails, check the service and audio driver. For a custom port or manual setup, use the audio guide.</p><a className="text-button" href="#/audio-setup">Open detailed audio setup <ArrowRight size={14}/></a></details></div>}
         {step === 4 && <div className="setup-summary"><h2>Your setup at a glance</h2>{[[cameraChecked ? 'Camera checked this session' : 'Camera optional · type to speak', cameraChecked], [connected ? 'Voice service connected' : 'Voice service not connected', connected], [heard ? 'Meeting audio confirmed by you' : 'Meeting audio still needs confirmation', heard]].map(([label, ready]) => <p key={String(label)}><span className={`dot ${ready ? '' : 'amber'}`}/>{label}</p>)}<p className="small">Lip-reading and model training are separate. You can already use typed speech and quick phrases with your voice connected.</p><button className="text-button" disabled={!!busy} onClick={() => go(2)}>Revisit audio setup <ArrowRight size={14}/></button><button className="text-button" disabled={!!busy} onClick={() => { localStorage.removeItem('silent-calls:onboarding'); go(0); }}>Run setup again</button></div>}
         {(error || voice.error) && <p className="error" role="alert">{error || voice.error}</p>}{notice && <p className="small" role="status">{notice}</p>}
       </div><div className="visual-column">
