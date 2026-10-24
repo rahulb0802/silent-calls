@@ -34,15 +34,16 @@ function load(win, hash = '') {
   win.webContents.on('will-navigate', event => event.preventDefault());
   if (devURL) win.loadURL(`${devURL}/${hash}`); else win.loadURL(`silent://app/index.html${hash}`);
 }
+const icon = path.join(__dirname, '..', 'build', 'icon.png');
 const preferences = { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true };
 function createMain() {
-  mainWindow = new BrowserWindow({ width: 1160, height: 800, minWidth: 900, minHeight: 690, title: 'Silent Calls', backgroundColor: '#f7f8f4', webPreferences: preferences });
+  mainWindow = new BrowserWindow({ width: 1160, height: 800, minWidth: 900, minHeight: 690, title: 'Silent Calls', icon, backgroundColor: '#f7f8f4', webPreferences: preferences });
   load(mainWindow);
 }
 function openWidget() {
   if (widget && !widget.isDestroyed()) { widget.show(); return; }
   const area = screen.getPrimaryDisplay().workArea;
-  widget = new BrowserWindow({ width: 390, height: Math.min(740, area.height - 48), x: area.x + area.width - 414, y: area.y + Math.max(24, area.height - 764), resizable: false, frame: false, alwaysOnTop: true, skipTaskbar: true, backgroundColor: '#1c2624', webPreferences: { ...preferences, backgroundThrottling: false } });
+  widget = new BrowserWindow({ width: 390, height: Math.min(740, area.height - 48), x: area.x + area.width - 414, y: area.y + Math.max(24, area.height - 764), resizable: false, frame: false, alwaysOnTop: true, skipTaskbar: true, icon, backgroundColor: '#1c2624', webPreferences: { ...preferences, backgroundThrottling: false } });
   widget.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   widget.webContents.setBackgroundThrottling(false);
   widget.webContents.on('did-start-loading', () => hold.stop());
