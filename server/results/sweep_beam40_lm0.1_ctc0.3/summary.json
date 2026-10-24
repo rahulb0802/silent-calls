@@ -1,0 +1,64 @@
+{
+  "tag": "sweep_beam40_lm0.1_ctc0.3",
+  "mode": "file",
+  "device": "cuda:0",
+  "decode": {
+    "beam": 40,
+    "lm_weight": 0.1,
+    "ctc_weight": 0.3
+  },
+  "stream": null,
+  "adapter": false,
+  "groups": {
+    "nilesh/silent": {
+      "clips": 30,
+      "top1_wer": 0.6171,
+      "exact@1": 0.1,
+      "exact@3": 0.2333,
+      "exact@5": 0.2333,
+      "exact@10": 0.2667,
+      "oracle_wer@5": 0.4457,
+      "oracle_wer@10": 0.3771,
+      "within1@5": 0.3667
+    },
+    "rahul/silent": {
+      "clips": 30,
+      "top1_wer": 0.4,
+      "exact@1": 0.2667,
+      "exact@3": 0.4333,
+      "exact@5": 0.4667,
+      "exact@10": 0.5333,
+      "oracle_wer@5": 0.2971,
+      "oracle_wer@10": 0.2743,
+      "within1@5": 0.5667
+    },
+    "sarvajith/silent": {
+      "clips": 30,
+      "top1_wer": 0.1543,
+      "exact@1": 0.5667,
+      "exact@3": 0.6667,
+      "exact@5": 0.7,
+      "exact@10": 0.7667,
+      "oracle_wer@5": 0.1086,
+      "oracle_wer@10": 0.0686,
+      "within1@5": 0.8667
+    },
+    "ALL/silent": {
+      "clips": 90,
+      "top1_wer": 0.3905,
+      "exact@1": 0.3111,
+      "exact@3": 0.4444,
+      "exact@5": 0.4667,
+      "exact@10": 0.5222,
+      "oracle_wer@5": 0.2838,
+      "oracle_wer@10": 0.24,
+      "within1@5": 0.6
+    }
+  },
+  "timings_median_ms": {
+    "encode_ms": 33.0,
+    "beam_ms": 819.0,
+    "lipread_ms": 855.5,
+    "finish_ms": 862.0
+  }
+}

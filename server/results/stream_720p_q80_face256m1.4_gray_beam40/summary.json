@@ -1,0 +1,73 @@
+{
+  "tag": "stream_720p_q80_face256m1.4_gray_beam40",
+  "mode": "stream",
+  "device": "cuda:0",
+  "decode": {
+    "beam": 40,
+    "lm_weight": 0.2,
+    "ctc_weight": 0.1
+  },
+  "stream": {
+    "height": 720,
+    "jpeg_quality": 80,
+    "realtime": false,
+    "face_crop": 256,
+    "gray": true,
+    "kb_per_s": 208
+  },
+  "adapter": false,
+  "groups": {
+    "nilesh/silent": {
+      "clips": 30,
+      "top1_wer": 0.68,
+      "exact@1": 0.0667,
+      "exact@3": 0.1333,
+      "exact@5": 0.1333,
+      "exact@10": 0.1667,
+      "oracle_wer@5": 0.52,
+      "oracle_wer@10": 0.4743,
+      "within1@5": 0.3
+    },
+    "rahul/silent": {
+      "clips": 30,
+      "top1_wer": 0.3829,
+      "exact@1": 0.3333,
+      "exact@3": 0.4,
+      "exact@5": 0.4667,
+      "exact@10": 0.5,
+      "oracle_wer@5": 0.2743,
+      "oracle_wer@10": 0.2571,
+      "within1@5": 0.5667
+    },
+    "sarvajith/silent": {
+      "clips": 30,
+      "top1_wer": 0.1886,
+      "exact@1": 0.5333,
+      "exact@3": 0.6667,
+      "exact@5": 0.7,
+      "exact@10": 0.7,
+      "oracle_wer@5": 0.1086,
+      "oracle_wer@10": 0.0914,
+      "within1@5": 0.8333
+    },
+    "ALL/silent": {
+      "clips": 90,
+      "top1_wer": 0.4171,
+      "exact@1": 0.3111,
+      "exact@3": 0.4,
+      "exact@5": 0.4333,
+      "exact@10": 0.4556,
+      "oracle_wer@5": 0.301,
+      "oracle_wer@10": 0.2743,
+      "within1@5": 0.5667
+    }
+  },
+  "timings_median_ms": {
+    "face_wait_ms": 120.0,
+    "crop_ms": 18.5,
+    "encode_ms": 35.0,
+    "beam_ms": 863.5,
+    "lipread_ms": 895.0,
+    "finish_ms": 1046.5
+  }
+}

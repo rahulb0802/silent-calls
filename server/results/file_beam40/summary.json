@@ -1,0 +1,102 @@
+{
+  "tag": "file_beam40",
+  "mode": "file",
+  "device": "cuda:0",
+  "decode": {
+    "beam": 40,
+    "lm_weight": 0.3,
+    "ctc_weight": 0.1
+  },
+  "stream": null,
+  "adapter": false,
+  "groups": {
+    "nilesh/silent": {
+      "clips": 30,
+      "top1_wer": 0.5714,
+      "exact@1": 0.1333,
+      "exact@3": 0.2,
+      "exact@5": 0.2333,
+      "exact@10": 0.2333,
+      "oracle_wer@5": 0.4629,
+      "oracle_wer@10": 0.4229,
+      "within1@5": 0.4
+    },
+    "rahul/aloud": {
+      "clips": 6,
+      "top1_wer": 0.1471,
+      "exact@1": 0.6667,
+      "exact@3": 0.8333,
+      "exact@5": 0.8333,
+      "exact@10": 0.8333,
+      "oracle_wer@5": 0.0588,
+      "oracle_wer@10": 0.0588,
+      "within1@5": 0.8333
+    },
+    "rahul/silent": {
+      "clips": 30,
+      "top1_wer": 0.3943,
+      "exact@1": 0.3333,
+      "exact@3": 0.4667,
+      "exact@5": 0.5667,
+      "exact@10": 0.5667,
+      "oracle_wer@5": 0.2686,
+      "oracle_wer@10": 0.2629,
+      "within1@5": 0.6333
+    },
+    "sarvajith/aloud": {
+      "clips": 6,
+      "top1_wer": 0.2353,
+      "exact@1": 0.6667,
+      "exact@3": 0.6667,
+      "exact@5": 0.6667,
+      "exact@10": 0.8333,
+      "oracle_wer@5": 0.1471,
+      "oracle_wer@10": 0.0294,
+      "within1@5": 0.6667
+    },
+    "sarvajith/silent": {
+      "clips": 30,
+      "top1_wer": 0.16,
+      "exact@1": 0.5,
+      "exact@3": 0.6333,
+      "exact@5": 0.7,
+      "exact@10": 0.8,
+      "oracle_wer@5": 0.0971,
+      "oracle_wer@10": 0.0686,
+      "within1@5": 0.8667
+    },
+    "ALL/aloud": {
+      "clips": 12,
+      "top1_wer": 0.1912,
+      "exact@1": 0.6667,
+      "exact@3": 0.75,
+      "exact@5": 0.75,
+      "exact@10": 0.8333,
+      "oracle_wer@5": 0.1029,
+      "oracle_wer@10": 0.0441,
+      "within1@5": 0.75
+    },
+    "ALL/silent": {
+      "clips": 90,
+      "top1_wer": 0.3752,
+      "exact@1": 0.3222,
+      "exact@3": 0.4333,
+      "exact@5": 0.5,
+      "exact@10": 0.5333,
+      "oracle_wer@5": 0.2762,
+      "oracle_wer@10": 0.2514,
+      "within1@5": 0.6333
+    }
+  },
+  "timings_median_ms": {
+    "encode_ms": 35.0,
+    "beam_ms": 821.5,
+    "lipread_ms": 859.0,
+    "finish_ms": 1497.5
+  },
+  "silent_vs_aloud": {
+    "pairs": 12,
+    "silent_wer": 0.2794,
+    "aloud_wer": 0.1912
+  }
+}

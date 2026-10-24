@@ -1,0 +1,293 @@
+{
+  "user": "routetest",
+  "source": "enroll",
+  "n_train": 8,
+  "n_val": 0,
+  "n_test": 2,
+  "test_sentences": [
+    "f08",
+    "f09"
+  ],
+  "before_wer": 0.6364,
+  "after_wer": 0.6364,
+  "before_top5": 0.5,
+  "after_top5": 0.5,
+  "before": {
+    "clips": 2,
+    "top1_wer": 0.6364,
+    "exact@1": 0.5,
+    "exact@3": 0.5,
+    "exact@5": 0.5,
+    "exact@10": 0.5,
+    "oracle_wer@5": 0.4545,
+    "oracle_wer@10": 0.4545,
+    "within1@5": 0.5
+  },
+  "after": {
+    "clips": 2,
+    "top1_wer": 0.6364,
+    "exact@1": 0.5,
+    "exact@3": 0.5,
+    "exact@5": 0.5,
+    "exact@10": 0.5,
+    "oracle_wer@5": 0.4545,
+    "oracle_wer@10": 0.4545,
+    "within1@5": 0.5
+  },
+  "feasibility_before": null,
+  "feasibility_after": null,
+  "per_clip": [
+    {
+      "key": "f08",
+      "ref": "let's meet tomorrow morning",
+      "before": "let's meet tomorrow morning",
+      "after": "let's meet tomorrow morning",
+      "before_rank": 1,
+      "after_rank": 1
+    },
+    {
+      "key": "f09",
+      "ref": "my number is the same as before",
+      "before": "i got a pretty good example before i",
+      "after": "i got a pretty good example before i",
+      "before_rank": "",
+      "after_rank": ""
+    }
+  ],
+  "config": {
+    "user": "routetest",
+    "r": 8,
+    "alpha": 16,
+    "targets": [
+      "linear_q",
+      "linear_k",
+      "linear_v",
+      "linear_out"
+    ],
+    "source": "enroll",
+    "best_step": 20,
+    "created": 1792812196.4983926,
+    "steps": 20,
+    "lr": 0.0005,
+    "batch": 8,
+    "dropout": 0.05,
+    "trainable_params": 589824,
+    "token_coverage": 1.0
+  },
+  "train_seconds": 9.3,
+  "seconds_per_step": 0.467,
+  "total_seconds": 29.3,
+  "device": "cuda:1",
+  "gpu_mem_peak_gb": 2.63,
+  "curve": [
+    {
+      "step": 1,
+      "loss": 12.9302,
+      "ctc": 17.0869,
+      "att": 12.4684
+    },
+    {
+      "step": 2,
+      "loss": 12.811,
+      "ctc": 14.715,
+      "att": 12.5994
+    },
+    {
+      "step": 3,
+      "loss": 12.5488,
+      "ctc": 15.6864,
+      "att": 12.2002
+    },
+    {
+      "step": 4,
+      "loss": 10.3147,
+      "ctc": 12.8733,
+      "att": 10.0304
+    },
+    {
+      "step": 5,
+      "loss": 11.6877,
+      "ctc": 12.294,
+      "att": 11.6203
+    },
+    {
+      "step": 6,
+      "loss": 16.4374,
+      "ctc": 20.6909,
+      "att": 15.9648
+    },
+    {
+      "step": 7,
+      "loss": 15.5704,
+      "ctc": 18.2232,
+      "att": 15.2756
+    },
+    {
+      "step": 8,
+      "loss": 11.5304,
+      "ctc": 14.4381,
+      "att": 11.2073
+    },
+    {
+      "step": 9,
+      "loss": 11.9198,
+      "ctc": 13.9176,
+      "att": 11.6978
+    },
+    {
+      "step": 10,
+      "loss": 15.6071,
+      "ctc": 23.4537,
+      "att": 14.7353
+    },
+    {
+      "step": 11,
+      "loss": 15.3132,
+      "ctc": 18.3334,
+      "att": 14.9776
+    },
+    {
+      "step": 12,
+      "loss": 11.27,
+      "ctc": 16.2986,
+      "att": 10.7112
+    },
+    {
+      "step": 13,
+      "loss": 12.3531,
+      "ctc": 14.2748,
+      "att": 12.1396
+    },
+    {
+      "step": 14,
+      "loss": 9.6397,
+      "ctc": 11.8918,
+      "att": 9.3894
+    },
+    {
+      "step": 15,
+      "loss": 15.8072,
+      "ctc": 19.9126,
+      "att": 15.351
+    },
+    {
+      "step": 16,
+      "loss": 12.8444,
+      "ctc": 14.0546,
+      "att": 12.71
+    },
+    {
+      "step": 17,
+      "loss": 15.3885,
+      "ctc": 19.8082,
+      "att": 14.8974
+    },
+    {
+      "step": 18,
+      "loss": 9.8878,
+      "ctc": 11.4496,
+      "att": 9.7143
+    },
+    {
+      "step": 19,
+      "loss": 12.4061,
+      "ctc": 14.4891,
+      "att": 12.1746
+    },
+    {
+      "step": 20,
+      "loss": 14.932,
+      "ctc": 19.7755,
+      "att": 14.3938
+    }
+  ],
+  "before_rows": [
+    {
+      "key": "f08",
+      "ref": "let's meet tomorrow morning",
+      "top1": "let's meet tomorrow morning",
+      "ref_words": 4,
+      "top1_errors": 0,
+      "top1_wer": 0.0,
+      "exact_rank": 1,
+      "exact@1": 1,
+      "oracle_errors@1": 0,
+      "within1@1": 1,
+      "exact@3": 1,
+      "oracle_errors@3": 0,
+      "within1@3": 1,
+      "exact@5": 1,
+      "oracle_errors@5": 0,
+      "within1@5": 1,
+      "exact@10": 1,
+      "oracle_errors@10": 0,
+      "within1@10": 1
+    },
+    {
+      "key": "f09",
+      "ref": "my number is the same as before",
+      "top1": "i got a pretty good example before i",
+      "ref_words": 7,
+      "top1_errors": 7,
+      "top1_wer": 1.0,
+      "exact_rank": "",
+      "exact@1": 0,
+      "oracle_errors@1": 7,
+      "within1@1": 0,
+      "exact@3": 0,
+      "oracle_errors@3": 7,
+      "within1@3": 0,
+      "exact@5": 0,
+      "oracle_errors@5": 5,
+      "within1@5": 0,
+      "exact@10": 0,
+      "oracle_errors@10": 5,
+      "within1@10": 0
+    }
+  ],
+  "after_rows": [
+    {
+      "key": "f08",
+      "ref": "let's meet tomorrow morning",
+      "top1": "let's meet tomorrow morning",
+      "ref_words": 4,
+      "top1_errors": 0,
+      "top1_wer": 0.0,
+      "exact_rank": 1,
+      "exact@1": 1,
+      "oracle_errors@1": 0,
+      "within1@1": 1,
+      "exact@3": 1,
+      "oracle_errors@3": 0,
+      "within1@3": 1,
+      "exact@5": 1,
+      "oracle_errors@5": 0,
+      "within1@5": 1,
+      "exact@10": 1,
+      "oracle_errors@10": 0,
+      "within1@10": 1
+    },
+    {
+      "key": "f09",
+      "ref": "my number is the same as before",
+      "top1": "i got a pretty good example before i",
+      "ref_words": 7,
+      "top1_errors": 7,
+      "top1_wer": 1.0,
+      "exact_rank": "",
+      "exact@1": 0,
+      "oracle_errors@1": 7,
+      "within1@1": 0,
+      "exact@3": 0,
+      "oracle_errors@3": 5,
+      "within1@3": 0,
+      "exact@5": 0,
+      "oracle_errors@5": 5,
+      "within1@5": 0,
+      "exact@10": 0,
+      "oracle_errors@10": 5,
+      "within1@10": 0
+    }
+  ],
+  "checkpoints": {}
+}

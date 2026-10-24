@@ -56,7 +56,8 @@ async def run(url: str, clips: list[str], height: int, quality: int, user: str) 
             delays.append(ms)
             kb = sum(map(len, frames)) / 1024 / (len(frames) / 25)
             top = reply["candidates"][0]["text"] if reply.get("candidates") else reply.get("code")
-            print(f"{path}: {ms:.0f} ms end->candidates | {kb:.0f} KB/s | {top!r} | {reply.get('timings')}")
+            print(f"{path}: {ms:.0f} ms end->candidates | {kb:.0f} KB/s | {top!r} | adapter {reply.get('adapter')} "
+                  f"| {reply.get('timings')}")
     print(f"median end->candidates {statistics.median(delays):.0f} ms over {len(delays)} clips")
 
 
