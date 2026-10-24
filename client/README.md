@@ -93,3 +93,7 @@ Restart Electron after updating the main/preload files. The default setup route 
 ## GPU lip-reading over SSH
 
 Keep the working port-8000 SSH tunnel open. In the widget click **Connect lip-reading**, enable the webcam and global key, hold T while mouthing a phrase, then release. Choose one of the GPU's candidates or edit it before speaking. The local voice service still outputs to BlackHole / VB-Cable; the GPU stand-in does not synthesize audio. Endpoint/profile settings are in Training & settings, defaulting to the loopback session endpoint and `sarvajith` for this checkout. See [manual steps and protocol boundaries](../docs/GPU_LIPREADING_CLIENT.md). Implementation is untested at the user's request and is not pushed until approved.
+
+## Personal vocabulary and saved phrases
+
+Open **Vocabulary & saved phrases** in the widget or Training & settings. Add your own words, optional alternate readings and exact phrases; nothing is prefilled. Entries save locally across restarts, and the widget updates when you save. Corrections fill the phrase editor for review; saved phrase buttons speak on click. Restart Electron after updating for the new main-window route. See [personal library](../docs/PERSONAL_LIBRARY.md) for persistence and behavior. No tests or push performed for this increment.

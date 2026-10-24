@@ -146,3 +146,7 @@ The default route now presents five focused steps: welcome, optional camera fram
 ## GPU lip-reading connection
 
 The live widget leads with an explicit GPU connection action, followed by pending upload/inference state and confirmed candidate selection. Top three results support local 1/2/3 keys; remaining results and reported server details are disclosed on demand. An editable phrase is a separate explicit speech action. Typed speech remains available under Type instead / quick phrases. Existing dark widget colors, spacing, focused controls and native text inputs are preserved. No preview or verification pass was run, per user instruction.
+
+## Personal library
+
+Vocabulary & saved phrases opens a dedicated cream/forest main-window route with two labeled forms and editable lists. Both start empty. Compact dark saved-phrase buttons appear directly in the meeting widget; matching vocabulary corrections are visually separate from original GPU candidates and only populate the editor until explicitly spoken. Library edits persist locally and update across windows. Native inputs, readable wrapping, labeled edit/delete controls, focus rings and visible storage errors preserve the existing interaction patterns. No preview or verification pass was performed, per user instruction.

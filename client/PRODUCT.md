@@ -34,3 +34,7 @@ First-run setup leads to real typed speech, with optional camera framing and lat
 ## GPU stand-in client
 
 The widget can explicitly connect to the SSH-tunneled lip-reading service on loopback port 8000. Held captures send ordered JPEG frames with the existing pre/post buffers. The lip-reading-only stand-in provides candidates, not speech; the user selects or edits a phrase and the local voice service speaks it. Interrupted capture/inference never replays. The socket reconnects automatically, but the user re-enables camera/global capture after a lost connection. Model training, enrollment uploads and the full decision/caption orchestrator remain separate integrations.
+
+## Personal vocabulary and phrases
+
+Users can maintain a locally persistent personal library, initially empty. Explicit alternate readings produce reviewable spelling corrections for top-three GPU candidates; terms can also be inserted into the editable phrase. This is not model training or server vocabulary biasing. Saved phrases speak their exact text only on explicit click through the existing local service. No provider credentials, automatic utterances, seeded personal names or new backend protocol fields are introduced. The library is shared between app windows at the same origin and survives restarts until app data is cleared.
