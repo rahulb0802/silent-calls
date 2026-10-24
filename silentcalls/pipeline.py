@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import os
 import re
 import time
 from collections.abc import Awaitable, Callable
@@ -30,7 +31,7 @@ class Pipeline:
         self.emit = emit
         self.transcript = Transcript(s.context_lines)
         self.jev = Jev(s) if use_jev and s.jev_api_key else None
-        self.repairer = Repairer(s) if use_claude else None
+        self.repairer = Repairer(s) if use_claude and os.getenv("ANTHROPIC_API_KEY") else None
         self._repairs: dict[str, asyncio.Task] = {}
 
     async def close(self) -> None:
@@ -49,7 +50,7 @@ class Pipeline:
     async def handle(self, msg: CandidatesMessage) -> DecisionEvent:
         t0 = time.perf_counter()
         context = self.transcript.render()
-        names = self.names(context)
+        names = clean(self.names(context) + msg.vocab)
         cands = top_k(msg.candidates, max(self.s.jev_top_k, 1))
         if not cands:
             event = DecisionEvent(utterance_id=msg.utterance_id, route="repeat", options=[])
@@ -77,7 +78,7 @@ class Pipeline:
         await self.emit(event)
         log.info("decision %s: %s %.2f %r %s", msg.utterance_id, decided, top.prob, top.text, timings)
 
-        if decided == "speak":
+        if decided == "speak" and msg.auto_speak:
             self._cancel_repair(msg.utterance_id)
             await self.speak(top.text)
         return event

@@ -7,7 +7,7 @@ Lip-reading server (GPU, Person 1), per utterance:
   server -> client  CandidatesMessage (below)
 
 Desktop app <-> this process (ws://127.0.0.1:8765, see app.py):
-  in:  CandidatesMessage                         forward the lip-reader's output here
+  in:  CandidatesMessage                         forward the lip-reader's output here (optional vocab, auto_speak)
   in:  {"type": "confirm", "utterance_id", "text"}   user picked an option -> speak it
   in:  {"type": "say", "text"}                   speak arbitrary text (typed fallback)
   in:  {"type": "opener"}                        play the "speech assistant" opener
@@ -29,6 +29,8 @@ class CandidatesMessage(BaseModel):
     utterance_id: str
     candidates: list[Candidate]  # best first, up to the beam size (40)
     model_ms: float | None = None  # crop + model time on the GPU, for latency logging
+    vocab: list[str] = Field(default_factory=list, max_length=200)  # names the user may say (app's word list)
+    auto_speak: bool = True  # False: never speak on route "speak"; the app waits for the user's pick
 
 
 class Option(BaseModel):

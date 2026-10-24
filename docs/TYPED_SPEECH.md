@@ -17,7 +17,7 @@ VIRTUAL_MIC_DEVICE=BlackHole 2ch
 Then:
 
 ```sh
-.venv/bin/python -m silentcalls.app --no-captions --no-jev --no-claude
+.venv/bin/python -m silentcalls.app --no-captions
 ```
 
 These flags skip call-audio capture and the decision/repair services while retaining real voice output. Do not use `--no-voice` for meeting audio: that mode acknowledges commands without playing sound. Run the service on its default loopback host and port 8765, or choose the matching local port in the app. Restart it after changing environment/device settings.

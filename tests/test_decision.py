@@ -101,3 +101,23 @@ def test_jev_through_vercel_gateway():
     assert probs == [0.2, 0.8]
     assert seen["url"] == "https://ai-gateway.vercel.sh/v1/evaluate" and seen["auth"] == "Bearer vck_test"
     assert seen["body"]["model"] == "typesafe-ai/jev" and "sarva" in seen["body"]["state"]
+
+
+def test_pipeline_no_auto_speak_and_app_vocab():
+    events = []
+
+    async def emit(e):
+        events.append(e)
+
+    async def run():
+        p = Pipeline(Settings(), voice=None, emit=emit, use_jev=False, use_claude=False)
+        p.w = W
+        msg = CandidatesMessage(utterance_id="u1", candidates=cands(("yes", 0.0), ("yet", -5.0)),
+                                vocab=["Sarvajith"], auto_speak=False)
+        await p.handle(msg)
+        await p.close()
+        return p
+
+    p = asyncio.run(run())
+    assert [(e.type, getattr(e, "route", None)) for e in events] == [("decision", "speak")]  # ranked, not spoken
+    assert "User: yes" not in p.transcript.render()
