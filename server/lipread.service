@@ -1,0 +1,16 @@
+# systemd unit for the lip-reading dev server (restarts on crash and on reboot).
+#   cp server/lipread.service /etc/systemd/system/ && systemctl daemon-reload && systemctl enable --now lipread
+#   journalctl -u lipread -f        # logs
+[Unit]
+Description=Silent Calls lip-reading server (server.lipread.dev_app)
+After=network-online.target
+
+[Service]
+WorkingDirectory=/root/voice
+Environment=PYTHONWARNINGS=ignore GLOG_minloglevel=2
+ExecStart=/root/voice/.venv/bin/uvicorn server.lipread.dev_app:app --host 0.0.0.0 --port 8000
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
