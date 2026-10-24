@@ -1,6 +1,7 @@
 import type {CaptureClip, Frame} from '../capture/buffer';
 import type {Candidate, MeetingEvent, MeetingPort, UtteranceStart} from './meeting-port';
 import type {ServiceSettings} from './settings';
+import {WebmEncoder} from './webm-encoder';
 
 const MAX_BUFFERED_BYTES = 12 * 1024 * 1024;
 const RESULT_TIMEOUT_MS = 120_000;
@@ -10,7 +11,7 @@ const friendlyErrors: Record<string, string> = {
   too_short: 'That capture was too short. Hold the key before you start mouthing and release after the last word.',
 };
 
-/** JPEG sender is isolated here so the future agreed video-chunk encoding can replace it. */
+/** JPEG fallback for browsers without VP8 MediaRecorder support. */
 function jpegBytes(frame: Frame): Uint8Array {
   const prefix = 'data:image/jpeg;base64,';
   if (!frame.jpeg.startsWith(prefix)) throw new Error('The camera did not produce a JPEG frame.');
@@ -44,6 +45,7 @@ export class LipreadPort implements MeetingPort {
   private waiting = false;
   private capturing = false;
   private sentFrames = 0;
+  private webm: WebmEncoder | null = null;
   private choices: Candidate[] = [];
   private connected = false;
   private message = 'Connect lip-reading to send captures through your SSH tunnel.';
@@ -123,6 +125,7 @@ export class LipreadPort implements MeetingPort {
     this.resultTimer = this.progressTimer = null;
   }
   private resetUtterance() {
+    this.webm?.cancel(); this.webm = null;
     this.clearResultTimers(); this.active = ''; this.waiting = this.capturing = false; this.sentFrames = 0; this.choices = [];
   }
   private closeSocket() {
@@ -153,10 +156,23 @@ export class LipreadPort implements MeetingPort {
       this.emit({type:'error',utteranceId:start.utteranceId,message:'Connect lip-reading and wait for the previous request before capturing.'}); return;
     }
     this.active = start.utteranceId; this.capturing = true; this.sentFrames = 0; this.choices = [];
-    this.socket.send(JSON.stringify({type:'utterance.start',utt_id:this.active,fps:start.targetFps,t_press_ms:Math.round(performance.timeOrigin+start.pressedAtMs)}));
+    if (WebmEncoder.supported()) {
+      try {
+        this.webm = new WebmEncoder(start.width,start.height,bytes=>{
+          if (this.socket?.readyState !== WebSocket.OPEN || this.socket.bufferedAmount + bytes.byteLength > MAX_BUFFERED_BYTES) {
+            throw new Error('The WebM upload queue filled. Try a shorter phrase or a faster connection.');
+          }
+          this.socket.send(bytes);
+        },error=>{
+          const id=this.active; this.lost(); this.emit({type:'error',utteranceId:id,message:error.message});
+        });
+      } catch { this.webm = null; }
+    }
+    this.socket.send(JSON.stringify({type:'utterance.start',utt_id:this.active,fps:start.targetFps,t_press_ms:Math.round(performance.timeOrigin+start.pressedAtMs),...(this.webm?{encoding:'webm'}:{})}));
   }
   frame(utteranceId: string, _sequence: number, frame: Frame) {
     if (!this.capturing || utteranceId !== this.active || this.socket?.readyState !== WebSocket.OPEN) return;
+    if (this.webm) { this.webm.add(frame); this.sentFrames++; return; }
     try {
       const bytes = jpegBytes(frame);
       if (this.socket.bufferedAmount + bytes.byteLength > MAX_BUFFERED_BYTES) throw new Error('The upload queue filled. Try a shorter phrase or a faster connection.');
@@ -170,7 +186,24 @@ export class LipreadPort implements MeetingPort {
   end(clip: CaptureClip) {
     if (clip.id !== this.active || !this.capturing || this.socket?.readyState !== WebSocket.OPEN) return;
     this.capturing = false; this.waiting = true;
-    // WebSocket preserves binary JPEG and JSON ordering, including queued bytes.
+    if (this.webm) {
+      const encoder=this.webm;
+      void encoder.finish().then(()=>{
+        if (this.active !== clip.id || !this.waiting || this.socket?.readyState !== WebSocket.OPEN) return;
+        this.webm=null;
+        this.sendEnd(clip);
+      }).catch(reason=>{
+        if (this.active !== clip.id) return;
+        this.lost();
+        this.emit({type:'error',utteranceId:clip.id,message:reason instanceof Error?reason.message:'WebM capture failed.'});
+      });
+      return;
+    }
+    this.sendEnd(clip);
+  }
+  private sendEnd(clip: CaptureClip) {
+    // WebSocket preserves chunk/JPEG and JSON ordering, including queued bytes.
+    if (this.socket?.readyState !== WebSocket.OPEN) return;
     this.socket.send(JSON.stringify({type:'utterance.end',utt_id:clip.id,n_frames:this.sentFrames,t_release_ms:Math.round(performance.timeOrigin+clip.releasedAtMs)}));
     const progress = () => this.emit({type:'upload',utteranceId:clip.id,sentFrames:this.sentFrames,bufferedBytes:this.socket?.bufferedAmount || 0});
     progress(); this.progressTimer = setInterval(progress,250);

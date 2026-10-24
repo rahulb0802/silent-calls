@@ -36,7 +36,7 @@ export function useCapture(options:CaptureCallbacks = {}) {
     stop(); const token = generation.current; setError(''); setPhase('starting');
     try {
       const camera = await navigator.mediaDevices.getUserMedia({ video: {
-        width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: FPS, max: FPS },
+        width: { ideal: 854 }, height: { ideal: 480 }, frameRate: { ideal: FPS, max: FPS },
         ...(deviceId ? { deviceId: { exact: deviceId } } : {}),
       }, audio: false });
       if (token !== generation.current) { camera.getTracks().forEach(track => track.stop()); return; }
@@ -46,8 +46,8 @@ export function useCapture(options:CaptureCallbacks = {}) {
       element.srcObject = camera; await element.play();
       if (token !== generation.current) return;
       const canvas = document.createElement('canvas');
-      canvas.width = 640;
-      canvas.height = Math.max(1, Math.round(640 * element.videoHeight / element.videoWidth));
+      canvas.height = 480;
+      canvas.width = Math.max(2, Math.round((480 * element.videoWidth / element.videoHeight) / 2) * 2);
       const context = canvas.getContext('2d', { alpha: false });
       if (!context) throw new Error('Camera frame capture is unavailable.');
       const warmingSince = performance.now();
@@ -113,7 +113,7 @@ export function useCapture(options:CaptureCallbacks = {}) {
     if (engine.current.begin(now)) {
       setClip(null);setPhase('capturing');setError('');
       const element=video.current!;
-      callbacks.current.onStart?.({utteranceId:engine.current.utteranceId,pressedAtMs:now,width:640,height:Math.max(1,Math.round(640*element.videoHeight/element.videoWidth)),targetFps:FPS});
+      callbacks.current.onStart?.({utteranceId:engine.current.utteranceId,pressedAtMs:now,width:Math.max(2,Math.round((480*element.videoWidth/element.videoHeight)/2)*2),height:480,targetFps:FPS});
       for(const frame of engine.current.ring.filter(frame=>frame.timestampMs>=now-500 && frame.timestampMs<=now))callbacks.current.onFrame?.(frame);
     }
     else setError('Waiting for fresh camera frames. Keep the camera enabled and retry.');
