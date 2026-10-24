@@ -1,0 +1,16 @@
+id,category,sentence,prior_turn,names
+01,name_start,sarvajith can you hear me,Hello? Who's this?,sarvajith
+02,name_end,thanks sarvajith,Okay I'll send it over now.,sarvajith
+03,name_mid,i talked to nilesh about it yesterday,Did anyone check the budget?,nilesh
+04,name_end,can you ask nilesh,I'm not sure what the deadline is.,nilesh
+05,name_start,rahul is joining in five minutes,Is everyone here yet?,rahul
+06,name_mid,this is rahul from the hackathon team,Hi who am I speaking with?,rahul
+07,name_end,hi priya how are you,Hey it's Priya!,priya
+08,name_mid,i'll send priya the slides tonight,Who has the latest deck?,priya
+09,name_start,anika said the demo works,How's the demo looking?,anika
+10,name_end,let me check with anika,Can we move the meeting to Friday?,anika
+11,name_mid,devansh is handling the backend,Who's working on the server?,devansh
+12,name_end,sorry devansh can you repeat that,The new endpoint is live on staging.,devansh
+13,name_start,kavya wants to meet on monday,When are we meeting next?,kavya
+14,name_mid,tell kavya i said thanks,I'll see Kavya later today.,kavya
+15,two_names,sarvajith and nilesh are on the call,Who else is joining?,sarvajith;nilesh

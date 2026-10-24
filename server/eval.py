@@ -6,6 +6,9 @@
     python -m server.eval --sweep lm=0,0.1,0.3 ctc=0.1,0.3  # decoder settings (reuses cached mouth crops)
     python -m server.eval --adapter                         # use each person's LoRA adapter, if trained
     python -m server.eval --dump-fit data/clips.jsonl       # JSONL for silentcalls/fit_weights.py
+    python -m server.eval --vocab sarvajith nilesh rahul    # bias toward names (false-positive check on these clips)
+    python -m server.eval --clips /opt/lr/name_clips --sentences name_sentences.csv --vocab-from-csv
+                                                            # name clips: does the name reach the top 1 / top 5?
 
 Writes server/results/<tag>/{summary.md, summary.json, per_clip.csv, nbest.jsonl}.
 """
@@ -28,7 +31,8 @@ import cv2
 import numpy as np
 
 from .lipread import frames as fr
-from .lipread.metrics import score, summarize
+from .lipread import vocab as vb
+from .lipread.metrics import norm, score, summarize
 from .lipread.model import DecodeConfig
 from .lipread.paths import CACHE_DIR, CLIPS_DIR, EVAL_DATA, MODEL_FPS, RESULTS_DIR
 from .lipread.reader import LipReader, LipResult
@@ -53,15 +57,28 @@ def find_clips(root: Path) -> list[tuple[tuple[str, str, str], str]]:
     return [(k, latest[k]) for k in sorted(latest)]
 
 
-def load_sentences() -> dict[str, dict]:
-    with open(EVAL_DATA / "feasibility_sentences.csv", encoding="utf-8") as f:
+DEFAULT_SENTENCES = "feasibility_sentences.csv"
+
+
+def load_sentences(name: str = DEFAULT_SENTENCES) -> dict[str, dict]:
+    with open(EVAL_DATA / name, encoding="utf-8") as f:
         return {r["id"]: r for r in csv.DictReader(f)}
 
 
-def cached_crop(reader: LipReader, key, path: str) -> tuple[np.ndarray | None, dict, str | None]:
+def name_hits(ref: str, hyps: list[str], vocab: list[str]) -> dict:
+    """For clips whose reference contains a vocab word: is every such word in the top 1 / top 5?"""
+    ref_n = f" {norm(ref)} "
+    names = [w for w in vocab if f" {w} " in ref_n]
+    if not names:
+        return {"names": "", "name@1": "", "name@5": ""}
+    has = [all(f" {w} " in f" {norm(h)} " for w in names) for h in hyps]
+    return {"names": " ".join(names), "name@1": int(any(has[:1])), "name@5": int(any(has[:5]))}
+
+
+def cached_crop(reader: LipReader, key, path: str, prefix: str = "") -> tuple[np.ndarray | None, dict, str | None]:
     """Mouth crop for a clip (whole-clip path), cached by source mtime under CACHE_DIR."""
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    cp = CACHE_DIR / ("_".join(key) + ".npz")
+    cp = CACHE_DIR / (prefix + "_".join(key) + ".npz")
     mtime = os.path.getmtime(path)
     if cp.exists():
         z = np.load(cp, allow_pickle=True)
@@ -123,7 +140,7 @@ def reencoded(path: str, height: int, bitrate: str) -> tuple[list[np.ndarray], f
 
 
 async def webm_clip(reader: LipReader, path: str, height: int, bitrate: str, realtime: bool,
-                    user_id: str | None) -> tuple[LipResult, float]:
+                    user_id: str | None, vocab: list[str] | None = None) -> tuple[LipResult, float]:
     """Replay a clip as MediaRecorder chunks (~100 ms each) through on_chunk(), then finish()."""
     data = vp8_bytes(path, height, bitrate)
     dur = len(fr.decode_webm(data)) / MODEL_FPS  # browser webm headers often have no duration
@@ -136,14 +153,14 @@ async def webm_clip(reader: LipReader, path: str, height: int, bitrate: str, rea
         if realtime:
             await asyncio.sleep(max(0.0, t_start + (i + 1) * 0.1 - time.perf_counter()))
     t0 = time.perf_counter()
-    res = await reader.finish(utt, user_id)
+    res = await reader.finish(utt, user_id, vocab=vocab)
     res.timings_ms["finish_ms"] = round((time.perf_counter() - t0) * 1000)
     return res, len(data) / 1024 / max(0.1, dur)
 
 
 async def stream_clip(reader: LipReader, path: str, height: int, quality: int, realtime: bool,
                       user_id: str | None, face_crop: int = 0, gray: bool = False,
-                      margin: float = 2.0) -> tuple[LipResult, float]:
+                      margin: float = 2.0, vocab: list[str] | None = None) -> tuple[LipResult, float]:
     """Replay a clip the way the desktop client sends it: 25 fps JPEG frames, then finish()."""
     frames = fr.read_video(path, max_height=height)
     if face_crop:
@@ -157,13 +174,17 @@ async def stream_clip(reader: LipReader, path: str, height: int, quality: int, r
             await asyncio.sleep(max(0.0, t_start + (i + 1) / MODEL_FPS - time.perf_counter()))
     kb = sum(len(j) for j in jpegs) / 1024 / max(1, len(jpegs) / MODEL_FPS)
     t0 = time.perf_counter()
-    res = await reader.finish(utt, user_id)
+    res = await reader.finish(utt, user_id, vocab=vocab)
     res.timings_ms["finish_ms"] = round((time.perf_counter() - t0) * 1000)
     return res, kb
 
 
 def run(args, cfg: DecodeConfig, tag: str, reader: LipReader | None = None) -> dict:
-    sentences = load_sentences()
+    sentences = load_sentences(args.sentences)
+    vocab = vb.clean(args.vocab or [])
+    if args.vocab_from_csv:
+        vocab = vb.clean(vocab + [w for r in sentences.values() for w in (r.get("names") or "").split(";")])
+    cache_prefix = "" if args.sentences == DEFAULT_SENTENCES else Path(args.sentences).stem + "_"
     clips = [c for c in find_clips(Path(args.clips))
              if (not args.only or args.only in c[1]) and (not args.persons or c[0][0] in args.persons)
              and (args.include_aloud or c[0][1] == "silent")]
@@ -179,28 +200,29 @@ def run(args, cfg: DecodeConfig, tag: str, reader: LipReader | None = None) -> d
         t0 = time.perf_counter()
         if args.mode == "stream":
             res, kb = asyncio.run(stream_clip(reader, path, args.height, args.quality, args.realtime, user,
-                                              args.face_crop, args.gray, args.face_margin))
+                                              args.face_crop, args.gray, args.face_margin, vocab))
             kbs.append(kb)
         elif args.mode == "video" and args.chunks:
-            res, kb = asyncio.run(webm_clip(reader, path, args.height, args.bitrate, args.realtime, user))
+            res, kb = asyncio.run(webm_clip(reader, path, args.height, args.bitrate, args.realtime, user, vocab))
             kbs.append(kb)
         elif args.mode == "video":
             frames, kb = reencoded(path, args.height, args.bitrate)
             kbs.append(kb)
-            res = reader.read_frames(frames, user)
+            res = reader.read_frames(frames, user, vocab)
             res.timings_ms["finish_ms"] = round((time.perf_counter() - t0) * 1000)
         else:
-            crop, q, err = cached_crop(reader, key, path)
+            crop, q, err = cached_crop(reader, key, path, cache_prefix)
             if crop is None:
                 res = LipResult([], 0, 0, quality=q, error=err)
             else:
-                res = reader.read_crop(crop, user)
+                res = reader.read_crop(crop, user, vocab)
                 res.quality = q
             res.timings_ms["finish_ms"] = round((time.perf_counter() - t0) * 1000)
         ref = sentences[sid]["sentence"]
         hyps = [c[0] for c in res.candidates]
         row = {"person": person, "mode": mode, "id": sid, "reference": ref, "top1": hyps[0] if hyps else "",
-               **score(ref, hyps), "top5": " | ".join(hyps[:5]), "adapter": res.adapter or "",
+               **score(ref, hyps), **name_hits(ref, hyps, vocab), "name_variants": len(res.name_variants),
+               "top5": " | ".join(hyps[:5]), "adapter": res.adapter or "",
                "error": res.error or "", "flags": "; ".join(res.quality.get("flags", [])),
                **{k: res.timings_ms.get(k, "") for k in TIMING_KEYS},
                **{k: res.quality.get(k, "") for k in ("duration_s", "face_rate", "eye_dist_frac", "mouth_motion")}}
@@ -225,7 +247,10 @@ def run(args, cfg: DecodeConfig, tag: str, reader: LipReader | None = None) -> d
         "video": {"height": args.height, "bitrate": args.bitrate,
                   "kb_per_s": round(statistics.mean(kbs)) if kbs else None} if args.mode == "video" else None,
         "adapter": bool(args.adapter),
-        "groups": {g: summarize(rs) for g, rs in sorted(groups.items(), key=lambda kv: (kv[0].startswith("ALL"), kv[0]))},
+        "sentences": args.sentences,
+        "vocab": {"words": vocab, "name_bias": cfg.name_bias} if vocab else None,
+        "groups": {g: {**summarize(rs), **summarize_names(rs)}
+                   for g, rs in sorted(groups.items(), key=lambda kv: (kv[0].startswith("ALL"), kv[0]))},
         "timings_median_ms": {k: statistics.median(v) for k in TIMING_KEYS
                               if (v := [r[k] for r in rows if isinstance(r[k], (int, float))])},
     }
@@ -255,10 +280,22 @@ def run(args, cfg: DecodeConfig, tag: str, reader: LipReader | None = None) -> d
     return summary
 
 
+def summarize_names(rows: list[dict]) -> dict:
+    named = [r for r in rows if r["names"]]
+    if not named:
+        return {}
+    return {"name_clips": len(named), "name@1": round(statistics.mean(r["name@1"] for r in named), 4),
+            "name@5": round(statistics.mean(r["name@5"] for r in named), 4)}
+
+
 def render_md(s: dict) -> str:
     d = s["decode"]
     head = f"# {s['tag']}\n\nmode `{s['mode']}` on `{s['device']}` · beam {d['beam']} · LM weight {d['lm_weight']} · " \
            f"CTC weight {d['ctc_weight']} · adapter {'on' if s['adapter'] else 'off'}"
+    if s.get("sentences", DEFAULT_SENTENCES) != DEFAULT_SENTENCES:
+        head += f" · sentences `{s['sentences']}`"
+    if s.get("vocab"):
+        head += f" · vocab {len(s['vocab']['words'])} words, bias {s['vocab']['name_bias']}"
     if s.get("stream"):
         st = s["stream"]
         crop = f" face crop {st['face_crop']}px" if st.get("face_crop") else ""
@@ -267,9 +304,12 @@ def render_md(s: dict) -> str:
         v = s["video"]
         head += f" · VP8 {v['height']}p at {v['bitrate']}bps ({v['kb_per_s']} KB/s)"
     cols = ["clips", "top1_wer", "exact@1", "exact@3", "exact@5", "exact@10", "oracle_wer@5", "within1@5"]
+    if any("name_clips" in v for v in s["groups"].values()):
+        cols += ["name_clips", "name@1", "name@5"]
     lines = [head, "", "| group | " + " | ".join(cols) + " |", "|" + "---|" * (len(cols) + 1)]
     for g, v in s["groups"].items():
-        lines.append(f"| {g} | " + " | ".join(str(v[c]) if c == "clips" else f"{v[c]:.0%}" for c in cols) + " |")
+        lines.append(f"| {g} | " + " | ".join("-" if c not in v else str(v[c]) if c.endswith("clips") else f"{v[c]:.0%}"
+                                              for c in cols) + " |")
     if s["timings_median_ms"]:
         lines += ["", "Median timings (ms): " + ", ".join(f"{k} {v:.0f}" for k, v in s["timings_median_ms"].items())]
     if s.get("silent_vs_aloud"):
@@ -278,13 +318,13 @@ def render_md(s: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
-def parse_sweep(items: list[str]) -> list[DecodeConfig]:
-    grid = {"beam": [40], "lm": [0.3], "ctc": [0.1]}
+def parse_sweep(items: list[str], name_bias: float) -> list[DecodeConfig]:
+    grid = {"beam": [40], "lm": [0.3], "ctc": [0.1], "bias": [name_bias]}
     for it in items:
         k, v = it.split("=")
         grid[k] = [float(x) for x in v.split(",")]
-    return [DecodeConfig(beam=int(b), lm_weight=lm, ctc_weight=c)
-            for b, lm, c in itertools.product(grid["beam"], grid["lm"], grid["ctc"])]
+    return [DecodeConfig(beam=int(b), lm_weight=lm, ctc_weight=c, name_bias=nb)
+            for b, lm, c, nb in itertools.product(grid["beam"], grid["lm"], grid["ctc"], grid["bias"])]
 
 
 def main() -> None:
@@ -311,30 +351,38 @@ def main() -> None:
     p.add_argument("--silent-only", dest="include_aloud", action="store_false")
     p.add_argument("--tag", help="results folder name (default: derived from the settings)")
     p.add_argument("--dump-fit", help="also write silent clips as JSONL for silentcalls/fit_weights.py")
+    p.add_argument("--sentences", default=DEFAULT_SENTENCES, help="sentence list in server/eval_data/ (id, sentence, "
+                   "prior_turn[, names])")
+    p.add_argument("--vocab", nargs="*", help="names to bias toward, applied to every clip")
+    p.add_argument("--vocab-from-csv", action="store_true", help="add every name in the sentence list's names column")
+    p.add_argument("--name-bias", type=float, default=DecodeConfig.name_bias, help="beam bonus per name piece; "
+                   "0 = lip-shape matching only")
     args = p.parse_args()
+    suffix = ("" if args.sentences == DEFAULT_SENTENCES else f"_{Path(args.sentences).stem}")         + (f"_vocab_bias{args.name_bias}" if args.vocab or args.vocab_from_csv else "")
 
     if args.sweep:
         table = []
-        for cfg in parse_sweep(args.sweep):
-            tag = f"sweep_beam{cfg.beam}_lm{cfg.lm_weight}_ctc{cfg.ctc_weight}"
+        for cfg in parse_sweep(args.sweep, args.name_bias):
+            tag = f"sweep_beam{cfg.beam}_lm{cfg.lm_weight}_ctc{cfg.ctc_weight}"                 + (suffix.replace(f"bias{args.name_bias}", f"bias{cfg.name_bias}"))
             s = run(args, cfg, tag)
             table.append((cfg, s["groups"]["ALL/silent"]))
-        lines = ["| beam | LM weight | CTC weight | top-1 WER | exact@1 | exact@5 | exact@10 | oracle WER@10 |",
-                 "|---|---|---|---|---|---|---|---|"]
+        lines = ["| beam | LM weight | CTC weight | name bias | top-1 WER | exact@1 | exact@5 | exact@10 | oracle WER@10 "
+                 "| name@1 | name@5 |", "|---|---|---|---|---|---|---|---|---|---|---|"]
         for cfg, g in table:
-            lines.append(f"| {cfg.beam} | {cfg.lm_weight} | {cfg.ctc_weight} | {g['top1_wer']:.0%} | {g['exact@1']:.0%} | "
-                         f"{g['exact@5']:.0%} | {g['exact@10']:.0%} | {g['oracle_wer@10']:.0%} |")
+            nm = f"{g['name@1']:.0%} | {g['name@5']:.0%}" if "name@1" in g else "- | -"
+            lines.append(f"| {cfg.beam} | {cfg.lm_weight} | {cfg.ctc_weight} | {cfg.name_bias} | {g['top1_wer']:.0%} | "
+                         f"{g['exact@1']:.0%} | {g['exact@5']:.0%} | {g['exact@10']:.0%} | {g['oracle_wer@10']:.0%} | {nm} |")
         (RESULTS_DIR / "sweep.md").write_text("# Decoder sweep (silent clips)\n\n" + "\n".join(lines) + "\n")
         print("\n".join(lines))
         return
 
-    cfg = DecodeConfig(beam=args.beam, lm_weight=args.lm_weight, ctc_weight=args.ctc_weight)
+    cfg = DecodeConfig(beam=args.beam, lm_weight=args.lm_weight, ctc_weight=args.ctc_weight, name_bias=args.name_bias)
     stream_tag = f"_{args.height}p_q{args.quality}" + (f"_face{args.face_crop}m{args.face_margin}" if args.face_crop else "") \
         + ("_gray" if args.gray else "")
     if args.mode == "video":
         stream_tag = f"_vp8_{args.height}p_{args.bitrate}" + ("_chunks" if args.chunks else "")
     tag = args.tag or (f"{args.mode}" + (stream_tag if args.mode != "file" else "")
-                       + ("_realtime" if args.realtime else "") + f"_beam{cfg.beam}_lm{cfg.lm_weight}" + ("_adapter" if args.adapter else ""))
+                       + ("_realtime" if args.realtime else "") + f"_beam{cfg.beam}_lm{cfg.lm_weight}" + ("_adapter" if args.adapter else "") + suffix)
     run(args, cfg, tag)
 
 
