@@ -82,7 +82,7 @@ export function addPractice(sentence:string) {
  * it and calibration includes "hi my name is …": added once, if it looks like a name. */
 export function ensureOwnName(profileName:string) {
   const term=profileName.trim();
-  if(!/^[p{L}' -]{2,40}$/u.test(term))return;
+  if(!/^[\p{L}' -]{2,40}$/u.test(term))return;
   try {
     const current=read();
     if(current.vocabulary.length>=100 || current.vocabulary.some(item=>item.term.toLocaleLowerCase()===term.toLocaleLowerCase()))return;
