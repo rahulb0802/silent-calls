@@ -1,5 +1,6 @@
 import { useEffect, useId, useState } from 'react';
 import { ArrowUpRight, Link2, Unlink, Volume2 } from 'lucide-react';
+import {SavedPhrases} from './saved-phrases';
 import { useLocalVoice } from '../services/use-local-voice';
 
 export const QUICK_PHRASES = ['Yes', 'One moment, please.', 'Thank you.', 'Could you repeat that?'];
@@ -47,6 +48,7 @@ export function VoicePanel({ setup = false }: { setup?: boolean }) {
     }} />
     <div className="voice-send"><span>{text.length} / 5000</span><button className="button" disabled={!canSpeak || !text.trim()} onClick={() => void send(text)}><Volume2 size={15}/>{busy ? 'Waiting for service…' : 'Speak now'}</button></div>
     <div className="quick-phrases"><span>Quick phrases</span><div>{QUICK_PHRASES.map(phrase => <button key={phrase} disabled={!canSpeak} onClick={() => void send(phrase)}>{phrase}</button>)}</div></div>
+    <SavedPhrases disabled={busy} light={setup}/>
     {setup && <div className="setup-send-phrase"><p>“{SETUP_PHRASE}”</p><button className="button" disabled={!canSpeak} onClick={() => void send(SETUP_PHRASE)}><Volume2 size={15}/>Send setup phrase</button></div>}
     <p className="voice-status" role={state.connection === 'error' || state.phase === 'uncertain' ? 'alert' : 'status'}>{!voice.available ? 'Local voice is available in the Electron desktop app. Restart Electron after updating its main/preload files.' : state.message}</p>
     {(voice.error || notice) && <p className="voice-error" role="alert">{voice.error || notice}</p>}

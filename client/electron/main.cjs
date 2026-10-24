@@ -64,7 +64,7 @@ app.whenReady().then(() => {
   session.defaultSession.setPermissionCheckHandler((contents, permission) => trusted(contents) && permission === 'media');
   ipcMain.handle('widget:open', event => { if (trusted(event.sender)) openWidget(); });
   ipcMain.handle('widget:close', event => { if (widget && event.sender === widget.webContents) widget.close(); });
-  ipcMain.handle('main:show', (event, route) => { if (trusted(event.sender)) { if (!mainWindow || mainWindow.isDestroyed()) createMain(); if(route==='workspace' || route==='audio-setup')load(mainWindow,`#/${route}`); mainWindow.show(); mainWindow.focus(); } });
+  ipcMain.handle('main:show', (event, route) => { if (trusted(event.sender)) { if (!mainWindow || mainWindow.isDestroyed()) createMain(); if(route==='workspace' || route==='audio-setup' || route==='library')load(mainWindow,`#/${route}`); mainWindow.show(); mainWindow.focus(); } });
   function localVoiceCaller(event) {
     if (!trusted(event.sender)) throw new Error('Desktop app window required.');
   }

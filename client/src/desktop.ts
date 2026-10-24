@@ -6,7 +6,7 @@ export type SetupStatus = {platform:string;canStartService:boolean;keyboardAllow
 export interface DesktopAPI {
   openWidget(): Promise<void>;
   closeWidget(): Promise<void>;
-  showMain(route?:'workspace'|'audio-setup'): Promise<void>;
+  showMain(route?:'workspace'|'audio-setup'|'library'): Promise<void>;
   startGlobalHold(key: HoldKey): Promise<HoldStatus>;
   stopGlobalHold(): Promise<HoldStatus>;
   getGlobalHoldStatus(): Promise<HoldStatus>;
