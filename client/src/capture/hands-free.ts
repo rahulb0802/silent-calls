@@ -16,8 +16,12 @@ export type FaceSample = {
 export type HandsFreePhase = 'idle' | 'capturing' | 'choosing' | 'busy';
 export type HandsFreeEvent = 'start' | 'stop' | 'discard' | 'next' | 'send' | 'cancel' | 'restart';
 export type GestureMode = 'head' | 'face';
+export type StartBy = 'nod' | 'mouth';
 export type HandsFreeConfig = {
   mode: GestureMode;
+  // 'nod': nod (or raise your brows) to start reading and again to finish: reliable on any face.
+  // 'mouth': start by mouthing, finish by stopping; needs clearly visible mouth movement.
+  startBy?: StartBy;
   mouthOn?: number;         // fixed start threshold from calibration; otherwise adaptive
 };
 
@@ -56,6 +60,7 @@ export class HandsFree {
   private started = 0;  // when this started a capture (0: it didn't)
   private recent: {t: number; on: boolean; off: boolean; open: number}[] = [];  // on: mouthing (and facing, head still); off: any movement
   private activeMs = 0;  // mouthing during the capture this started
+  private lostAt = -1e9;  // when the face was last lost
   private out: null | {axis: 'yaw' | 'pitch'; since: number; side: number; flips: number} = null;
   private quietUntil = 0;
   private browSince = 0; private blinkSince = 0;
@@ -77,12 +82,14 @@ export class HandsFree {
       if (phase === 'choosing' || phase === 'busy') this.started = 0;
       this.phase = phase;
     }
-    if (!s.face) { this.last = undefined; this.recent = []; this.out = null; if (this.started && phase === 'capturing') { this.started = 0; events.push('stop'); } return events; }
+    if (!s.face) { this.last = undefined; this.recent = []; this.out = null; this.lostAt = s.t; if (this.started && phase === 'capturing') { this.started = 0; events.push('stop'); } return events; }
     if (this.last) {
       const speed = Math.hypot(s.yaw - this.last.yaw, s.pitch - this.last.pitch) * 1000 / dt;
       this.headSpeed = 0.6 * this.headSpeed + 0.4 * speed;
     }
     this.last = s;
+    // the first readings after the face comes back jump (tracking settles): ignore them
+    if (s.t - this.lostAt < 400) { this.mouth = 0; return events; }
     this.mouth = 0.5 * this.mouth + 0.5 * s.mouth;
     this.baseYaw ??= s.yaw; this.basePitch ??= s.pitch; this.baseBrows ??= s.brows;
     const dyaw = s.yaw - this.baseYaw, dpitch = s.pitch - this.basePitch;
@@ -97,6 +104,17 @@ export class HandsFree {
     this.recent.push({t: s.t, on: this.mouth >= on && still && facing, off: this.mouth >= off, open: s.open});
     while (this.recent.length && this.recent[0].t < s.t - STOP_WIN) this.recent.shift();
 
+    if (this.config.startBy === 'nod' && (phase === 'idle' || phase === 'capturing')) {
+      // nod (or raise your brows) to start, again to finish; a turn picks a suggested reply
+      const gesture = this.config.mode === 'head' ? this.head(s.t, dyaw, dpitch) : this.face(s);
+      if (gesture && s.t >= this.quietUntil) {
+        this.quietUntil = s.t + REFRACTORY_MS;
+        if (phase === 'idle') { if (gesture === 'send') this.started = s.t; events.push(gesture); }
+        else if (this.started && gesture === 'send') { this.started = 0; events.push('stop'); }
+      }
+      if (phase === 'idle' && this.started && s.t - this.started > 1000) this.started = 0;
+      return events;
+    }
     if (phase === 'idle') {
       if (this.share(s.t, START_WIN, 'on') < 0.3) {  // resting (not partway into mouthing)
         this.idle.push(this.mouth);

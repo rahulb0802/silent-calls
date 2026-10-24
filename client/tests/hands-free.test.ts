@@ -135,3 +135,20 @@ test('helpers: mouth movement, head pose, calibration', () => {
   const th = calibratedThreshold(Array(30).fill(0.3), Array(30).fill(5))!;
   assert.ok(th > 0.3 && th < 5);
 });
+
+test('nod mode: a nod starts reading and a second nod finishes it; mouthing alone does nothing', () => {
+  const hf = new HandsFree({mode: 'head', startBy: 'nod'});
+  const out: [number, HandsFreeEvent][] = [];
+  for (let t = 0; t < 6000; t += STEP) {
+    const phase: HandsFreePhase = t < 1500 ? 'idle' : t < 5000 ? 'capturing' : 'idle';
+    const pose = (t >= 1000 && t < 1350) || (t >= 4000 && t < 4350) ? {pitch: 28} : {};
+    const mouth = t >= 300 && t < 900 || (t >= 1600 && t < 3800) ? mouthing(t) : {};
+    for (const e of hf.push({t, ...rest, ...mouth, ...pose}, phase)) out.push([t, e]);
+  }
+  assert.deepEqual(names(out), ['send', 'stop']);  // the widget turns an idle 'send' into a start (or says a picked reply)
+});
+
+test('the first readings after the face comes back are ignored', () => {
+  const events = run([{ms: 2000, phase: 'idle'}, {ms: 300, phase: 'idle', at: {face: false}}, {ms: 350, phase: 'idle', at: mouthing}, {ms: 1500, phase: 'idle'}]);
+  assert.deepEqual(names(events), []);
+});

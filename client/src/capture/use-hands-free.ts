@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { HandsFree, calibratedThreshold, type FaceSample, type GestureMode, type HandsFreeEvent, type HandsFreePhase } from './hands-free';
+import { HandsFree, calibratedThreshold, type FaceSample, type GestureMode, type HandsFreeEvent, type HandsFreePhase, type StartBy } from './hands-free';
 
 const KEY = 'silent-calls:hands-free:v1';
-type Saved = { enabled: boolean; mode: GestureMode; mouthOn?: number };
+type Saved = { enabled: boolean; mode: GestureMode; startBy: StartBy; mouthOn?: number };
 function load(): Saved {
   try {
     const value = JSON.parse(localStorage.getItem(KEY) || '{}');
-    return { enabled: value.enabled === true, mode: value.mode === 'face' ? 'face' : 'head', mouthOn: Number.isFinite(value.mouthOn) && value.mouthOn > 0 ? value.mouthOn : undefined };
-  } catch { return { enabled: false, mode: 'head' }; }
+    return { enabled: value.enabled === true, mode: value.mode === 'face' ? 'face' : 'head', startBy: value.startBy === 'mouth' ? 'mouth' : 'nod', mouthOn: Number.isFinite(value.mouthOn) && value.mouthOn > 0 ? value.mouthOn : undefined };
+  } catch { return { enabled: false, mode: 'head', startBy: 'nod' }; }
 }
 export type Calibration = { step: 'idle' | 'rest' | 'mouth' | 'done' | 'failed'; secondsLeft: number };
 const REST_MS = 4000, MOUTH_MS = 5000;
@@ -17,7 +17,7 @@ const REST_MS = 4000, MOUTH_MS = 5000;
  * 1.5 s after it (a caption that never finalizes can't block starts forever). */
 export function useHandsFree(phase: HandsFreePhase, talkingAt: number, suggestions: boolean, onEvent: (event: HandsFreeEvent) => void) {
   const [saved, setSaved] = useState<Saved>(load);
-  const engine = useRef(new HandsFree({ mode: saved.mode, mouthOn: saved.mouthOn }));
+  const engine = useRef(new HandsFree({ mode: saved.mode, startBy: saved.startBy, mouthOn: saved.mouthOn }));
   const state = useRef({ phase, talkingAt, suggestions, onEvent, enabled: saved.enabled });
   state.current = { phase, talkingAt, suggestions, onEvent, enabled: saved.enabled };
   const [meter, setMeter] = useState({ level: 0, threshold: engine.current.threshold });
@@ -30,7 +30,7 @@ export function useHandsFree(phase: HandsFreePhase, talkingAt: number, suggestio
 
   const save = useCallback((next: Saved) => {
     setSaved(next);
-    engine.current.config = { mode: next.mode, mouthOn: next.mouthOn };
+    engine.current.config = { mode: next.mode, startBy: next.startBy, mouthOn: next.mouthOn };
     try { localStorage.setItem(KEY, JSON.stringify(next)); } catch { /* settings stay for this session */ }
   }, []);
 
@@ -80,6 +80,8 @@ export function useHandsFree(phase: HandsFreePhase, talkingAt: number, suggestio
     enabled: saved.enabled, mode: saved.mode, calibrated: saved.mouthOn !== undefined,
     setEnabled: (enabled: boolean) => save({ ...saved, enabled }),
     setMode: (mode: GestureMode) => save({ ...saved, mode }),
+    startBy: saved.startBy,
+    setStartBy: (startBy: StartBy) => save({ ...saved, startBy }),
     resetCalibration: () => save({ ...saved, mouthOn: undefined }),
     calibrate, calibration, meter, onSample, recording,
     record: () => { const now = performance.now(); rec.current = { until: now + 15000, start: now, rows: [] }; setRecording(15); },
