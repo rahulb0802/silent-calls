@@ -2,6 +2,8 @@
 
 Sources:
   enrollment  ENROLL_DIR/<user>/<sentence_id>.npz (written by POST /enroll/{user_id}/clip)
+  corrections ENROLL_DIR/<user>/corrections/<utterance>.npz: phrases the user corrected in a call, opted in
+              (dev_app utterance.confirm); training only, never in the held-out test
   feasibility CACHE_DIR/<person>_silent_<id>.npz  (mouth crops cached by `python -m server.eval`)
 """
 
@@ -52,6 +54,39 @@ def save_enrollment(user_key: str, sentence_id: str, text: str, crop: np.ndarray
     path = d / f"{sentence_id}.npz"
     np.savez_compressed(path, crop=crop, text=text, quality=json.dumps(quality))
     return path
+
+
+MAX_CORRECTIONS = 200
+
+
+def corrections_dir(user_key: str) -> Path:
+    return ENROLL_DIR / user_key / "corrections"
+
+
+def save_correction(user_key: str, utt_id: str, text: str, crop: np.ndarray) -> int:
+    """Keep a corrected phrase (mouth crop + the text the user confirmed); returns how many are saved. The
+    oldest goes once there are MAX_CORRECTIONS."""
+    d = corrections_dir(user_key)
+    d.mkdir(parents=True, exist_ok=True)
+    name = "".join(c for c in utt_id if c.isalnum() or c == "-")[:64] or "clip"
+    np.savez_compressed(d / f"{name}.npz", crop=crop, text=text)
+    saved = sorted(d.glob("*.npz"), key=lambda p: p.stat().st_mtime)
+    for old in saved[:-MAX_CORRECTIONS]:
+        old.unlink(missing_ok=True)
+    return min(len(saved), MAX_CORRECTIONS)
+
+
+def load_corrections(user_key: str) -> list[Sample]:
+    out = []
+    for p in sorted(corrections_dir(user_key).glob("*.npz")):
+        z = np.load(p, allow_pickle=True)
+        out.append(Sample(f"c_{p.stem}", str(z["text"]), z["crop"]))
+    return out
+
+
+def delete_corrections(user_key: str) -> None:
+    for p in corrections_dir(user_key).glob("*.npz"):
+        p.unlink(missing_ok=True)
 
 
 def load_enrollment(user_key: str) -> list[Sample]:

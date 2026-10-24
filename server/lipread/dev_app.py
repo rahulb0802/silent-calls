@@ -74,6 +74,12 @@ async def session(ws: WebSocket, user_id: str = "anon") -> None:
                 webm = m.get("encoding", "jpeg") == "webm"  # binary = MediaRecorder chunks, not JPEGs
                 utt_vocab = list(m.get("vocab") or [])  # e.g. names just heard in the call
                 utt_given = list(m.get("given") or [])  # the call co-pilot's prepared replies
+            elif kind == "utterance.confirm" and m.get("learn") and user_id != "anon":
+                # the user corrected this phrase and opted in: keep its mouth crop + text for their next training
+                n = reader.save_correction(user_id, str(m.get("utt_id", "")), str(m.get("text", ""))[:300])
+                log.info("correction saved: %s", "yes" if n else "no (expired)")
+                if n:
+                    await ws.send_json({"type": "learned", "utt_id": m.get("utt_id"), "n_corrections": n})
             elif kind == "utterance.cancel":
                 reader.cancel(m["utt_id"])
                 utt_id = None

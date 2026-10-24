@@ -64,6 +64,13 @@ export class EnrollmentApi {
     if(typeof value.ok!=='boolean' || value.sentence_id!==prompt.id)throw new Error('The server returned an invalid clip acknowledgement. Refresh enrollment progress before retrying.');
     return value;
   }
+  /** Phrases corrected in calls and kept for training (opt-in, src/services/learning.ts). */
+  async corrections(signal:AbortSignal):Promise<number> {
+    const value=await this.request(this.path('corrections'),signal);
+    if(!Number.isInteger(value.n) || value.n<0)throw new Error('The GPU returned an invalid correction count.');
+    return value.n;
+  }
+  async deleteCorrections(signal:AbortSignal):Promise<void> { await this.request(this.path('corrections'),signal,{method:'DELETE'}); }
   async start(signal:AbortSignal):Promise<{job_id:string;state:string}> {
     const value=await this.request(`${this.path('train')}?steps=100`,signal,{method:'POST'});
     if(typeof value.job_id!=='string' || typeof value.state!=='string')throw new Error('Training start was not acknowledged. Refresh server status before retrying.');

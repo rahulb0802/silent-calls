@@ -25,7 +25,8 @@ from ..lipread.metrics import score, summarize
 from ..lipread.model import DecodeConfig, decode, load
 from ..lipread.paths import ADAPTER_DIR, RESULTS_DIR, add_vsr_to_path
 from . import lora
-from .data import MIN_CLIPS, Sample, Tokenizer, augment, center, collate, load_enrollment, load_feasibility
+from .data import (MIN_CLIPS, Sample, Tokenizer, augment, center, collate, load_corrections, load_enrollment,
+                   load_feasibility)
 
 add_vsr_to_path()
 from espnet.nets.pytorch_backend.nets_utils import make_non_pad_mask  # noqa: E402
@@ -156,6 +157,9 @@ def train(args, avsr=None) -> dict:
     val_set: list[Sample] = []
     if len(train_set) >= 30:  # small validation split from the training sentences, for picking the step
         train_set, val_set = split(train_set, 0.12, args.seed + 1)
+    # phrases corrected in calls (opted in) train only: the before/after report stays on calibration sentences
+    corrections = load_corrections(user_key) if args.source == "enroll" else []
+    train_set = train_set + corrections
     extra_test = load_feasibility(args.user) if args.test_feasibility and args.source != "feasibility" else []
     # the user's name + saved vocabulary, so held-out sentences are decoded with the name bias, as in a call
     vocab = vb.clean(vb.load_user(args.user) + [vb.own_name(args.user) or ""]) if args.source == "enroll" else []
@@ -242,7 +246,7 @@ def train(args, avsr=None) -> dict:
             "source": args.source, "best_step": best_step, "created": time.time()}
     report = {
         "user": args.user, "source": args.source, "n_train": len(train_set), "n_val": len(val_set),
-        "n_test": len(test_set), "test_sentences": sorted({s.key for s in test_set}),
+        "n_test": len(test_set), "n_corrections": len(corrections), "test_sentences": sorted({s.key for s in test_set}),
         "before_wer": before["top1_wer"], "after_wer": after["top1_wer"],
         "before_top5": before["exact@5"], "after_top5": after["exact@5"],
         "vocab_before": vocab_summary(before_rows), "vocab_after": vocab_summary(after_rows),

@@ -11,6 +11,8 @@ POST /train/{user_id}?steps=100     -> {job_id, state}  (409 if already training
 GET  /train/{user_id}/status       -> {state: queued|loading|evaluating|training|done|failed, step, steps,
                                        loss, report: {before_wer, after_wer, before_top5, after_top5, n_train, n_test}}
 GET  /train/{user_id}/report       -> full report.json (per-sentence before/after, loss curve)
+GET  /corrections/{user_id}        -> {n}  phrases corrected in calls (opted in), used by the next training
+DELETE /corrections/{user_id}      -> {n: 0}
 GET  /vocab/{user_id}              -> {words}  names/rare words the lip-reader is biased toward (vocab.py)
 PUT  /vocab/{user_id}              {words: [...], practice?: [...]} -> {words, practice} (cleaned; practice
                                    sentences join the personal calibration prompts)
@@ -120,6 +122,17 @@ def training_report(user_id: str) -> dict:
     if not path.exists():
         raise HTTPException(404, "no report yet")
     return json.loads(path.read_text())
+
+
+@router.get("/corrections/{user_id}")
+def get_corrections(user_id: str) -> dict:
+    return {"user_id": user_id, "n": len(list(lora_data.corrections_dir(adapter_key(user_id)).glob("*.npz")))}
+
+
+@router.delete("/corrections/{user_id}")
+def delete_corrections(user_id: str) -> dict:
+    lora_data.delete_corrections(adapter_key(user_id))
+    return {"user_id": user_id, "n": 0}
 
 
 @router.get("/vocab/{user_id}")
