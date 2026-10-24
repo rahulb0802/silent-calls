@@ -1,0 +1,118 @@
+{
+  "tag": "names_vocab_tight",
+  "mode": "file",
+  "device": "cuda:1",
+  "decode": {
+    "beam": 40,
+    "lm_weight": 0.2,
+    "ctc_weight": 0.1
+  },
+  "stream": null,
+  "video": null,
+  "adapter": false,
+  "sentences": "feasibility_sentences.csv",
+  "vocab": {
+    "words": [
+      "sarvajith",
+      "sarva",
+      "nilesh",
+      "rahul",
+      "priya",
+      "anika",
+      "devansh",
+      "kavya"
+    ],
+    "name_bias": 2.0,
+    "name_variants": true
+  },
+  "groups": {
+    "nilesh/silent": {
+      "clips": 30,
+      "top1_wer": 0.5886,
+      "exact@1": 0.1333,
+      "exact@3": 0.2333,
+      "exact@5": 0.2333,
+      "exact@10": 0.2333,
+      "oracle_wer@5": 0.4457,
+      "oracle_wer@10": 0.4171,
+      "within1@5": 0.4333
+    },
+    "rahul/aloud": {
+      "clips": 6,
+      "top1_wer": 0.1471,
+      "exact@1": 0.6667,
+      "exact@3": 0.8333,
+      "exact@5": 0.8333,
+      "exact@10": 0.8333,
+      "oracle_wer@5": 0.0588,
+      "oracle_wer@10": 0.0588,
+      "within1@5": 0.8333
+    },
+    "rahul/silent": {
+      "clips": 30,
+      "top1_wer": 0.3829,
+      "exact@1": 0.3667,
+      "exact@3": 0.4333,
+      "exact@5": 0.5333,
+      "exact@10": 0.5667,
+      "oracle_wer@5": 0.28,
+      "oracle_wer@10": 0.2514,
+      "within1@5": 0.6333
+    },
+    "sarvajith/aloud": {
+      "clips": 6,
+      "top1_wer": 0.2353,
+      "exact@1": 0.6667,
+      "exact@3": 0.6667,
+      "exact@5": 0.6667,
+      "exact@10": 0.8333,
+      "oracle_wer@5": 0.1176,
+      "oracle_wer@10": 0.0294,
+      "within1@5": 0.8333
+    },
+    "sarvajith/silent": {
+      "clips": 30,
+      "top1_wer": 0.1486,
+      "exact@1": 0.5667,
+      "exact@3": 0.6333,
+      "exact@5": 0.7,
+      "exact@10": 0.8333,
+      "oracle_wer@5": 0.0971,
+      "oracle_wer@10": 0.0686,
+      "within1@5": 0.8667
+    },
+    "ALL/aloud": {
+      "clips": 12,
+      "top1_wer": 0.1912,
+      "exact@1": 0.6667,
+      "exact@3": 0.75,
+      "exact@5": 0.75,
+      "exact@10": 0.8333,
+      "oracle_wer@5": 0.0882,
+      "oracle_wer@10": 0.0441,
+      "within1@5": 0.8333
+    },
+    "ALL/silent": {
+      "clips": 90,
+      "top1_wer": 0.3733,
+      "exact@1": 0.3556,
+      "exact@3": 0.4333,
+      "exact@5": 0.4889,
+      "exact@10": 0.5444,
+      "oracle_wer@5": 0.2743,
+      "oracle_wer@10": 0.2457,
+      "within1@5": 0.6444
+    }
+  },
+  "timings_median_ms": {
+    "encode_ms": 19.5,
+    "beam_ms": 936.5,
+    "lipread_ms": 976.5,
+    "finish_ms": 985.0
+  },
+  "silent_vs_aloud": {
+    "pairs": 12,
+    "silent_wer": 0.2353,
+    "aloud_wer": 0.1912
+  }
+}

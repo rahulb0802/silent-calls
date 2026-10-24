@@ -14,6 +14,10 @@ Every number we can show, in the order we got it. Each row links to the run's fo
 | Same adapter on someone else | no change (37% → 37%): the gain is personal |
 | Training one adapter | **~35 s** on one A16 (1.2M parameters, 0.5% of the model) |
 | Upload needed | 1.1 MB/s as JPEG frames, **~250 KB/s** as a VP8 stream at the same accuracy |
+| Jev reranking with the call context | top guess right **31% → 42%**, truth in top 3 **41% → 56%** (90 silent clips) |
+| Jev latency (connection kept warm) | **80-250 ms** per request; a cold connection took ~1 s and missed the 0.5 s budget |
+| Enrollment needed for the adapter to help | **18+ training sentences**; 6 don't help. Minimum set to **30 clips** (24 train + 6 report) |
+| Names in the vocab, on sentences without names | **no false names** in any top 10 (beam bias 2.0, +75 ms) |
 
 **Test data:** 3 people × 30 silently mouthed call sentences (`server/eval_data/feasibility_sentences.csv`),
 recorded on laptop webcams with `record.html` before the event, plus 6 spoken-aloud clips each for 2 people.
@@ -228,6 +232,23 @@ only. These are the trainer defaults now.
 Per person, base → own adapter: Rahul 38% → 21% WER (exact@10 60% → 70%), Sarvajith 15% → 13% (exact@5
 70% → 80%), Nilesh 59% → 58% (no change: his clips are cut off).
 
+**How many enrollment sentences?** Same cross-validation and final configuration, but each adapter trains on
+only N of its fold's 24 training sentences (`server.lora.train --max-train N`); all 90 clips pooled:
+
+| training sentences | WER | exact@1 | exact@5 | exact@10 | oracle WER@10 | within1@5 |
+|---|---|---|---|---|---|---|
+| none (base model) | 37% | 36% | 49% | 56% | 24% | 64% |
+| 6 ([`lora_curve_train6`](../server/results/lora_curve_train6/crossval.md)) | 38% | 40% | 50% | **52%** | 24% | 62% |
+| 12 ([`lora_curve_train12`](../server/results/lora_curve_train12/crossval.md)) | 34% | 40% | 51% | 56% | 21% | 63% |
+| 18 ([`lora_curve_train18`](../server/results/lora_curve_train18/crossval.md)) | **28%** | **46%** | **59%** | **64%** | **17%** | 71% |
+| 24 ([`lora_curve_train24`](../server/results/lora_curve_train24/crossval.md)) | 31% | 40% | 56% | 60% | 18% | **73%** |
+
+6 sentences don't help (exact@10 drops; Rahul 60% → 50%: the adapter memorizes them), 12 help a little, and the
+full gain is there by 18. 18 vs 24 is within noise (one clip ≈ 1 point; different random subsets). So the
+training minimum is **30 clips**, not 8: the trainer holds out 20% for the before/after report, leaving 24 to train
+(18 needed, plus margin for clips that fail the quality check). The app asks for all 60 and allows 30. Not
+measured: whether 48 training sentences (all 60 prompts) beat 24; the feasibility set has only 30 per person.
+
 ## 6. Enrollment → adapter, end to end
 
 Tested through the HTTP endpoints (`POST /enroll/{user}/clip` ×10, `POST /train/{user}`, polling
@@ -237,10 +258,19 @@ that user's next utterance (reloads when it is retrained). Verified over the Web
 back with `adapter: "routetest"` for that user and `adapter: null` for another, with no added latency.
 (That run used 10 clips and 20 steps, only to test the plumbing; its accuracy numbers mean nothing.)
 
-**Still to do with real enrollment data (Saturday):** each of us records the 60 prompts in
-`server/lora/enroll_sentences.csv` (none overlap the 30 test sentences) with `tools/record_enroll.html` or the
-app's enrollment screen, trains, and gets before/after on the 30 feasibility sentences as a fully separate test
-set (`--test-feasibility`, on by default from the endpoint).
+**First real enrollments** (through the app's calibration screen, 300 steps, before the 30-clip minimum and
+the 100-step default; held-out sets of 2-6 clips, so these are anecdotes, not measurements):
+
+| who | clips (train / test) | held-out WER | held-out top 5 | on the 30 feasibility sentences (separate test set) |
+|---|---|---|---|---|
+| Rahul | 30 (24 / 6) | 34% → 13% | 67% → 83% | not scored |
+| Sarvajith | 9 (7 / 2) | 17% → 0% | 50% → 100% | WER 15% → 14%, exact@5 70% → 83%, exact@10 83% → 90% |
+
+The app now requests 100 steps (same gain in cross-validation, ~35 s instead of ~100 s). **Personal sentences:**
+the prompt list now includes up to 5 sentences built from the user's name and saved vocabulary ("hi my name is
+rahul", "can we talk about {word} later", ...) among the first 30, so the 30-clip minimum covers them
+(`GET /enroll/sentences?user_id=`). The trainer always holds one or more of them out and reports `vocab@1` /
+`vocab@5` before and after, decoded with the name bias on: the first real measurement of names, once recorded.
 
 ## 7. Names (vocab biasing) and decision weights
 
@@ -249,10 +279,10 @@ set (`--test-feasibility`, on by default from the endpoint).
 
 | run | silent WER | exact@1 | exact@5 | exact@10 | aloud exact@10 | beam_ms (median) |
 |---|---|---|---|---|---|---|
-| no vocab (`names_baseline`) | 37% | 36% | 49% | 56% | 83% | 868 |
-| beam bias 2.0 only (`names_vocab_biasonly`) | 37% | 36% | 49% | 56% | 83% | 942 |
-| + loose lip-shape swaps, 3/utterance (`names_vocab_bias2`) | 37% | 36% | 49% | 53% | 75% | 934 |
-| + rationed swaps, 1/utterance (`names_vocab_tight`) | 37% | 36% | 49% | 54% | 83% | 936 |
+| no vocab ([`names_baseline`](../server/results/names_baseline/summary.md)) | 37% | 36% | 49% | 56% | 83% | 868 |
+| beam bias 2.0 only ([`names_vocab_biasonly`](../server/results/names_vocab_biasonly/summary.md)) | 37% | 36% | 49% | 56% | 83% | 942 |
+| + loose lip-shape swaps, 3/utterance ([`names_vocab_bias2`](../server/results/names_vocab_bias2/summary.md)) | 37% | 36% | 49% | 53% | 75% | 934 |
+| + rationed swaps, 1/utterance ([`names_vocab_tight`](../server/results/names_vocab_tight/summary.md)) | 37% | 36% | 49% | 54% | 83% | 936 |
 
 - The beam bias is free of false positives here: no name appears anywhere in any top 10, and top-1 changed
   on 2 clips, both already wrong. It costs ~75 ms of beam search.
@@ -266,3 +296,31 @@ w_lip 0.5, w_jev 1.2. Top-1 31% → 42%, top-3 41% → 56% with Jev. Speak witho
 (14 of 90 clips, all correct); show the top 3 at ≥ 0.53 (49 clips, 57% contain the truth); below that, ask to
 repeat (27 clips). Fitted and scored on the same 90 clips, so treat the thresholds as optimistic. Jev latency
 after the first request: 76-236 ms (`tools/jev_smoke.py`).
+
+**In a live call (Rahul mouthing "hi my name is Rahul", pronounced "raw-hull"):** the name reached the
+lip-reader (server log: 1 vocab word per capture), but the top guesses were "hi my name is **wrong**" and
+"**walker**": at strength 2.0 the bias doesn't lift it above words the model reads with more confidence. Jev
+can't fix that (it only ranks the guesses), but Claude's repair, given "Rahul" as a likely name, returned
+"**Hi, my name is Rahul.**" as the suggested option. Names now reach the lip-reader from every source: the app's
+vocabulary, the profile name, `.env` `VOCAB`, and names heard in the call captions (which Cartesia sometimes
+misspells: "Sarvajith" came back as "Sarvahiv" / "Sarvahif"). Untested: a stronger bias (3-6) on recorded name
+sentences.
+
+## 8. The call loop in the desktop app
+
+The app now sends each GPU result to the local decision service (Jev + Claude, `auto_speak` off: nothing is
+spoken without a pick) and shows the call's captions live. Measured on Rahul's laptop (Windows 11), local
+service against TypeSafe and Anthropic:
+
+| step | time |
+|---|---|
+| Jev ranking, cold connection (first request, or after >5 s idle before the fix) | **~1 s**: over the 0.5 s budget, so Jev was skipped |
+| Jev ranking, connection kept warm (keepalive + GET every 60 s, opened at startup) | **98 ms** first, 245 ms after 8 s idle, 115 ms after 20 s idle |
+| Claude's repair (offered as an extra option) | ~3 s after the candidates |
+| Live caption, word to screen (speaker → WASAPI loopback → Cartesia STT) | words appear ~0.5 s apart while speaking; the finished line ~0.1 s after the pause |
+| SSH tunnel opened by the app (cold) / reused | 757 ms / 78 ms |
+
+Example ranking (`hi server jet yes i can` / `hi so very yes i can` / `hi sarvajith yes i can`, with "Sarvajith"
+as a likely name): Jev put **"hi sarvajith yes i can" first at 87%** although it was the lip-reader's third
+guess. Call audio on Windows needs no second virtual cable: captions record the speakers through WASAPI
+loopback (`CALL_AUDIO_DEVICE=loopback`, never the VB-CABLE that carries our own voice).
