@@ -47,7 +47,8 @@ class LipResult:
 
 class _Utterance:
     def __init__(self) -> None:
-        self.futures: list[Future] = []
+        self.futures: list[Future] = []  # JPEG frames: decode + face detection, started on arrival
+        self.webm = bytearray()  # or: MediaRecorder webm chunks, decoded on finish()
         self.t_first = time.perf_counter()
 
 
@@ -77,15 +78,25 @@ class LipReader:
         if len(utt.futures) < MAX_FRAMES:
             utt.futures.append(self._cpu.submit(self._decode_detect, jpeg))
 
+    def on_chunk(self, utt_id: str, data: bytes) -> None:
+        """Alternative to on_frame: a chunk of a MediaRecorder webm stream (`utterance.start` with
+        `encoding: "webm"`). ~15x less upload than JPEG frames; decoding waits for finish()."""
+        utt = self._utts.setdefault(utt_id, _Utterance())
+        if len(utt.webm) < 50_000_000:
+            utt.webm.extend(data)
+
     async def finish(self, utt_id: str, user_id: str | None = None, use_adapter: bool = True) -> LipResult:
         utt = self._utts.pop(utt_id, None) or _Utterance()
         t0 = time.perf_counter()
-        done = await asyncio.gather(*(asyncio.wrap_future(f) for f in utt.futures), return_exceptions=True)
-        pairs = [d for d in done if not isinstance(d, BaseException)]
-        face_wait_ms = (time.perf_counter() - t0) * 1000
         loop = asyncio.get_running_loop()
-        frames = [p[0] for p in pairs]
-        landmarks = [p[1] for p in pairs]
+        if utt.webm:
+            frames, landmarks = await self._decode_webm(bytes(utt.webm))
+        else:
+            done = await asyncio.gather(*(asyncio.wrap_future(f) for f in utt.futures), return_exceptions=True)
+            pairs = [d for d in done if not isinstance(d, BaseException)]
+            frames = [p[0] for p in pairs]
+            landmarks = [p[1] for p in pairs]
+        face_wait_ms = (time.perf_counter() - t0) * 1000
         res = await loop.run_in_executor(self._cpu, self._crop, frames, landmarks)
         if isinstance(res, LipResult):
             res.face_wait_ms = round(face_wait_ms)
@@ -125,6 +136,25 @@ class LipReader:
         if d is None:
             d = self._local.det = fr.FaceDetector()
         return d
+
+    async def _decode_webm(self, data: bytes) -> tuple[list[np.ndarray], list[fr.Landmarks]]:
+        loop = asyncio.get_running_loop()
+        try:
+            frames = await loop.run_in_executor(self._cpu, fr.decode_webm, data)
+        except Exception as e:  # truncated/corrupt stream
+            log.warning("webm decode failed: %s", e)
+            return [], []
+        n = self._cpu._max_workers
+        parts = [frames[i::n] for i in range(n)]  # interleaved, so every worker gets the same amount
+        found = await asyncio.gather(*(loop.run_in_executor(self._cpu, self._detect_many, p) for p in parts))
+        landmarks: list[fr.Landmarks] = [None] * len(frames)
+        for i, lm in enumerate(found):
+            landmarks[i::n] = lm
+        return frames, landmarks
+
+    def _detect_many(self, frames: list[np.ndarray]) -> list[fr.Landmarks]:
+        det = self._detector()
+        return [det.full_range(f) for f in frames]
 
     def _decode_detect(self, jpeg: bytes) -> tuple[np.ndarray, fr.Landmarks]:
         frame = fr.decode_jpeg(jpeg)

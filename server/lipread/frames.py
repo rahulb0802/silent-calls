@@ -107,6 +107,23 @@ def encode_jpeg(frame: np.ndarray, quality: int = 80, gray: bool = False) -> byt
     return buf.tobytes()
 
 
+def decode_webm(data: bytes, max_height: int = MAX_HEIGHT) -> list[np.ndarray]:
+    """Decode a MediaRecorder webm (all chunks of one recording, concatenated) to RGB frames at a constant
+    25 fps: for each 40 ms slot, the most recent frame (like ffmpeg's fps filter)."""
+    import io
+
+    out: list[np.ndarray] = []
+    t0 = None
+    with av.open(io.BytesIO(data), format="webm") as c:
+        for f in c.decode(video=0):
+            t = float(f.pts * f.time_base) if f.pts is not None else (len(out) / MODEL_FPS)
+            t0 = t if t0 is None else t0
+            img = limit_height(f.to_ndarray(format="rgb24"), max_height)
+            while (t - t0) >= (len(out) - 0.5) / MODEL_FPS:  # fill every slot up to this frame's time
+                out.append(img)
+    return out
+
+
 def _ffmpeg() -> str:
     exe = shutil.which("ffmpeg")
     if exe:

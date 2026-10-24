@@ -105,17 +105,40 @@ def client_face_crop(frames: list[np.ndarray], size: int, gray: bool, det: fr.Fa
     return out
 
 
-def reencoded(path: str, height: int, bitrate: str) -> tuple[list[np.ndarray], float]:
-    """Re-encode a clip the way a MediaRecorder stream would arrive (VP8, realtime encoder, fixed bitrate,
-    `height`p) and decode it again. Returns (25 fps frames, KB/s on the wire)."""
+def vp8_bytes(path: str, height: int, bitrate: str) -> bytes:
+    """Re-encode a clip the way a MediaRecorder stream would arrive: VP8, realtime encoder, capped bitrate."""
     with tempfile.TemporaryDirectory() as d:
         out = os.path.join(d, "clip.webm")
         subprocess.run([fr._ffmpeg(), "-loglevel", "error", "-i", path, "-an", "-vf", f"scale=-2:{height}",
                         "-c:v", "libvpx", "-deadline", "realtime", "-cpu-used", "8", "-b:v", bitrate,
                         "-maxrate", bitrate, "-bufsize", bitrate, out], check=True)
-        frames = fr.read_video(out)
-        kb = os.path.getsize(out) / 1024 / max(0.04, len(frames) / MODEL_FPS)
-    return frames, kb
+        return open(out, "rb").read()
+
+
+def reencoded(path: str, height: int, bitrate: str) -> tuple[list[np.ndarray], float]:
+    """VP8 round trip. Returns (25 fps frames, KB/s on the wire)."""
+    data = vp8_bytes(path, height, bitrate)
+    frames = fr.decode_webm(data)
+    return frames, len(data) / 1024 / max(0.04, len(frames) / MODEL_FPS)
+
+
+async def webm_clip(reader: LipReader, path: str, height: int, bitrate: str, realtime: bool,
+                    user_id: str | None) -> tuple[LipResult, float]:
+    """Replay a clip as MediaRecorder chunks (~100 ms each) through on_chunk(), then finish()."""
+    data = vp8_bytes(path, height, bitrate)
+    dur = len(fr.decode_webm(data)) / MODEL_FPS  # browser webm headers often have no duration
+    n = max(1, round(dur / 0.1))
+    step = -(-len(data) // n)
+    utt = f"webm-{time.monotonic_ns()}"
+    t_start = time.perf_counter()
+    for i in range(n):
+        reader.on_chunk(utt, data[i * step:(i + 1) * step])
+        if realtime:
+            await asyncio.sleep(max(0.0, t_start + (i + 1) * 0.1 - time.perf_counter()))
+    t0 = time.perf_counter()
+    res = await reader.finish(utt, user_id)
+    res.timings_ms["finish_ms"] = round((time.perf_counter() - t0) * 1000)
+    return res, len(data) / 1024 / max(0.1, dur)
 
 
 async def stream_clip(reader: LipReader, path: str, height: int, quality: int, realtime: bool,
@@ -157,6 +180,9 @@ def run(args, cfg: DecodeConfig, tag: str, reader: LipReader | None = None) -> d
         if args.mode == "stream":
             res, kb = asyncio.run(stream_clip(reader, path, args.height, args.quality, args.realtime, user,
                                               args.face_crop, args.gray, args.face_margin))
+            kbs.append(kb)
+        elif args.mode == "video" and args.chunks:
+            res, kb = asyncio.run(webm_clip(reader, path, args.height, args.bitrate, args.realtime, user))
             kbs.append(kb)
         elif args.mode == "video":
             frames, kb = reencoded(path, args.height, args.bitrate)
@@ -267,6 +293,7 @@ def main() -> None:
     p.add_argument("--mode", choices=["file", "stream", "video"], default="file",
                    help="video: re-encode to a VP8 stream at --bitrate/--height first (MediaRecorder upload)")
     p.add_argument("--bitrate", default="500k", help="video mode: VP8 bitrate")
+    p.add_argument("--chunks", action="store_true", help="video mode: feed 100 ms webm chunks via on_chunk()")
     p.add_argument("--height", type=int, default=720, help="stream mode: frame height sent by the client")
     p.add_argument("--quality", type=int, default=80, help="stream mode: JPEG quality")
     p.add_argument("--realtime", action="store_true", help="stream mode: feed frames at 25 fps")
@@ -305,7 +332,7 @@ def main() -> None:
     stream_tag = f"_{args.height}p_q{args.quality}" + (f"_face{args.face_crop}m{args.face_margin}" if args.face_crop else "") \
         + ("_gray" if args.gray else "")
     if args.mode == "video":
-        stream_tag = f"_vp8_{args.height}p_{args.bitrate}"
+        stream_tag = f"_vp8_{args.height}p_{args.bitrate}" + ("_chunks" if args.chunks else "")
     tag = args.tag or (f"{args.mode}" + (stream_tag if args.mode != "file" else "")
                        + ("_realtime" if args.realtime else "") + f"_beam{cfg.beam}" + ("_adapter" if args.adapter else ""))
     run(args, cfg, tag)

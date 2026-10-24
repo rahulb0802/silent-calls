@@ -3,7 +3,8 @@
 
     uvicorn server.lipread.dev_app:app --host 0.0.0.0 --port 8000
 
-Supports session.start, utterance.start, binary JPEG frames, utterance.end, utterance.cancel, and replies
+Supports session.start, utterance.start (optional `encoding: "jpeg" | "webm"`), binary JPEG frames or
+MediaRecorder webm chunks, utterance.end, utterance.cancel, and replies
 with `candidates` (lip scores only: no Jev, so lm_score is null and route is always "pick"), plus `error`.
 Also serves the enrollment/training endpoints and GET /health.
 """
@@ -50,7 +51,7 @@ def softmax(xs: list[float]) -> list[float]:
 @app.websocket("/ws/session")
 async def session(ws: WebSocket, user_id: str = "anon") -> None:
     await ws.accept()
-    use_adapter, utt_id = True, None
+    use_adapter, utt_id, webm = True, None, False
     try:
         while True:
             msg = await ws.receive()
@@ -58,7 +59,7 @@ async def session(ws: WebSocket, user_id: str = "anon") -> None:
                 break
             if msg.get("bytes") is not None:
                 if utt_id:
-                    reader.on_frame(utt_id, msg["bytes"])
+                    (reader.on_chunk if webm else reader.on_frame)(utt_id, msg["bytes"])
                 continue
             m = json.loads(msg["text"])
             kind = m.get("type")
@@ -67,6 +68,7 @@ async def session(ws: WebSocket, user_id: str = "anon") -> None:
                 use_adapter = m.get("use_adapter", True)
             elif kind == "utterance.start":
                 utt_id = m["utt_id"]
+                webm = m.get("encoding", "jpeg") == "webm"  # binary = MediaRecorder chunks, not JPEGs
             elif kind == "utterance.cancel":
                 reader.cancel(m["utt_id"])
                 utt_id = None
