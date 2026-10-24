@@ -100,7 +100,10 @@ app.whenReady().then(() => {
   ipcMain.handle('dictation:type', async (event, text) => {
     if (!widget || event.sender !== widget.webContents) throw new Error('Companion required.');
     if (typeof text !== 'string' || !text.trim() || text.length > 5000) throw new Error('Nothing to type.');
-    const saved = { text: clipboard.readText(), html: clipboard.readHTML(), image: clipboard.readImage() };
+    // what was on the clipboard, as far as this Electron's clipboard API can read it (not every version has
+    // HTML or image access)
+    const call = (name, ...args) => { try { return typeof clipboard[name] === 'function' ? clipboard[name](...args) : undefined; } catch { return undefined; } };
+    const saved = { text: call('readText') ?? '', html: call('readHTML'), image: call('readImage') };
     clipboard.writeText(text);
     const ok = await new Promise(resolve => {
       const worker = fork(path.join(__dirname, 'type-worker.cjs'), [], { execPath: process.execPath, env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, stdio: 'ignore' });
@@ -110,8 +113,9 @@ app.whenReady().then(() => {
     });
     setTimeout(() => {  // after the app has read the paste
       if (clipboard.readText() !== text) return;  // something else was copied meanwhile: leave it
-      if (!saved.image.isEmpty()) clipboard.writeImage(saved.image);
-      else clipboard.write({ text: saved.text, html: saved.html });
+      if (saved.image && !saved.image.isEmpty() && typeof clipboard.writeImage === 'function') clipboard.writeImage(saved.image);
+      else if (saved.html && typeof clipboard.write === 'function') clipboard.write({ text: saved.text, html: saved.html });
+      else clipboard.writeText(saved.text);
     }, 400);
     if (!ok) throw new Error('Could not type into the app. On macOS, allow Accessibility for Silent Calls.');
     return { ok: true };
