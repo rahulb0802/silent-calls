@@ -25,10 +25,18 @@ import torch
 from ..lora import lora
 from . import frames as fr
 from . import vocab as vb
-from .model import DecodeConfig, decode, load
+from .model import DecodeConfig, decode, load, normalize_text
 from .paths import ADAPTER_DIR, MODEL_FPS
 
 log = logging.getLogger(__name__)
+
+MAX_GIVEN = 8  # sentences scored per utterance (each ~5-10 ms on the GPU)
+
+
+def clean_given(given: list[str] | None) -> list[str]:
+    out = [g.strip()[:300] for g in given or [] if isinstance(g, str) and g.strip()]
+    return list(dict.fromkeys(out))[:MAX_GIVEN]
+
 
 MIN_FRAMES = 10  # 0.4 s; shorter than this is a mis-press
 MAX_FRAMES = 15 * MODEL_FPS  # frames past 15 s are ignored
@@ -43,6 +51,7 @@ class LipResult:
     n_tokens: list[int] = field(default_factory=list)  # per candidate, for length-normalized scores
     adapter: str | None = None  # user whose LoRA adapter was used, if any
     name_variants: list[str] = field(default_factory=list)  # candidates added by the lip-shape name match
+    given: list[str] = field(default_factory=list)  # candidates that are one of the given sentences (co-pilot)
     quality: dict = field(default_factory=dict)  # see frames.quality(); "flags" is human-readable
     error: str | None = None  # "no_face" | "crop_failed" | "too_short"; candidates is then empty
     timings_ms: dict = field(default_factory=dict)
@@ -89,8 +98,10 @@ class LipReader:
             utt.webm.extend(data)
 
     async def finish(self, utt_id: str, user_id: str | None = None, use_adapter: bool = True,
-                     vocab: list[str] | None = None) -> LipResult:
-        """vocab: names/rare words for this utterance (e.g. heard in the call), added to the user's saved list."""
+                     vocab: list[str] | None = None, given: list[str] | None = None) -> LipResult:
+        """vocab: names/rare words for this utterance (e.g. heard in the call), added to the user's saved list.
+        given: sentences the user may be mouthing (the call co-pilot's prepared replies), scored against the
+        video and ranked with the model's own guesses."""
         utt =self._utts.pop(utt_id, None) or _Utterance()
         t0 = time.perf_counter()
         loop = asyncio.get_running_loop()
@@ -108,7 +119,7 @@ class LipReader:
             return res
         crop, q, crop_ms = res
         out = await loop.run_in_executor(self._gpu, self._run_model, crop, user_id if use_adapter else None,
-                                         self.vocab_for(user_id, vocab))
+                                         self.vocab_for(user_id, vocab), clean_given(given))
         out.crop_ms, out.quality, out.face_wait_ms = round(crop_ms), q, round(face_wait_ms)
         out.timings_ms.update(face_wait_ms=out.face_wait_ms, crop_ms=out.crop_ms)
         return out
@@ -136,9 +147,10 @@ class LipReader:
         out.timings_ms["crop_ms"] = out.crop_ms
         return out
 
-    def read_crop(self, crop: np.ndarray, user_id: str | None = None, vocab: list[str] | None = None) -> LipResult:
+    def read_crop(self, crop: np.ndarray, user_id: str | None = None, vocab: list[str] | None = None,
+                  given: list[str] | None = None) -> LipResult:
         """vocab is used as given (the eval passes its own list); finish() also adds the user's saved list."""
-        return self._gpu.submit(self._run_model, crop, user_id, vb.clean(vocab)).result()
+        return self._gpu.submit(self._run_model, crop, user_id, vb.clean(vocab), clean_given(given)).result()
 
     # ---- internals ----
 
@@ -202,10 +214,12 @@ class LipReader:
         lora.set_active(self.avsr.model, name)
         return name
 
-    def _run_model(self, crop: np.ndarray, user_id: str | None, vocab: list[str] | None = None) -> LipResult:
+    def _run_model(self, crop: np.ndarray, user_id: str | None, vocab: list[str] | None = None,
+                   given: list[str] | None = None) -> LipResult:
         t0 = time.perf_counter()
         adapter = self._use_adapter(user_id)
-        nbest, t = decode(self.avsr, crop, self.cfg.nbest, vocab if self.cfg.name_bias > 0 else None)
+        nbest, t = decode(self.avsr, crop, self.cfg.nbest, vocab if self.cfg.name_bias > 0 else None, given)
+        given_set = {normalize_text(g) for g in given or []}
         decoded = {c[0] for c in nbest}
         if self.cfg.name_variants:
             nbest = vb.add_name_variants(nbest, vocab or [], self.cfg.nbest)
@@ -213,6 +227,7 @@ class LipReader:
         return LipResult(candidates=[(c[0], c[1]) for c in nbest], crop_ms=0, lipread_ms=round(ms),
                          n_tokens=[c[2] for c in nbest], adapter=adapter,
                          name_variants=[c[0] for c in nbest if c[0] not in decoded],
+                         given=[c[0] for c in nbest if c[0] in given_set],
                          timings_ms={"lipread_ms": round(ms), **{k: round(v) for k, v in t.items()}})
 
     def _warmup(self) -> None:

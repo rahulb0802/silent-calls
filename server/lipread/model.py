@@ -1,6 +1,7 @@
 """AutoAVSR visual-only LRS3 model (LRS3_V_WER19.1) + LRS3 subword LM, decoded to an N-best list."""
 
 import logging
+import re
 import time
 from dataclasses import dataclass
 
@@ -12,6 +13,7 @@ from .paths import LM_CONF, LM_PATH, MODEL_CONF, MODEL_PATH, SPM_MODEL, add_vsr_
 add_vsr_to_path()
 from espnet.asr.asr_utils import parse_hypothesis  # noqa: E402
 from espnet.nets.batch_beam_search import BatchBeamSearch  # noqa: E402
+from espnet.nets.pytorch_backend.transformer.mask import subsequent_mask  # noqa: E402
 from espnet.nets.scorer_interface import BatchScorerInterface  # noqa: E402
 from pipelines.data.transforms import VideoTransform  # noqa: E402
 from pipelines.model import AVSR  # noqa: E402
@@ -71,18 +73,39 @@ class NameBias(BatchScorerInterface):
                 self.max_len = max(self.max_len, len(seg))
         return used
 
-    def _segmentations(self, word: str, n: int = 4) -> list[list[int]]:
+    def _spm(self):
         if self._sp is None:
             import sentencepiece as spm
 
             self._sp = spm.SentencePieceProcessor(model_file=str(SPM_MODEL))
+        return self._sp
+
+    def _segmentations(self, word: str, n: int = 4) -> list[list[int]]:
+        sp = self._spm()
         text = word.upper().replace("’", "'")
         out = []
-        for pieces in [self._sp.encode(text, out_type=str)] + self._sp.nbest_encode_as_pieces(text, n):
+        for pieces in [sp.encode(text, out_type=str)] + sp.nbest_encode_as_pieces(text, n):
             ids = [self.index.get(p) for p in pieces]
             if ids and None not in ids and ids not in out:
                 out.append(ids)
         return out
+
+    def ids(self, text: str) -> list[int] | None:
+        """Token ids of text as the model spells it (upper-case SentencePiece pieces), or None if a piece is
+        unknown."""
+        pieces = self._spm().encode(text.upper().replace("’", "'"), out_type=str)
+        ids = [self.index.get(p) for p in pieces]
+        return ids if ids and None not in ids else None
+
+    def sequence_bonus(self, ids: list[int]) -> float:
+        """The bonus the biased beam would have given this token sequence (ending in <eos>)."""
+        if len(self.children) == 1:
+            return 0.0
+        ys, total = [self.eos], 0.0
+        for tok in ids + [self.eos]:
+            total += float(self._row(self._node(ys), torch.device("cpu"), torch.float32)[tok])
+            ys.append(tok)
+        return total
 
     def _node(self, ys: list[int]) -> int:
         """Trie node of the longest suffix of ys that starts at a word start and spells a vocab prefix."""
@@ -149,10 +172,12 @@ def to_input(crop: np.ndarray) -> torch.Tensor:
 
 
 @torch.no_grad()
-def decode(avsr: AVSR, crop: np.ndarray, nbest: int = 10,
-           vocab: list[str] | None = None) -> tuple[list[tuple[str, float, int]], dict]:
+def decode(avsr: AVSR, crop: np.ndarray, nbest: int = 10, vocab: list[str] | None = None,
+           given: list[str] | None = None) -> tuple[list[tuple[str, float, int]], dict]:
     """Returns ([(text, log_prob, n_tokens)], timings_ms), best first, distinct texts, lowercase.
-    With a vocab the beam is biased toward those words, and log_prob includes the bonus."""
+    With a vocab the beam is biased toward those words, and log_prob includes the bonus. `given` sentences
+    (e.g. the call co-pilot's prepared replies) are scored against the same video (score_texts) and ranked
+    with the beam's guesses; one only appears if it scores among the top nbest."""
     search = avsr.beam_search
     if vocab:
         used = avsr.names.set_words(vocab)
@@ -177,4 +202,50 @@ def decode(avsr: AVSR, crop: np.ndarray, nbest: int = 10,
             out.append((text, float(h.score), len(h.yseq) - 1))
         if len(out) >= nbest:
             break
-    return out, {"encode_ms": (t1 - t0) * 1000, "beam_ms": (t2 - t1) * 1000}
+    timings = {"encode_ms": (t1 - t0) * 1000, "beam_ms": (t2 - t1) * 1000}
+    if given:
+        t3 = time.perf_counter()
+        scored = score_texts(avsr, enc, [g for g in given if g not in seen], biased=search is avsr.biased_search)
+        out = sorted(out + [(t, s, n) for t, s, n in scored], key=lambda c: c[1], reverse=True)[:nbest]
+        timings["given_ms"] = (time.perf_counter() - t3) * 1000
+    return out, timings
+
+
+def normalize_text(text: str) -> str:
+    """How the model writes text: lowercase words, the model's characters only."""
+    return " ".join(re.sub(r"[^a-z0-9' ]+", " ", text.lower().replace("’", "'")).split())
+
+
+@torch.no_grad()
+def score_texts(avsr: AVSR, enc: torch.Tensor, texts: list[str],
+                biased: bool = False) -> list[tuple[str, float, int]]:
+    """Score given sentences against the video, on the beam's scale: the same weighted sum of attention
+    decoder, CTC and LM log-probs a beam hypothesis of that text would get (plus the name bias if `biased`).
+    So a given sentence and the beam's own guesses can be ranked together. Returns [(text, score, n_tokens)],
+    skipping texts the model can't spell."""
+    bs, model = avsr.beam_search, avsr.model
+    w = bs.weights
+    memory = enc.unsqueeze(0)  # (1, T, D)
+    ctc_lp = model.ctc.ctc_lo(memory).log_softmax(-1).transpose(0, 1)  # (T, 1, V)
+    lm = bs.full_scorers.get("lm")
+    out = []
+    for text in dict.fromkeys(normalize_text(t) for t in texts):
+        ids = avsr.names.ids(text) if text else None
+        if not ids:
+            continue
+        y = torch.tensor(ids, device=enc.device)
+        ys_in = torch.cat([y.new_tensor([model.sos]), y]).unsqueeze(0)
+        ys_out = torch.cat([y, y.new_tensor([model.eos])]).unsqueeze(0)
+        mask = subsequent_mask(ys_in.shape[1], device=enc.device).unsqueeze(0)
+        logits, _ = model.decoder(ys_in, mask, memory, None)
+        dec = logits.log_softmax(-1).gather(-1, ys_out.unsqueeze(-1)).sum()
+        ctc = -torch.nn.functional.ctc_loss(ctc_lp, y.unsqueeze(0), torch.tensor([ctc_lp.shape[0]]),
+                                            torch.tensor([len(ids)]), blank=0, reduction="sum", zero_infinity=True)
+        score = w["decoder"] * float(dec) + w["ctc"] * float(ctc)
+        if lm is not None:
+            h, _ = lm.encoder(lm.embed(ys_in), lm._target_mask(ys_in))
+            score += w["lm"] * float(lm.decoder(h).log_softmax(-1).gather(-1, ys_out.unsqueeze(-1)).sum())
+        if biased:
+            score += avsr.names.sequence_bonus(ids)
+        out.append((text, score, len(ids) + 1))
+    return out
