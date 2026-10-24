@@ -60,13 +60,19 @@ class VoiceOutput:
             t0 = time.perf_counter()
             first_ms = -1.0
             carry = b""
-            async for chunk in self._synthesize(text):
-                chunk, carry = carry + chunk, b""
-                if len(chunk) % 2:  # keep 16-bit samples whole across chunk boundaries
-                    chunk, carry = chunk[:-1], chunk[-1:]
-                if first_ms < 0:
-                    first_ms = (time.perf_counter() - t0) * 1000
-                await asyncio.to_thread(self._stream.write, chunk)
+            try:
+                async for chunk in self._synthesize(text):
+                    chunk, carry = carry + chunk, b""
+                    if len(chunk) % 2:  # keep 16-bit samples whole across chunk boundaries
+                        chunk, carry = chunk[:-1], chunk[-1:]
+                    if first_ms < 0:
+                        first_ms = (time.perf_counter() - t0) * 1000
+                    await asyncio.to_thread(self._stream.write, chunk)
+            except asyncio.CancelledError:
+                if self._stream:
+                    await asyncio.to_thread(self._stream.abort)
+                    self._stream.start()
+                raise
             log.info("voice: first audio %.0f ms for %r", first_ms, text)
             return first_ms
 

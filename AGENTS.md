@@ -50,3 +50,6 @@ working demo, not production quality.
 - Client: `cd client && npm run dev`
 - Components 7–9 today: `.venv/bin/python -m silentcalls.app` (see README.md)
 - Tests: `.venv/bin/python -m pytest -q tests`
+
+## Combined-tree status
+The Electron app now lives in `client/`. The local `silentcalls/` service is still the interim single-user components 7–9 implementation, not the draft GPU orchestrator. See docs/MERGE_AUDIT.md before integration. Both wire protocol documents were preserved; agree any changes with the human first.

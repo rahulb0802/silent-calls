@@ -1,80 +1,57 @@
 # Silent Calls
 
-Take calls without speaking: mouth words at a webcam, a lip-reading model produces candidate
-sentences, the conversation picks the right one, and a clone of your voice says it into Zoom, Meet
-or FaceTime.
+A desktop app for taking calls without speaking. Mouth words at a webcam; the planned lip-reading service returns candidates, the decision layer uses conversation context, and a cloned voice speaks into a virtual microphone.
 
-## Components 7-9 (`silentcalls/`)
+This repository combines the `frontend` desktop work and `nilesh` components 7–9. Their histories are preserved. **They are not connected end to end yet.**
 
-| # | Component | File | What it does |
-|---|-----------|------|--------------|
-| 7 | Call audio + captions | `captions.py` | Captures the call's audio from a loopback device and streams it to Cartesia speech-to-text (`ink-2`). Each pause ends a line. The last few lines (both speakers) become the context. |
-| 8 | Decision layer | `decision.py`, `fit_weights.py` | Combines lip-reading and Jev scores and routes the result: speak, show the top 3, or ask to repeat. Claude Opus 5.5 (low effort, structured output) repairs the guess in parallel and is only ever offered as an extra option. |
-| 9 | Voice output | `voice.py` | Streams the Cartesia cloned voice (`sonic-3.6`) into a virtual mic. Includes a pre-rendered "I'm using a speech assistant" opener. |
+## Layout
 
-`pipeline.py` connects them, and `app.py` serves them on `ws://127.0.0.1:8765`. The message shapes
-are in `protocol.py` and are a proposal to agree on Friday night.
+- `client/`: Electron + React + TypeScript onboarding, webcam capture, native hold-to-talk and meeting widget.
+- `silentcalls/`: Python local captions, decision and Cartesia voice service.
+- `scripts/fake_lipreader.py`: feeds candidate sentences to the local decision service; it is not a webcam lip-reader.
+- `docs/`: architecture, team specs, protocol draft and merge audit.
+- `tests/`: Python tests. Client state/capture tests live under `client/tests/`.
 
-## Setup
+## Start the desktop client
 
-```bash
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-cp .env.example .env   # fill in keys
+```sh
+cd client
+npm ci
+npm run dev
 ```
 
-### Audio routing
+Enable the camera in the widget. Choose F8/F9/F10/Right Ctrl, grant Electron Accessibility permission on macOS, then enable the global key. Mac keyboards may require Fn with the function key. Escape during a global hold cancels capture and disarms the camera/key.
 
-You need two virtual devices, so your voice and the call audio don't loop into each other.
+Capture requests 25fps with 500ms pre-roll and 300ms post-roll. The widget reports observed timing, supports in-memory replay, and discards meeting video when the camera stops. Meeting-video export was removed to follow the repository's memory-only rule.
 
-**Mac:** `brew install blackhole-2ch blackhole-16ch`, then:
-- Zoom microphone → **BlackHole 2ch**. Our cloned voice is written here (`VIRTUAL_MIC_DEVICE`).
-- In Audio MIDI Setup, create a **Multi-Output Device** with your speakers and **BlackHole 16ch**, and set it as Zoom's speaker. You still hear the call, and we capture it from BlackHole 16ch (`CALL_AUDIO_DEVICE`).
+For mouth movement feedback, select a compatible local MediaPipe `face_landmarker.task` file. `npm ci` copies the installed WASM runtime locally; it does not download a model. The main window's **Training & settings** page contains calibration, held-out clips, adapter-training and accuracy UI. Backend actions remain disabled without an approved adapter.
 
-**Windows:** Zoom mic → **CABLE Output** (VB-Cable). Set `VIRTUAL_MIC_DEVICE=CABLE Input`. For
-call audio, enable **Stereo Mix** and set `CALL_AUDIO_DEVICE=Stereo Mix`, or use a second VB-Cable
-the same way as on Mac.
+See [client details](client/README.md) and [Person 1 status](client/docs/person-1-status.md). Moving the app into `client/` changes its development executable path; macOS may require you to grant Accessibility to the Electron app in `client/node_modules/electron/dist/` again.
 
-List device names with `.venv/bin/python -m sounddevice`.
+## Start components 7–9
 
-### Clone your voice
+From the repository root:
 
-Record about 10-20 s of clean speech, then run:
-
-```bash
-.venv/bin/python -m silentcalls.voice clone me.wav --name "Nilesh"   # prints CARTESIA_VOICE_ID
-.venv/bin/python -m silentcalls.voice say "Can you hear me?"         # test into the virtual mic
+```sh
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+cp .env.example .env
+# Fill in your own API keys and device/voice settings in .env.
+.venv/bin/python -m silentcalls.app
 ```
 
-## Run
+For decision-only development without audio devices:
 
-```bash
-.venv/bin/python -m silentcalls.app                            # everything
-.venv/bin/python -m silentcalls.app --no-voice --no-captions   # decision layer only
-.venv/bin/python scripts/fake_lipreader.py "i'll call you back" "i'll fall you back"
-.venv/bin/python -m silentcalls.captions                       # just print the other person's lines
+```sh
+.venv/bin/python -m silentcalls.app --no-voice --no-captions
 ```
 
-## Fit the decision weights
+The service listens on `ws://127.0.0.1:8765`. Audio is captured and played locally by Python; this is a single-user development service, not an authenticated multi-user deployment. See [audio routing, cloning and service usage](docs/COMPONENTS_7_9.md).
 
-Dump the feasibility clips as JSONL (`truth`, `context`, `candidates: [{text, score}]`), then run:
+## Integration boundary
 
-```bash
-.venv/bin/python -m silentcalls.fit_weights data/clips.jsonl --precision 0.95
-```
+The local service implements the interim messages in `silentcalls/protocol.py`. The GPU orchestrator's draft `/ws/session` and `/ws/call-audio` messages are in [docs/PROTOCOL.md](docs/PROTOCOL.md); that contract was preserved unchanged. They are different protocols, and the client currently has typed adapter interfaces rather than a network implementation.
 
-This writes `weights.json` (`w_lip`, `w_jev`, `speak_threshold`, `choose_threshold`) and prints
-lip-only vs combined accuracy. The speak threshold is the lowest at which guesses spoken without
-confirmation are still at least 95% correct.
+Still needed: the real GPU lip-reading/orchestrator endpoints, approved transport adapters, per-user authentication/ownership, enrollment/training endpoints, and final client-side audio routing when the orchestrator returns PCM. Do not connect the current local decision service as though it accepts webcam frames.
 
-## Rules the code enforces
-
-- Nothing below `speak_threshold` is spoken without the user confirming it.
-- Claude's repair is never spoken automatically and never delays the decision.
-- If Jev times out (500 ms), the decision uses lip-reading scores alone.
-- Claude calls use `fallbacks: "default"`, so a refused request is retried on another model on the server.
-
-## Tests
-
-```bash
-.venv/bin/python -m pytest -q tests
-```
+See the [combined audit](docs/MERGE_AUDIT.md) for fixes and remaining gaps. No tests, builds, provider calls or device checks were run during this merge, at the user's request.

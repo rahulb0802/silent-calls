@@ -43,6 +43,15 @@ class Scored:
 
 
 def combine(cands: list[Candidate], p_jev: list[float] | None, w: Weights) -> Scored:
+    if not cands:
+        return Scored(options=[], jev_ok=False)
+    if p_jev is not None:
+        values = np.asarray(p_jev, dtype=float)
+        if values.shape != (len(cands),) or not np.all(np.isfinite(values)) or np.any(values < 0) or values.sum() <= 0:
+            log.warning("invalid Jev probabilities; using lip scores only")
+            p_jev = None
+        else:
+            p_jev = (values / values.sum()).tolist()
     p_lip = softmax(np.array([c.score for c in cands], dtype=float))
     logits = w.w_lip * np.log(p_lip + EPS)
     if p_jev is not None:
@@ -184,4 +193,5 @@ async def score_with_jev(jev: Jev | None, context: str, cands: list[Candidate],
 
 
 def top_k(cands: list[Candidate], k: int) -> list[Candidate]:
-    return sorted(dedupe(cands), key=lambda c: c.score, reverse=True)[:k]
+    valid = [c for c in cands if c.text.strip() and np.isfinite(c.score)]
+    return sorted(dedupe(valid), key=lambda c: c.score, reverse=True)[:k]

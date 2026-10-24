@@ -1,6 +1,24 @@
+# Dependencies, environments and generated artifacts
+node_modules/
 .venv/
 __pycache__/
-.env
-*.jev.json
+*.pyc
+.pytest_cache/
+.ruff_cache/
+dist/
+release/
+.DS_Store
+.env*
+!.env.example
+client/public/vendor/
+client/public/models/
+client/.impeccable/review/
+# User media, enrollment, evaluation data and local logs
+captures/
 data/
 *.wav
+*.webm
+*.mp4
+*.jev.json
+silent-calls-*.json
+*.log

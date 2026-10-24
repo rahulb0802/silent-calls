@@ -31,8 +31,11 @@ class Pipeline:
         self._repairs: dict[str, asyncio.Task] = {}
 
     async def close(self) -> None:
-        for t in self._repairs.values():
+        tasks = list(self._repairs.values())
+        for t in tasks:
             t.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        self._repairs.clear()
         if self.jev:
             await self.jev.close()
 
@@ -54,7 +57,11 @@ class Pipeline:
             self._repairs[msg.utterance_id] = asyncio.create_task(
                 self._repair(msg.utterance_id, context, cands))
 
-        scored, jev_ms = await score_with_jev(self.jev, context, cands, self.w)
+        try:
+            scored, jev_ms = await score_with_jev(self.jev, context, cands, self.w)
+        except asyncio.CancelledError:
+            self._cancel_repair(msg.utterance_id)
+            raise
         top = scored.options[0]
         decided = route(top.prob, self.w)
         timings = {"jev": round(jev_ms), "decide": round((time.perf_counter() - t0) * 1000)}

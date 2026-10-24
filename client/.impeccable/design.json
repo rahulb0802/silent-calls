@@ -1,0 +1,244 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-24T01:55:29.893524+00:00",
+  "title": "Design System: Silent Calls",
+  "extensions": {
+    "colorMeta": {
+      "accent": {
+        "displayName": "Accent",
+        "role": "primary",
+        "canonical": "#315e4d"
+      },
+      "accent-hover": {
+        "displayName": "Accent Hover",
+        "role": "primary",
+        "canonical": "#234c3d"
+      },
+      "canvas": {
+        "displayName": "Canvas",
+        "role": "neutral",
+        "canonical": "#f7f8f4"
+      },
+      "sidebar": {
+        "displayName": "Sidebar",
+        "role": "neutral",
+        "canonical": "#eef1e9"
+      },
+      "text": {
+        "displayName": "Text",
+        "role": "neutral",
+        "canonical": "#253d36"
+      },
+      "muted": {
+        "displayName": "Muted",
+        "role": "neutral",
+        "canonical": "#60736b"
+      },
+      "line": {
+        "displayName": "Line",
+        "role": "neutral",
+        "canonical": "#dce3db"
+      },
+      "progress-active": {
+        "displayName": "Progress Active",
+        "role": "neutral",
+        "canonical": "#e0e8d9"
+      },
+      "widget": {
+        "displayName": "Widget",
+        "role": "neutral",
+        "canonical": "#1c2624"
+      },
+      "widget-text": {
+        "displayName": "Widget Text",
+        "role": "neutral",
+        "canonical": "#ecf1e9"
+      },
+      "widget-line": {
+        "displayName": "Widget Line",
+        "role": "neutral",
+        "canonical": "#35403c"
+      },
+      "hold": {
+        "displayName": "Hold",
+        "role": "neutral",
+        "canonical": "#c9dda9"
+      },
+      "hold-hover": {
+        "displayName": "Hold Hover",
+        "role": "neutral",
+        "canonical": "#dcebc5"
+      },
+      "held": {
+        "displayName": "Held",
+        "role": "neutral",
+        "canonical": "#e0bcb0"
+      },
+      "candidate": {
+        "displayName": "Candidate",
+        "role": "neutral",
+        "canonical": "#2e3d34"
+      },
+      "candidate-border": {
+        "displayName": "Candidate Border",
+        "role": "neutral",
+        "canonical": "#516449"
+      },
+      "candidate-text": {
+        "displayName": "Candidate Text",
+        "role": "neutral",
+        "canonical": "#e0ebd8"
+      },
+      "focus": {
+        "displayName": "Focus",
+        "role": "neutral",
+        "canonical": "#88bfa4"
+      },
+      "status": {
+        "displayName": "Status",
+        "role": "neutral",
+        "canonical": "#9ec58d"
+      },
+      "paused": {
+        "displayName": "Paused",
+        "role": "neutral",
+        "canonical": "#d8b06a"
+      },
+      "error": {
+        "displayName": "Error",
+        "role": "neutral",
+        "canonical": "#9c3d30"
+      },
+      "white": {
+        "displayName": "White",
+        "role": "neutral",
+        "canonical": "#ffffff"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Onboarding headline",
+        "purpose": "Large conversational setup headings."
+      },
+      "widget-title": {
+        "displayName": "Widget title",
+        "purpose": "Live state heading in the compact companion."
+      }
+    },
+    "shadows": [
+      {
+        "name": "preview-widget",
+        "value": "0 24px 55px -22px #19332669",
+        "purpose": "Onboarding sample widget only."
+      }
+    ],
+    "motion": [
+      {
+        "name": "button-transition",
+        "value": "background .15s, color .15s",
+        "purpose": "Button feedback."
+      },
+      {
+        "name": "wave-pulse",
+        "value": "pulse .7s ease-in-out infinite alternate",
+        "purpose": "Busy widget waveform; disabled under reduced motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "stacked",
+        "value": "720px"
+      },
+      {
+        "name": "compact",
+        "value": "1050px"
+      },
+      {
+        "name": "wide",
+        "value": "1400px"
+      }
+    ],
+    "captureWorkspace": {
+      "widgetWidth": 390,
+      "widgetMaxHeight": 740,
+      "cameraPreviewHeight": 164,
+      "workspaceMaxWidth": 1250,
+      "workspaceColumnGap": 65,
+      "landmarkSampleIntervalMs": 200,
+      "modelSource": "local user-selected file",
+      "backendConnection": "adapter required; no network transport installed"
+    }
+  },
+  "components": [
+    {
+      "name": "Primary button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Advance onboarding.",
+      "html": "<button class=\"ds-primary\">Continue</button>",
+      "css": ".ds-primary{font-family:'DM Sans',sans-serif;cursor:pointer;transition:background .15s,color .15s;display:inline-flex;align-items:center;justify-content:center;gap:12px;background:#315e4d;color:#fff;border:0;border-radius:7px;padding:14px 18px;font-size:12px;font-weight:500}.ds-primary:hover:not(:disabled){background:#234c3d}button:focus-visible{outline:3px solid #88bfa4;outline-offset:4px}button:disabled{opacity:.45;cursor:not-allowed}"
+    },
+    {
+      "name": "Text button",
+      "kind": "button",
+      "description": "Secondary setup navigation.",
+      "html": "<button class=\"ds-text\">Back</button>",
+      "css": ".ds-text{font-family:'DM Sans',sans-serif;cursor:pointer;transition:background .15s,color .15s;display:inline-flex;gap:8px;background:none;border:0;padding:6px 0;color:#60736b;font-size:12px}.ds-text:hover{color:#274c3b}button:focus-visible{outline:3px solid #88bfa4;outline-offset:4px}button:disabled{opacity:.45;cursor:not-allowed}"
+    },
+    {
+      "name": "Camera action",
+      "kind": "button",
+      "description": "Explicit camera enable action.",
+      "html": "<button class=\"ds-camera\">Enable camera</button>",
+      "css": ".ds-camera{font-family:'DM Sans',sans-serif;cursor:pointer;transition:background .15s,color .15s;background:#dceacb;color:#243f31;border:0;border-radius:7px;padding:14px 18px;font-size:12px;font-weight:500}.ds-camera:hover:not(:disabled){background:#234c3d}button:focus-visible{outline:3px solid #88bfa4;outline-offset:4px}button:disabled{opacity:.45;cursor:not-allowed}"
+    },
+    {
+      "name": "Hold button",
+      "kind": "button",
+      "refersTo": "hold-button",
+      "description": "Press and release control; held is a state class.",
+      "html": "<button class=\"ds-hold\"><span class=\"ds-dot\"></span>Hold to mouth<kbd>space</kbd></button>",
+      "css": ".ds-hold{font-family:'DM Sans',sans-serif;cursor:pointer;transition:background .15s,color .15s;display:flex;align-items:center;justify-content:center;gap:9px;width:100%;padding:13px 12px;border:0;border-radius:7px;background:#c9dda9;color:#253829;font-size:12px;touch-action:none;user-select:none}.ds-hold:hover:not(:disabled){background:#dcebc5}.ds-hold.ds-held{background:#e0bcb0}.ds-dot{width:7px;height:7px;border-radius:50%;background:currentColor}.ds-hold kbd{font:10px \"DM Sans\",sans-serif;border:1px solid currentColor;opacity:.75;padding:2px 5px;border-radius:4px;margin-left:auto}button:focus-visible{outline:3px solid #88bfa4;outline-offset:4px}button:disabled{opacity:.45;cursor:not-allowed}"
+    },
+    {
+      "name": "Candidate row",
+      "kind": "button",
+      "refersTo": "candidate",
+      "description": "Explicit phrase selection in the dark widget.",
+      "html": "<button class=\"ds-candidate\"><kbd>1</kbd><span>That works for me. Let\u2019s move forward.</span></button>",
+      "css": ".ds-candidate{font-family:'DM Sans',sans-serif;cursor:pointer;transition:background .15s,color .15s;display:flex;align-items:center;gap:10px;text-align:left;background:#2e3d34;border:1px solid #516449;border-radius:7px;padding:11px;color:#e0ebd8;font-size:11px;line-height:1.5}.ds-candidate:hover{background:#3b4f3c}.ds-candidate span{flex:1}.ds-candidate kbd{font:10px \"DM Sans\",sans-serif;border:1px solid currentColor;opacity:.75;padding:2px 5px;border-radius:4px}button:focus-visible{outline:3px solid #88bfa4;outline-offset:4px}button:disabled{opacity:.45;cursor:not-allowed}"
+    },
+    {
+      "name": "Quick phrase",
+      "kind": "button",
+      "description": "Ready-state shortcuts.",
+      "html": "<button class=\"ds-quick\">One moment</button>",
+      "css": ".ds-quick{font-family:'DM Sans',sans-serif;cursor:pointer;transition:background .15s,color .15s;border:1px solid #526158;color:#d1dfd2;background:transparent;padding:7px 10px;border-radius:6px;font-size:10px}.ds-quick:hover:not(:disabled){background:#35483c}button:focus-visible{outline:3px solid #88bfa4;outline-offset:4px}button:disabled{opacity:.45;cursor:not-allowed}"
+    },
+    {
+      "name": "Progress indicator",
+      "kind": "nav",
+      "description": "Current stage in ordered setup progress.",
+      "html": "<nav aria-label=\"Setup progress\"><ol class=\"ds-progress\"><li aria-current=\"step\"><span>2</span>Camera setup</li></ol></nav>",
+      "css": ".ds-progress{list-style:none;margin:0;padding:0;font:600 13px \"DM Sans\",sans-serif}.ds-progress li{display:flex;align-items:center;gap:12px;padding:11px 10px;background:#e0e8d9;color:#294f3c;border-radius:8px}.ds-progress li>span{display:grid;place-items:center;width:24px;height:24px;border:1px solid #315e4d;border-radius:50%;background:#315e4d;color:#fff;font-size:11px}button:focus-visible{outline:3px solid #88bfa4;outline-offset:4px}button:disabled{opacity:.45;cursor:not-allowed}"
+    }
+  ],
+  "narrative": {
+    "overview": "Silent Calls pairs the user-approved calm light onboarding with a compact dark meeting widget. Muted green surfaces, generous onboarding space, and restrained line icons make the core action easy to find. The widget compresses this language into a focused companion beside a meeting.",
+    "keyCharacteristics": [
+      "Soft green neutrals and forest green actions.",
+      "Large conversational onboarding headlines; small, dense widget controls.",
+      "Explicit demo and service status beside the relevant interaction."
+    ],
+    "rules": [],
+    "dos": [
+      "Do preserve the light onboarding and dark widget distinction.",
+      "Do keep keyboard focus visible and communicate status with text.",
+      "Do label demo behavior and disconnected services where they appear."
+    ],
+    "donts": [
+      "Don't imply sample candidates are camera inference or spoken audio.",
+      "Don't require audible speech to complete onboarding."
+    ]
+  }
+}

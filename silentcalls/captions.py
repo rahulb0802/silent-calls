@@ -70,10 +70,16 @@ class CallCaptioner:
         channels = min(2, int(info["max_input_channels"]))
 
         loop = asyncio.get_running_loop()
-        audio_q: asyncio.Queue[np.ndarray] = asyncio.Queue()
+        audio_q: asyncio.Queue[np.ndarray] = asyncio.Queue(maxsize=20)
+
+        def enqueue(block):
+            # Keep at most two seconds; do not accumulate stale call audio.
+            if audio_q.full():
+                audio_q.get_nowait()
+            audio_q.put_nowait(block)
 
         def callback(indata, frames, t, status):
-            loop.call_soon_threadsafe(audio_q.put_nowait, indata.copy())
+            loop.call_soon_threadsafe(enqueue, indata.copy())
 
         query = urlencode({
             "model": self.s.stt_model,
