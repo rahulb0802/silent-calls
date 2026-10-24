@@ -7,6 +7,7 @@ function subscribe(channel, callback) {
 contextBridge.exposeInMainWorld('desktop', {
   openWidget: () => ipcRenderer.invoke('widget:open'),
   closeWidget: () => ipcRenderer.invoke('widget:close'),
+  setCompact: (height) => ipcRenderer.invoke('widget:compact', height),
   showMain: route => ipcRenderer.invoke('main:show', route),
   startGlobalHold: key => ipcRenderer.invoke('hold:start', key),
   stopGlobalHold: () => ipcRenderer.invoke('hold:stop'),

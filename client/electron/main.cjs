@@ -9,7 +9,7 @@ const { Tunnel } = require('./tunnel.cjs');
 // Keep the opt-in capture window responsive while Meet/Zoom is foreground.
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
 app.commandLine.appendSwitch('disable-background-timer-throttling');
-let mainWindow, widget;
+let mainWindow, widget, compactAt = null;
 const voice = new LocalVoice(status => {
   for (const win of [mainWindow, widget]) {
     if (win && !win.isDestroyed() && !win.webContents.isDestroyed()) win.webContents.send('voice:status', status);
@@ -70,6 +70,22 @@ app.whenReady().then(() => {
   session.defaultSession.setPermissionCheckHandler((contents, permission) => trusted(contents) && permission === 'media');
   ipcMain.handle('widget:open', event => { if (trusted(event.sender)) openWidget(); });
   ipcMain.handle('widget:close', event => { if (widget && event.sender === widget.webContents) widget.close(); });
+  // Compact companion: a short strip at the top centre of the screen, just under the webcam, sized to its
+  // content (height in px); null goes back to the full panel at the bottom right.
+  ipcMain.handle('widget:compact', (event, height) => {
+    if (!widget || event.sender !== widget.webContents) return;
+    const area = screen.getDisplayMatching(widget.getBounds()).workArea;
+    if (height === null) {
+      compactAt = null;
+      widget.setBounds({ width: 390, height: Math.min(740, area.height - 48), x: area.x + area.width - 414, y: area.y + Math.max(24, area.height - 764) });
+      return;
+    }
+    const width = 380, h = Math.max(72, Math.min(Math.round(Number(height) || 120), area.height - 48));
+    const bounds = widget.getBounds();
+    if (compactAt && bounds.width === width) compactAt = { x: bounds.x, y: bounds.y };  // keep where the user dragged it
+    compactAt ||= { x: area.x + Math.round((area.width - width) / 2), y: area.y + 6 };
+    widget.setBounds({ x: compactAt.x, y: compactAt.y, width, height: h });
+  });
   ipcMain.handle('main:show', (event, route) => { if (trusted(event.sender)) { if (!mainWindow || mainWindow.isDestroyed()) createMain(); if(route==='workspace' || route==='audio-setup' || route==='library')load(mainWindow,`#/${route}`); mainWindow.show(); mainWindow.focus(); } });
   function localVoiceCaller(event) {
     if (!trusted(event.sender)) throw new Error('Desktop app window required.');
