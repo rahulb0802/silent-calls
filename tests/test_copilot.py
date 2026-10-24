@@ -77,3 +77,15 @@ def test_pipeline_runs_copilot_on_each_line_and_clears_after_speaking():
     copilot = [e for e in events if e.type == "copilot"]
     assert copilot[0].for_line == "What's the order number?" and len(copilot[0].replies) == 2
     assert copilot[-1].replies == []  # cleared once the user spoke
+
+
+def test_copilot_still_answers_when_the_calendar_fails():
+    class Down(FakeData):
+        async def calendar(self):
+            raise ConnectionError("google down")
+
+    client = FakeClient()
+    client.requests.append({})  # answer straight away
+    cp = Copilot(Settings(), emit=None, data=Down(), client=client)
+    replies, steps = asyncio.run(cp.prepare("Other person: are you free?", []))
+    assert replies and steps == [] and "unavailable" in client.requests[1]["messages"][0]["content"]
