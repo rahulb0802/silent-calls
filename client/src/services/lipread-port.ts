@@ -22,9 +22,15 @@ function jpegBytes(frame: Frame): Uint8Array {
   for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
   return bytes;
 }
-/** Your saved vocabulary, sent with each utterance so the lip-reader can spell those names (PROTOCOL.md, vocab). */
-function vocabulary(): {vocab?: string[]} {
-  const vocab = vocabularyTerms();
+/** Names to bias toward: your saved vocabulary plus your profile name (usually your own name, the one you
+ * are likeliest to say), sent with each utterance so the lip-reader can spell them (PROTOCOL.md, vocab). */
+function names(settings: ServiceSettings): string[] {
+  const profile = settings.profileId.trim();
+  const terms = vocabularyTerms();
+  return /^[\p{L}' -]{2,40}$/u.test(profile) && !terms.some(term => term.toLowerCase() === profile.toLowerCase()) ? [...terms, profile] : terms;
+}
+function vocabulary(settings: ServiceSettings): {vocab?: string[]} {
+  const vocab = names(settings);
   return vocab.length ? {vocab} : {};
 }
 function endpoint(settings: ServiceSettings) {
@@ -161,7 +167,7 @@ export class LipreadPort implements MeetingPort {
     const desktop = window.desktop;
     let decision: Decision | null = null;
     if (desktop?.decide && scored.length) {
-      try { decision = await desktop.decide({utteranceId:id, candidates:scored, vocab:vocabularyTerms()}); }
+      try { decision = await desktop.decide({utteranceId:id, candidates:scored, vocab:names(this.settings)}); }
       catch { decision = null; }
     }
     const ranked = rankByDecision(id, candidates, decision);
@@ -234,7 +240,7 @@ export class LipreadPort implements MeetingPort {
         });
       } catch { this.webm = null; }
     }
-    this.socket.send(JSON.stringify({type:'utterance.start',utt_id:this.active,fps:start.targetFps,t_press_ms:Math.round(performance.timeOrigin+start.pressedAtMs),...(this.webm?{encoding:'webm'}:{}),...vocabulary()}));
+    this.socket.send(JSON.stringify({type:'utterance.start',utt_id:this.active,fps:start.targetFps,t_press_ms:Math.round(performance.timeOrigin+start.pressedAtMs),...(this.webm?{encoding:'webm'}:{}),...vocabulary(this.settings)}));
   }
   frame(utteranceId: string, _sequence: number, frame: Frame) {
     if (!this.capturing || utteranceId !== this.active || this.socket?.readyState !== WebSocket.OPEN) return;

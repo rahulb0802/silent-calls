@@ -79,7 +79,9 @@ async def session(ws: WebSocket, user_id: str = "anon") -> None:
             elif kind == "utterance.end":
                 done, utt_id = m["utt_id"], None
                 t0 = time.perf_counter()
-                r = await reader.finish(done, user_id, use_adapter, vocab=session_vocab + utt_vocab)
+                vocab = session_vocab + utt_vocab
+                log.info("utterance %s: %d vocab words", done, len(vocab))  # count only: names stay out of logs
+                r = await reader.finish(done, user_id, use_adapter, vocab=vocab)
                 if r.error:
                     await ws.send_json({"type": "error", "utt_id": done, "code": r.error,
                                         "message": "; ".join(r.quality.get("flags", [])) or r.error})
