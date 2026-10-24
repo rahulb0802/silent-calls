@@ -52,6 +52,8 @@ export function useCapture(options:CaptureCallbacks = {}) {
       if (!context) throw new Error('Camera frame capture is unavailable.');
       const warmingSince = performance.now();
       let lastVideoTime = -1, lastStats = warmingSince, lastFrameAt = warmingSince;
+      let nextSampleAt = warmingSince;
+      let latestJpeg = '';
       const fail = (message: string) => { stop(); setError(message); setPhase('error'); };
       camera.getVideoTracks()[0].onended = () => fail('Camera disconnected. Reconnect it and enable the camera again.');
       interval.current = setInterval(() => {
@@ -64,12 +66,26 @@ export function useCapture(options:CaptureCallbacks = {}) {
         try {
           if (element.currentTime !== lastVideoTime) {
             context.drawImage(element, 0, 0, canvas.width, canvas.height);
-            const frame={ timestampMs: now, jpeg: canvas.toDataURL('image/jpeg', 0.8) };
-            const count=engine.current.count;
-            engine.current.push(frame);
-            if(engine.current.count>count)callbacks.current.onFrame?.(frame);
+            latestJpeg = canvas.toDataURL('image/jpeg', 0.8);
             callbacks.current.onVideoFrame?.(element,now);
             lastVideoTime = element.currentTime; lastFrameAt = now;
+          }
+          // JPEGs have no timestamps on the server: sample a fixed 25fps timeline,
+          // repeating the most recent image rather than compressing dropped frames.
+          if (now - nextSampleAt > 250) {
+            if (engine.current.capturing) { fail('Capture paused for too long. Keep the app running and mouth a new phrase.'); return; }
+            engine.current.cancel(); nextSampleAt = now;
+          }
+          if (engine.current.capturing && now - lastFrameAt > 250) {
+            fail('The camera stalled during capture. Check the webcam and try again.'); return;
+          }
+          while (latestJpeg && nextSampleAt <= now) {
+            const frame = {timestampMs: nextSampleAt, jpeg: latestJpeg};
+            const count = engine.current.count;
+            engine.current.push(frame);
+            if (engine.current.count > count) callbacks.current.onFrame?.(frame);
+            nextSampleAt += 1000 / FPS;
+            if (token !== generation.current) return;
           }
           const completed = engine.current.poll(now, canvas.width, canvas.height);
           if (completed) { setClip(completed); setPhase('review'); callbacks.current.onEnd?.(completed); }

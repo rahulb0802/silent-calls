@@ -2,7 +2,7 @@ import type {CaptureClip,Frame} from '../capture/buffer';
 export type Candidate={id:string;text:string;lipScore?:number};
 export type UtteranceStart={utteranceId:string;pressedAtMs:number;width:number;height:number;targetFps:number};
 export type MeetingEvent=
-  | {type:'candidates';utteranceId:string;candidates:Candidate[];confidence?:number;timings?:Record<string,number>;quality?:string}
+  | {type:'candidates';utteranceId:string;candidates:Candidate[];confidence?:number;timings?:Record<string,number>;quality?:string;adapter?:string|null}
   | {type:'upload';utteranceId:string;sentFrames:number;bufferedBytes:number}
   | {type:'caption';speaker:string;text:string}
   | {type:'speech.started'|'speech.finished';utteranceId:string}

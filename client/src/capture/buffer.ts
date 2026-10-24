@@ -1,7 +1,8 @@
 export const FPS = 25;
 export const PRE_ROLL_MS = 500;
 export const POST_ROLL_MS = 300;
-export const MAX_HOLD_MS = 30_000;
+// Server keeps at most 375 frames / 15s; reserve room for pre-roll and tail.
+export const MAX_HOLD_MS = 14_000;
 const MAX_BYTES = 48 * 1024 * 1024;
 export type Frame = { timestampMs: number; jpeg: string };
 export type CaptureClip = {

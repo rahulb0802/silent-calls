@@ -111,7 +111,8 @@ export class LipreadPort implements MeetingPort {
       const confidence = typeof data.confidence === 'number' && data.confidence >= 0 && data.confidence <= 1 ? data.confidence : undefined;
       const quality = data.quality == null ? '' : (typeof data.quality === 'string' ? data.quality : JSON.stringify(data.quality)).slice(0,600);
       // This stand-in does not synthesize speech. Every result requires the user's pick.
-      this.emit({type:'candidates',utteranceId:id,candidates,confidence,timings,quality});
+      const adapter = typeof data.adapter === 'string' ? data.adapter.slice(0,128) : null;
+      this.emit({type:'candidates',utteranceId:id,candidates,confidence,timings,quality,adapter});
     };
     socket.onerror = () => { if (this.socket === socket) this.lost(); };
     socket.onclose = () => { if (this.socket === socket) this.lost(); };
