@@ -8,7 +8,7 @@
 
 Mouth your reply at your webcam. A lip-reading model on a cloud GPU reads it, a personal adapter trained on
 *your* lips in 35 seconds makes it read you better, and Silent Calls says it into Zoom, Meet or FaceTime
-**in your own cloned voice**.
+**in your own cloned voice**, or types it into whatever app you're in. Fully hands-free: nod, mouth, nod.
 
 ![Cal Hacks 13.0](https://img.shields.io/badge/Cal_Hacks-13.0-1f6f50?style=flat-square)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-3776AB?style=flat-square&logo=python&logoColor=white)](requirements.txt)
@@ -18,7 +18,7 @@ Mouth your reply at your webcam. A lip-reading model on a cloud GPU reads it, a 
 [![Cartesia](https://img.shields.io/badge/Cartesia-Sonic_+_Ink-111111?style=flat-square)](silentcalls/voice.py)
 [![Vultr GPU](https://img.shields.io/badge/Vultr-A16_GPU-007BFC?style=flat-square&logo=vultr&logoColor=white)](server/setup_gpu.sh)
 
-[How it works](#how-it-works) · [Results](#results) · [Built with](#built-with) · [Run it](#run-it) · [Privacy](#privacy-and-safety) · [Full results log](docs/RESULTS.md)
+[Features](#features) · [How it works](#how-it-works) · [Results](#results) · [Built with](#built-with) · [Run it](#run-it) · [Privacy](#privacy-and-safety) · [Full results log](docs/RESULTS.md)
 
 </div>
 
@@ -28,7 +28,7 @@ Mouth your reply at your webcam. A lip-reading model on a cloud GPU reads it, a 
 <tr>
 <td align="center" width="25%"><h2>35 s</h2>to train a personal lip-reading adapter on your face<br/><sub>1.2M parameters, 0.5% of the model</sub></td>
 <td align="center" width="25%"><h2>37% → 31%</h2>word error rate on sentences the adapter never saw<br/><sub>no change on anyone else: it's personal</sub></td>
-<td align="center" width="25%"><h2>0.92 s</h2>from releasing the key to 10 sentence guesses<br/><sub>1.3 s over venue Wi-Fi</sub></td>
+<td align="center" width="25%"><h2>0.92 s</h2>from the end of your phrase to 10 sentence guesses<br/><sub>1.3 s over venue Wi-Fi</sub></td>
 <td align="center" width="25%"><h2>77%</h2>right sentence on top once the co-pilot anticipates the reply<br/><sub>up from 36%</sub></td>
 </tr>
 </table>
@@ -42,6 +42,19 @@ where they can't talk: a library, a hospital ward, next to a sleeping baby.
 Today the options are typing into a chat box (if the call has one) or not taking the call. **Silent Calls keeps
 them in the conversation, in their own voice**, on the call apps they already use, with no extra hardware beyond
 a webcam.
+
+## Features
+
+| | |
+|---|---|
+| 🧠 **Personal lip-reading** | A GPU lip-reading model plus an adapter trained on your own lips in ~35 s, which keeps learning from the phrases you correct in calls (opt-in). |
+| 🙂 **Hands-free by default** | Nod to start, mouth your reply, nod to finish. Turn your head to move through the options, nod to say one, shake to cancel. Gesture sizes are tuned to you in onboarding. A hold-to-talk key and clicks still work. |
+| 🗣️ **Your own voice** | Cloned from a short recording in onboarding and spoken into any call app through a virtual microphone, ~90 ms after you pick. |
+| 📅 **Co-pilot** | While the other person talks, Claude drafts 2–3 likely replies from the conversation, your calendar and your email. The lip-reader scores them against your lips, or you tap **Say it**. |
+| ⌨️ **Dictation** | Flip a switch and your picks are typed at the cursor in any app instead of spoken, with Claude adding capitals and punctuation without changing a word. |
+| 📷 **Camera coach** | One short tip at a time about light, framing, pose and timing. It learns from your own results which tips actually help you. |
+| 🔍 **Show work** | A compact strip under your webcam that opens into everything the lip-reader saw: every guess, which were co-pilot replies, the ranking, and where each fact came from. |
+| 📝 **Post-call coach** | After a call, Claude proposes words and practice sentences from the places lip-reading struggled. You approve each one. |
 
 ## How it works
 
@@ -59,10 +72,11 @@ flowchart LR
     BEAM --> TOP["Top 10 sentences<br/>with scores"]
 ```
 
-While you hold a key and mouth a sentence, the app streams video to an NVIDIA A16 on Vultr. With frames streamed
-as they're captured, face detection finishes during the hold, so after you release the key only the mouth crop,
+While you mouth a sentence (between two nods, or while holding a key), the app streams video to an NVIDIA A16 on
+Vultr. With frames streamed
+as they're captured, face detection finishes while you mouth, so once you finish only the mouth crop,
 the encoder and the beam search are left: **0.92 s** median to a ranked top 10. On weak Wi-Fi the app sends a
-compressed VP8 stream instead, decoded after release: **1.3 s** end to end over the venue's network.
+compressed VP8 stream instead, decoded once you finish: **1.3 s** end to end over the venue's network.
 
 The model is **AutoAVSR** (visual-only, LRS3, ~250M parameters, 19.1% WER on its benchmark), which knows nothing
 about your face, your webcam or your conversation. We extended its decoder in three ways
@@ -87,6 +101,7 @@ flowchart LR
     TRAIN --> REPORT["Before / after report<br/>on the held-out clips"]
     TRAIN --> HOT["Hot-loaded on your<br/>next utterance (GPU 0)"]
     COACH["Post-call coach:<br/>approved practice sentences"] -.-> CAL
+    CORR["Opt-in: phrases you corrected<br/>in calls (up to 200)"] -.-> TRAIN
 ```
 
 People mouth words differently, and a pretrained model reads some of us far better than others (16% WER for one of
@@ -100,6 +115,7 @@ including ones built from your own name and vocabulary, and the server trains an
 | **Recipe** | 100 steps, batch 8, AdamW lr 1e-3 with warm-up + cosine decay, fp16. The checkpoint's own loss (0.1 × CTC + 0.9 × attention). Augmentation from the AutoAVSR recipe: random 88×88 crops and adaptive time masking. |
 | **Where** | GPU 1 of the A16, as a subprocess, so training never slows a live call on GPU 0. ~0.35 s per step. |
 | **How we chose it** | Cross-validated sweeps: rank 8 vs 16, attention-only vs attention + feed-forward (overfits), 50–300 steps, 6–24 training sentences. Rank 16 at lr 1e-3 matches 300 steps of rank 8 in a third of the time. |
+| **Keeps learning** | Opt in to "Learn from my corrections" and every phrase you fix in a call (another option, an edit, or Claude's suggestion) keeps that capture's mouth crop with the text you confirmed. Retraining adds them to the training set only, so the before/after report stays honest. |
 | **Is it personal?** | Yes. Your adapter cuts WER by about a sixth on sentences it never saw; someone else's adapter on your lips does nothing (control below). |
 
 The adapter is written per user and loaded only for that user's requests; retraining reloads it on the next
@@ -115,12 +131,13 @@ flowchart LR
 
     subgraph LAPTOP["Your laptop: Electron app + local Python service"]
         direction TB
-        CAM["Hold a key,<br/>mouth your reply"]
+        CAM["Nod, mouth your reply, nod<br/>(or hold a key)"]
         CAP["Captions of the other person<br/><i>Cartesia Ink STT</i>"]
         COP["Co-pilot<br/><i>Claude + Calendar / Gmail</i>"]
         DEC["Rank + repair<br/><i>TypeSafe Jev · Claude</i>"]
-        PICK["You pick 1 / 2 / 3"]
+        PICK["Turn to choose, nod to pick<br/>(or keys 1–3)"]
         TTS["Your cloned voice<br/><i>Cartesia Sonic</i>"]
+        TYPE["Dictation: typed at your cursor<br/><i>Claude Haiku punctuates</i>"]
     end
 
     CAM -- "VP8 over SSH tunnel" --> LIP
@@ -129,22 +146,28 @@ flowchart LR
     LIP -- "top 10" --> DEC
     CAP --> DEC
     DEC --> PICK --> TTS
+    PICK -.-> TYPE
     TTS -- "virtual mic" --> CALL(["Zoom · Meet · FaceTime"])
+    TYPE -.-> APP(["Any app"])
 ```
 
-1. **You mouth your reply** while holding a key. The lip-reader decodes it with your adapter and vocabulary.
-2. **The co-pilot's replies are scored against the same video.** While the other person was talking (captioned live
-   by Cartesia), Claude prepared 2–3 likely replies from the conversation and, read-only, your calendar and email.
-   The model scores each one on your lips: *your mouthing picks the reply*, and the co-pilot supplies what lips can't
-   show (times, order numbers, names). With the right reply in the list, the top guess is right **77%** of the time
-   instead of 36%; when it isn't, nothing gets worse.
+1. **Nod, mouth your reply, nod again.** Hands-free is the default (a hold-to-talk key still works); a head shake
+   cancels. The lip-reader decodes the clip with your adapter and vocabulary, including names it picked up from
+   your calendar invites, the people who email you most, and the call itself.
+2. **The co-pilot's replies are scored against the same video.** As soon as the other person's live caption pauses
+   (Cartesia STT), Claude drafts 2–3 likely replies from the conversation and, read-only, your calendar and email.
+   They appear as cards you can tap (**Say it**), and the model also scores each one on your lips: *your mouthing
+   picks the reply*, and the co-pilot supplies what lips can't show (times, order numbers, names). With the right
+   reply in the list, the top guess is right **77%** of the time instead of 36%; when it isn't, nothing gets worse.
 3. **Jev ranks the options with the conversation**, and Claude offers a repaired sentence when the lip-reader is
    close but wrong (p/b/m and f/v look identical on lips).
-4. **You pick one** (keys 1–3) and it's spoken in your cloned voice through a virtual microphone, ~90 ms to first
-   audio. **Nothing is ever spoken without your pick.**
+4. **You pick one.** Turn your head to move through the top 3 and Claude's suggestion, nod to say it (or press
+   1–3). It's spoken in your cloned voice through a virtual microphone, ~90 ms to first audio. In **dictation**
+   mode it's typed at your cursor instead. **Nothing is ever spoken or typed without your pick.**
 
-After the call, a **coach agent** looks at where lip-reading struggled and proposes words and practice sentences;
-the ones you approve feed the vocabulary bias and your next calibration.
+Around the loop: the **compact companion** sits under your webcam and opens into **show work**; the **camera coach**
+gives one tip at a time when your light, framing or timing is hurting the lip-reader; and after the call the
+**post-call coach** proposes words and practice sentences, which feed the vocabulary bias and your next calibration.
 
 ## Results
 
@@ -171,13 +194,14 @@ timing is [docs/RESULTS.md](docs/RESULTS.md).
 
 | Stage | Measured |
 |---|---|
-| Lip-read after key release (A16, face detection hidden during the hold) | **0.92 s** median |
+| Lip-read after you finish the phrase (A16, face detection hidden while you mouth) | **0.92 s** median |
 | Key release → candidates on the laptop, over venue Wi-Fi | **1.3 s** median |
 | Personal adapter training (100 steps on one A16) | **~35 s** |
 | Jev ranking (warm connection) | **80–250 ms** |
 | Pick → first audio in your cloned voice | **87–95 ms** |
 | Co-pilot replies ready after the other person's line | **2.3 s** (2.9 s with an email search) |
 | Claude repair offered as an extra option | ~3 s |
+| Dictation: Claude's punctuated version ready (live) | **1.0–1.8 s** per sentence |
 
 <details>
 <summary><b>Personal adapters: cross-validated, with a control</b></summary>
@@ -327,6 +351,39 @@ the fallback.
 </details>
 
 <details>
+<summary><b>Hands-free gestures: tuned from real face recordings</b></summary>
+<br/>
+
+The app runs MediaPipe face landmarks locally (the same pass feeds the mouth meter and the camera coach). We first
+started captures by detecting mouthing, then recorded 15 s of a real face to tune it: silent mouthing barely moved
+the readings (lip gap at most ~3% of mouth width), while the biggest jumps came from the face being lost and found
+again, and from a smile. Head pose was steady to about half a degree. So the default became **nod to start, nod to
+finish**, with mouthing-to-start as an option.
+
+- A natural nod moved the head 4–6°. Gesture practice in onboarding measures your own nod and turn and saves 60% of
+  each as your thresholds (nod 3.5–10°, turn 6–18°), per profile.
+- A nod counts once the head is halfway back, so leaning in to mouth a sentence can't block it; options ignore
+  gestures for 0.9 s after they appear, so the nod that finished reading can't also pick.
+- A mouthing start needs the jaw to open and close several times (a twitch, smile or swallow moves it once), and
+  captures with under 0.7 s of mouthing are dropped. Replaying the recording through the detector gives no false
+  starts in either mode.
+
+</details>
+
+<details>
+<summary><b>Dictation: punctuation that never changes your words</b></summary>
+<br/>
+
+The lip-reader writes lowercase words with no punctuation. In dictation, Claude Haiku 5.5
+([`silentcalls/punctuate.py`](silentcalls/punctuate.py)) adds only capitals, punctuation and sentence breaks:
+*"hi my name is rahul can you send me the claude file"* is typed as *"Hi, my name is Rahul. Can you send me the
+Claude file?"*. Its version is used only if its letters exactly match the input's, checked in the local service
+and again in the app; otherwise simple rules apply (sentence case, "I", contractions, your names' spelling). The
+text is pasted at the cursor and your previous clipboard is put back.
+
+</details>
+
+<details>
 <summary><b>Post-call coach agent</b></summary>
 <br/>
 
@@ -345,55 +402,82 @@ so small differences are noise; we say so in the log wherever it matters.
 ## Built with
 
 **Webcam → Vultr GPU** (MediaPipe crop, AutoAVSR + your LoRA) **→ top 10 → Jev + Claude** rank and repair, using
-Cartesia captions and Claude's co-pilot **→ you pick → Cartesia** speaks it in your voice **→ virtual mic → the call.**
+Cartesia captions and Claude's co-pilot **→ you nod to pick → Cartesia** speaks it in your voice **→ virtual mic →
+the call** (or it's typed at your cursor).
 
 | Layer | Tool | Role |
 |---|---|---|
 | **Model** | **AutoAVSR + ESPnet** on **PyTorch** | Lip-reading model and beam search, extended with LoRA adapters, vocabulary bias and closed-set scoring ([`server/lipread/`](server/lipread/), [`server/lora/`](server/lora/)) |
-| | **MediaPipe** | Face landmarks for the mouth crop; a local mouth-movement meter in the app |
+| | **MediaPipe** | Face landmarks for the mouth crop on the GPU; in the app, the hands-free gestures, camera coach and mouth meter |
 | | **[Vultr Cloud GPU](https://www.vultr.com/products/cloud-gpu/)** | NVIDIA A16: GPU 0 serves calls (FastAPI, `systemd`), GPU 1 trains adapters; every evaluation ran here |
 | **Voice** | **[Cartesia](https://cartesia.ai)** | Voice cloning in onboarding, Sonic TTS for every reply (~90 ms), Ink streaming STT for live captions ([`silentcalls/voice.py`](silentcalls/voice.py)) |
-| **Context** | **[Claude](https://www.anthropic.com/api)** | Co-pilot (Opus 5.5 fast mode, Gmail search as a tool), repair of near-miss sentences, post-call coach ([`copilot.py`](silentcalls/copilot.py), [`decision.py`](silentcalls/decision.py), [`coach.py`](silentcalls/coach.py)) |
+| **Context** | **[Claude](https://www.anthropic.com/api)** | Co-pilot (Opus 5.5 fast mode, Gmail search as a tool), repair of near-miss sentences, post-call coach, dictation punctuation (Haiku 5.5) ([`copilot.py`](silentcalls/copilot.py), [`decision.py`](silentcalls/decision.py), [`coach.py`](silentcalls/coach.py), [`punctuate.py`](silentcalls/punctuate.py)) |
 | | **TypeSafe Jev** | Ranks the top 10 with the live conversation; fused with the lip scores ([`decision.py`](silentcalls/decision.py)) |
-| | **Google Calendar + Gmail** | Read-only facts for the co-pilot: next 7 days of events, email search snippets ([`google_data.py`](silentcalls/google_data.py)) |
-| **App** | **Electron + React** | Onboarding, calibration, always-on-top meeting widget, global hold-to-talk key, automatic SSH tunnel to the GPU |
+| | **Google Calendar + Gmail** | Read-only facts for the co-pilot (next 7 days of events, email search snippets) and names for the lip-reader (meeting attendees, frequent senders) ([`google_data.py`](silentcalls/google_data.py)) |
+| **App** | **Electron + React** | Onboarding with gesture practice, calibration, the compact always-on-top companion, camera coach, dictation typing, hold-to-talk key, automatic SSH tunnel to the GPU |
 | | **VB-CABLE / BlackHole, WASAPI loopback** | Virtual mic for your cloned voice; call-audio capture for captions |
 
 ## Run it
 
-**Prerequisites:** Python 3.11, Node 22.12+, a webcam, API keys for Cartesia, Anthropic and TypeSafe, and a GPU
-host for the lip-reader.
+You need a Linux GPU box for the lip-reader and a Windows or macOS laptop for the app. Allow about 30 minutes.
 
-**1. Local service**
+### 1. GPU server (once)
 
-```sh
-python -m venv .venv
-.venv/Scripts/pip install -r requirements.txt      # macOS/Linux: .venv/bin/pip
-cp .env.example .env                               # add CARTESIA_API_KEY, ANTHROPIC_API_KEY, TYPESAFE_API_KEY
-```
+1. Create a Vultr Cloud GPU instance (we used an NVIDIA A16) with **Ubuntu 22.04 or 24.04 and the NVIDIA driver**.
+   Add your SSH public key when you create it; the app logs in as `root` with that key.
+   ```sh
+   ssh-keygen -t ed25519 -f ~/.ssh/vultr_lipread     # on your laptop; paste ~/.ssh/vultr_lipread.pub into Vultr
+   ```
+2. On the server, as `root`, clone into `/root/voice` (the service file expects that path) and run the setup
+   script. It installs Python 3.11 and the GPU packages and downloads the AutoAVSR code and weights into `/opt/lr`
+   (about 10 minutes; the weights come from Google Drive, which occasionally rate-limits).
+   ```sh
+   cd /root && git clone https://github.com/rahulb0802/voice && cd voice
+   bash server/setup_gpu.sh                            # ends with SETUP_DONE
+   ```
+3. Install and start the service (port 8000; it restarts on crash and reboot):
+   ```sh
+   cp server/lipread.service /etc/systemd/system/
+   systemctl daemon-reload && systemctl enable --now lipread
+   journalctl -u lipread -f                            # logs
+   ```
+   You don't need to open port 8000: the app reaches it through an SSH tunnel.
 
-In `.env`, set `VIRTUAL_MIC_DEVICE=CABLE Input` (Windows) or `BlackHole 2ch` (macOS).
+### 2. Laptop
 
-**2. Virtual microphone.** Install [VB-CABLE](https://vb-audio.com/Cable/) (Windows) or
-[BlackHole 2ch](https://existential.audio/blackhole/) (macOS). In Zoom/Meet, set the **microphone** to CABLE Output
-/ BlackHole 2ch and keep the **speaker** on your real speakers.
+**Prerequisites:** Python 3.11, Node 22.12+, a webcam, and API keys for Cartesia, Anthropic and TypeSafe (or a
+Vercel AI Gateway key for Jev).
 
-**3. GPU server.** Run [`server/setup_gpu.sh`](server/setup_gpu.sh) on a Vultr GPU instance, then
-`systemctl start lipread`. The app reaches it through an SSH tunnel it opens itself (`~/.ssh/vultr_lipread`;
-override with `SILENT_SSH_KEY`, `SILENT_SSH_HOST`).
+1. **Local service**, from the repo root:
+   ```sh
+   python -m venv .venv
+   .venv/Scripts/pip install -r requirements.txt      # macOS: .venv/bin/pip
+   cp .env.example .env                               # add CARTESIA_API_KEY, ANTHROPIC_API_KEY,
+                                                      # TYPESAFE_API_KEY (or AI_GATEWAY_API_KEY)
+   ```
+2. **Audio**
+   - **Windows:** install [VB-CABLE](https://vb-audio.com/Cable/). In `.env`: `VIRTUAL_MIC_DEVICE=CABLE Input`,
+     `CALL_AUDIO_DEVICE=loopback` (captions record your speakers; no second cable). In Zoom/Meet, set the
+     **microphone** to *CABLE Output* and keep the **speaker** on your real speakers.
+   - **macOS:** `brew install blackhole-2ch blackhole-16ch`. In Audio MIDI Setup, create a **Multi-Output Device**
+     with your speakers and BlackHole 16ch, and make it Zoom's **speaker** (you still hear the call, and captions
+     record it). Set Zoom's **microphone** to *BlackHole 2ch*. The `.env` defaults already match.
+3. **Point the app at your server.** The app reads these from the shell it's started from (not from `.env`):
+   ```sh
+   export SILENT_SSH_HOST=<your server IP>            # PowerShell: $env:SILENT_SSH_HOST="<your server IP>"
+   export SILENT_SSH_KEY=~/.ssh/vultr_lipread         # only if your key is somewhere else
+   ```
+4. **Optional:** Google sign-in for the co-pilot's calendar and email (read-only): [docs/COPILOT.md](docs/COPILOT.md).
+5. **Launch:**
+   ```sh
+   cd client
+   npm ci                                             # also downloads the face model for hands-free
+   npm run dev
+   ```
+   On macOS, allow **Accessibility** (and Input Monitoring if asked) for Electron so the hold-to-talk key works.
 
-**4. Optional:** Google sign-in for the co-pilot's calendar and email, read-only: [docs/COPILOT.md](docs/COPILOT.md).
-
-**5. Launch**
-
-```sh
-cd client
-npm ci
-npm run dev
-```
-
-The app walks you through onboarding (camera, voice clone, meeting audio, calibration) and starts the local
-service itself. To check every piece at once:
+The app walks you through onboarding (camera, voice clone, meeting audio, lip-reading calibration, gesture
+practice), opens the SSH tunnel and starts the local service itself. To check every piece at once:
 
 ```sh
 python tools/check_setup.py          # local checks + GPU reachability, no paid API calls
@@ -402,10 +486,15 @@ python tools/check_setup.py --live   # also one tiny request each to Jev, Claude
 
 ## Privacy and safety
 
-- **Nothing is spoken without your pick.** Jev and Claude only rank and suggest; auto-speak is off.
+- **Nothing is spoken or typed without your pick.** Jev and Claude only rank and suggest; auto-speak is off.
 - **Video stays in memory.** Webcam frames are processed and dropped. Only calibration clips are kept, and only as
   96×96 mouth crops with their sentence, per user.
 - **Your adapter and vocabulary are yours**, loaded only for your profile.
+- **Learning from corrections is opt-in.** A capture's mouth crop is held in memory for 3 minutes and saved only if
+  you've turned it on and confirm a correction; Settings shows how many are saved and deletes them.
+- **The camera coach and gestures run locally.** Face landmarks and tiny pixel statistics are computed in the app
+  and thrown away; nothing is stored or sent.
+- **Dictation puts your clipboard back** after it pastes, unless you copied something else meanwhile.
 - **Google access is read-only**, snippets only, nothing logged. The co-pilot shows where every fact came from and
   can be switched off in the widget.
 - **No keys in the repo.** Secrets live in `.env` and `~/.silentcalls/`.
@@ -429,15 +518,16 @@ server/lipread/    GPU lip-reading service: model, vocab bias, given-sentence sc
 server/lora/       Personal adapters: enrollment data, LoRA, trainer, cross-validation
 server/eval*.py    The evaluations behind every number in docs/RESULTS.md
 server/results/    Every run: summaries, per-clip CSVs, N-best lists
-client/            Electron + React app: widget, onboarding, calibration, SSH tunnel
-silentcalls/       Local Python service: captions, co-pilot, coach, decision (Jev + Claude), Cartesia voice
+client/            Electron + React app: companion, onboarding, hands-free gestures, camera coach, dictation
+silentcalls/       Local Python service: captions, co-pilot, coach, decision (Jev + Claude), punctuation, voice
 tools/             Setup checker, co-pilot benchmark, WebSocket replay, Jev smoke test
 docs/              Architecture, protocol, results, setup guides
 tests/             Python tests (app tests in client/tests/)
 ```
 
 Deeper reading: [Architecture](docs/ARCHITECTURE.md) · [WebSocket protocol](docs/PROTOCOL.md) ·
-[Results log](docs/RESULTS.md) · [Co-pilot setup](docs/COPILOT.md)
+[Results log](docs/RESULTS.md) · [Co-pilot setup](docs/COPILOT.md) · [Camera coach](docs/CAMERA_COACH.md) ·
+[Gesture onboarding](docs/GESTURE_ONBOARDING.md)
 
 ## Team
 
