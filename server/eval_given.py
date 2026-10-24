@@ -148,12 +148,25 @@ def main() -> None:
 
 
 
+def near_misses(truth: str, words: list[str], rng: random.Random, n: int = 4) -> list[str]:
+    """The co-pilot's realistic mistakes: the right sentence with one word swapped (another time, another
+    name, yes for no). Each swaps a different position for a word from the sentence set."""
+    toks = truth.split()
+    out = []
+    for i in rng.sample(range(len(toks)), min(n, len(toks))):
+        w = rng.choice([w for w in words if w != toks[i]])
+        out.append(" ".join(toks[:i] + [w] + toks[i + 1:]))
+    return out
+
+
 def dump_scores(args) -> Path:
     """Per clip: the beam's top 10 and every sentence of the set scored against the video, so any given-list
     condition and prior bonus can be simulated offline (simulate())."""
     sentences = load_sentences()
     texts = {sid: r["sentence"] for sid, r in sentences.items()}
     reader = LipReader(cfg=DecodeConfig())
+    rng = random.Random(args.seed)
+    words = sorted({w for t in texts.values() for w in normalize_text(t).split()})
     out = RESULTS_DIR / (args.tag or "given_scores") / "scores.jsonl"
     out.parent.mkdir(parents=True, exist_ok=True)
     with open(out, "w", encoding="utf-8") as f:
@@ -167,13 +180,17 @@ def dump_scores(args) -> Path:
             crop = z["crop"]
             res = reader.read_crop(crop)
 
+            near = near_misses(normalize_text(texts[sid]), words, rng)
+
             def run():
                 enc = reader.avsr.model.encode(to_input(crop).to(reader.device))
-                return {t: (s, n) for t, s, n in score_texts(reader.avsr, enc, list(texts.values()))}
+                return {t: (s, n) for t, s, n in score_texts(reader.avsr, enc, list(texts.values()) + near)}
             scored = reader._gpu.submit(run).result()
             f.write(json.dumps({"person": person, "id": sid, "truth": normalize_text(texts[sid]),
                                 "beam": [[t, s, n] for (t, s), n in zip(res.candidates, res.n_tokens)],
-                                "sentences": {normalize_text(t): v for t, v in scored.items()}}) + "\n")
+                                "sentences": {normalize_text(t): scored[normalize_text(t)] for t in texts.values()
+                                              if normalize_text(t) in scored},
+                                "near": {t: scored[t] for t in near if t in scored}}) + "\n")
             print(f"[{person} {sid}] scored", flush=True)
     return out
 
@@ -192,26 +209,37 @@ def simulate(path: Path, distractors: int = 4, seed: int = 0, bonuses=(0, 2, 4, 
         trials.append((c, "hard", [c["truth"]] + lookalikes(c["truth"], others, distractors)))
         trials.append((c, "absent", rng.sample(others, distractors + 1)))
         trials.append((c, "absent_hard", lookalikes(c["truth"], others, distractors + 1)))
+        if c.get("near"):
+            trials.append((c, "near_present", [c["truth"]] + list(c["near"])))
+            trials.append((c, "near_absent", list(c["near"])))
     lines = ["| prior bonus B | truth in list (random others): top 1 | truth in list (look-alikes): top 1 | "
              "truth not in list (random): wrong reply wins | truth not in list (look-alikes): wrong reply wins | "
-             "truth not in list (look-alikes): still right |", "|---|---|---|---|---|---|"]
+             "truth not in list (look-alikes): still right | truth + 4 one-word-off replies: top 1 | "
+             "only one-word-off replies: wrong reply wins |", "|---|---|---|---|---|---|---|---|"]
     for b in bonuses:
-        acc = {"random": [], "hard": [], "absent_wrong": [], "hard_absent_wrong": [], "hard_absent_right": []}
+        acc = {"random": [], "hard": [], "absent_wrong": [], "hard_absent_wrong": [], "hard_absent_right": [],
+               "near_present": [], "near_absent_wrong": []}
         for c, cond, given in trials:
             pool = {t: s for t, s, _ in c["beam"]}
             for g in given:
-                pool[g] = max(pool.get(g, -1e9), c["sentences"][g][0] + b)
+                score = (c["sentences"].get(g) or c["near"][g])[0]
+                pool[g] = max(pool.get(g, -1e9), score + b)
             top = max(pool, key=pool.get)
             if cond == "absent":
                 acc["absent_wrong"].append(top in given)
+            elif cond == "near_present":
+                acc["near_present"].append(top == c["truth"])
+            elif cond == "near_absent":
+                acc["near_absent_wrong"].append(top in given)
             elif cond == "absent_hard":
                 acc["hard_absent_wrong"].append(top in given)
                 acc["hard_absent_right"].append(top == c["truth"])
             else:
                 acc[cond].append(top == c["truth"])
-        m = {k: sum(v) / len(v) for k, v in acc.items()}
+        m = {k: sum(v) / len(v) for k, v in acc.items() if v}
         lines.append(f"| {b} | {m['random']:.0%} | {m['hard']:.0%} | {m['absent_wrong']:.0%} | "
-                     f"{m['hard_absent_wrong']:.0%} | {m['hard_absent_right']:.0%} |")
+                     f"{m['hard_absent_wrong']:.0%} | {m['hard_absent_right']:.0%} | "
+                     f"{m.get('near_present', 0):.0%} | {m.get('near_absent_wrong', 0):.0%} |")
     return "\n".join(lines)
 
 
