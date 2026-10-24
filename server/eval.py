@@ -248,7 +248,7 @@ def run(args, cfg: DecodeConfig, tag: str, reader: LipReader | None = None) -> d
                   "kb_per_s": round(statistics.mean(kbs)) if kbs else None} if args.mode == "video" else None,
         "adapter": bool(args.adapter),
         "sentences": args.sentences,
-        "vocab": {"words": vocab, "name_bias": cfg.name_bias} if vocab else None,
+        "vocab": {"words": vocab, "name_bias": cfg.name_bias, "name_variants": cfg.name_variants} if vocab else None,
         "groups": {g: {**summarize(rs), **summarize_names(rs)}
                    for g, rs in sorted(groups.items(), key=lambda kv: (kv[0].startswith("ALL"), kv[0]))},
         "timings_median_ms": {k: statistics.median(v) for k in TIMING_KEYS
@@ -318,12 +318,12 @@ def render_md(s: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
-def parse_sweep(items: list[str], name_bias: float) -> list[DecodeConfig]:
+def parse_sweep(items: list[str], name_bias: float, variants: bool = True) -> list[DecodeConfig]:
     grid = {"beam": [40], "lm": [0.3], "ctc": [0.1], "bias": [name_bias]}
     for it in items:
         k, v = it.split("=")
         grid[k] = [float(x) for x in v.split(",")]
-    return [DecodeConfig(beam=int(b), lm_weight=lm, ctc_weight=c, name_bias=nb)
+    return [DecodeConfig(beam=int(b), lm_weight=lm, ctc_weight=c, name_bias=nb, name_variants=variants)
             for b, lm, c, nb in itertools.product(grid["beam"], grid["lm"], grid["ctc"], grid["bias"])]
 
 
@@ -357,12 +357,15 @@ def main() -> None:
     p.add_argument("--vocab-from-csv", action="store_true", help="add every name in the sentence list's names column")
     p.add_argument("--name-bias", type=float, default=DecodeConfig.name_bias, help="beam bonus per name piece; "
                    "0 = lip-shape matching only")
+    p.add_argument("--no-name-variants", dest="name_variants", action="store_false",
+                   help="beam bias only, no lip-shape name swaps")
     args = p.parse_args()
-    suffix = ("" if args.sentences == DEFAULT_SENTENCES else f"_{Path(args.sentences).stem}")         + (f"_vocab_bias{args.name_bias}" if args.vocab or args.vocab_from_csv else "")
+    suffix = ("" if args.sentences == DEFAULT_SENTENCES else f"_{Path(args.sentences).stem}")         + (f"_vocab_bias{args.name_bias}" + ("" if args.name_variants else "_novariants")
+           if args.vocab or args.vocab_from_csv else "")
 
     if args.sweep:
         table = []
-        for cfg in parse_sweep(args.sweep, args.name_bias):
+        for cfg in parse_sweep(args.sweep, args.name_bias, args.name_variants):
             tag = f"sweep_beam{cfg.beam}_lm{cfg.lm_weight}_ctc{cfg.ctc_weight}"                 + (suffix.replace(f"bias{args.name_bias}", f"bias{cfg.name_bias}"))
             s = run(args, cfg, tag)
             table.append((cfg, s["groups"]["ALL/silent"]))
@@ -376,7 +379,8 @@ def main() -> None:
         print("\n".join(lines))
         return
 
-    cfg = DecodeConfig(beam=args.beam, lm_weight=args.lm_weight, ctc_weight=args.ctc_weight, name_bias=args.name_bias)
+    cfg = DecodeConfig(beam=args.beam, lm_weight=args.lm_weight, ctc_weight=args.ctc_weight, name_bias=args.name_bias,
+                       name_variants=args.name_variants)
     stream_tag = f"_{args.height}p_q{args.quality}" + (f"_face{args.face_crop}m{args.face_margin}" if args.face_crop else "") \
         + ("_gray" if args.gray else "")
     if args.mode == "video":

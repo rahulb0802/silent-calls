@@ -17,8 +17,12 @@ import re
 from .paths import VOCAB_DIR
 
 MAX_WORDS = 200
-MAX_VARIANTS = 3  # name-swapped candidates added per utterance
-MATCH_THRESHOLD = 0.3  # viseme distance / name length at or below which a span "looks like" the name
+# Look-alikes are common ("like a" ~ "anika" on the lips), so swaps are rationed: one per utterance, only from
+# the top SOURCE_TOP guesses, and it can only push out the last original. With 8 names on every clip, 3 swaps
+# from any guess cost 3 points of exact@10 on the 90 feasibility clips (docs/RESULTS.md).
+MAX_VARIANTS = 1  # name-swapped candidates added per utterance
+SOURCE_TOP = 3  # only swap into the top guesses
+MATCH_THRESHOLD = 0.25  # viseme distance / name length at or below which a span "looks like" the name
 SWAP_COST = 1.0  # log-prob a swapped candidate is ranked below its source, plus DIST_COST * distance
 DIST_COST = 4.0
 
@@ -130,36 +134,62 @@ def viseme_distance(a: str, b: str) -> float:
     return prev[-1]
 
 
+def _consonants(s: str) -> str:
+    return "".join(c for c in s if c not in VOWELS)
+
+
+def _edits(a: str, b: str) -> int:
+    """Plain edit distance."""
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        cur = [i]
+        for j, cb in enumerate(b, 1):
+            cur.append(min(prev[j - 1] + (ca != cb), prev[j] + 1, cur[j - 1] + 1))
+        prev = cur
+    return prev[-1]
+
+
+def looks_like(span: str, name: str) -> float | None:
+    """Normalized viseme distance if `span` could be `name` on the lips, else None. Consonant shapes must match
+    (one slip allowed for names with 4+ consonant shapes); vowels are cheap to differ."""
+    a, b = visemes(span.replace(" ", "")), visemes(name.replace(" ", ""))
+    if len(b) < 3:
+        return None
+    cb = _consonants(b)
+    if _edits(_consonants(a), cb) > (1 if len(cb) >= 4 else 0):
+        return None
+    d = viseme_distance(a, b) / len(b)
+    return d if d <= MATCH_THRESHOLD else None
+
+
 def add_name_variants(nbest: list[tuple[str, float, int]], vocab: list[str],
                       nbest_size: int) -> list[tuple[str, float, int]]:
-    """For each listed name, find the candidate span (1-3 words) that looks most like it on the lips; if
-    close enough, add the candidate with that span replaced by the name, ranked just below its source.
+    """Find the span (1-3 words) in the top SOURCE_TOP guesses that looks most like a listed name on the lips;
+    if close enough, add that guess with the span replaced by the name, ranked just below its source.
     Returns the merged list, best first, distinct texts, at most nbest_size, at most MAX_VARIANTS added.
     Names already present in some candidate are skipped."""
     if not vocab or not nbest:
         return nbest
     texts = {t for t, _, _ in nbest}
-    found: dict[str, tuple[float, str, float, int]] = {}  # new text -> (distance, ..., score, n_tokens)
+    found: dict[str, tuple[float, str, float, int]] = {}  # new text -> (distance, text, score, n_tokens)
     for name in vocab:
-        target = visemes(name.replace(" ", ""))
-        if len(target) < 3 or any(f" {name} " in f" {t} " for t in texts):
+        if any(f" {name} " in f" {t} " for t in texts):
             continue
-        for text, score, n_tok in nbest:
+        for text, score, n_tok in nbest[:SOURCE_TOP]:
             words = text.split()
             best = None
             for n in (1, 2, 3):
                 for i in range(len(words) - n + 1):
-                    span = words[i:i + n]
-                    d = viseme_distance(visemes("".join(span)), target) / len(target)
-                    if d <= MATCH_THRESHOLD and (best is None or d < best[0]):
+                    d = looks_like(" ".join(words[i:i + n]), name)
+                    if d is not None and (best is None or d < best[0]):
                         best = (d, " ".join(words[:i] + name.split() + words[i + n:]))
             if best and best[1] not in texts:
                 d, new = best
                 cand = (d, new, score - SWAP_COST - DIST_COST * d, n_tok)
                 if new not in found or cand[2] > found[new][2]:
                     found[new] = cand
-                break  # the highest-ranked candidate that contains a look-alike wins for this name
-    variants = sorted(found.values(), key=lambda v: v[2], reverse=True)[:MAX_VARIANTS]
+                break  # the highest-ranked guess that contains a look-alike wins for this name
+    variants = sorted(found.values(), key=lambda v: (v[0], -v[2]))[:MAX_VARIANTS]  # closest look-alike first
     merged = sorted(nbest + [(t, s, n) for _, t, s, n in variants], key=lambda c: c[1], reverse=True)
     # keep every original that fits; variants take the lowest slots if the list is full
     if len(merged) > nbest_size:

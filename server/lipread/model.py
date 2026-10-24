@@ -26,6 +26,7 @@ class DecodeConfig:
     lm_weight: float = 0.2  # 0 disables the LM; 0.2 won the sweep (docs/RESULTS.md)
     nbest: int = 10
     name_bias: float = 2.0  # log-prob bonus per subword piece that spells a vocab word (TODO(hackathon): tune)
+    name_variants: bool = True  # also add lip-shape look-alike name swaps after decoding (vocab.py)
 
 
 class NameBias(BatchScorerInterface):

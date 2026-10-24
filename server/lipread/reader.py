@@ -207,7 +207,8 @@ class LipReader:
         adapter = self._use_adapter(user_id)
         nbest, t = decode(self.avsr, crop, self.cfg.nbest, vocab if self.cfg.name_bias > 0 else None)
         decoded = {c[0] for c in nbest}
-        nbest = vb.add_name_variants(nbest, vocab or [], self.cfg.nbest)
+        if self.cfg.name_variants:
+            nbest = vb.add_name_variants(nbest, vocab or [], self.cfg.nbest)
         ms = (time.perf_counter() - t0) * 1000
         return LipResult(candidates=[(c[0], c[1]) for c in nbest], crop_ms=0, lipread_ms=round(ms),
                          n_tokens=[c[2] for c in nbest], adapter=adapter,
