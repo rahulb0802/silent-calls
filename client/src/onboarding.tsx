@@ -4,6 +4,7 @@ import { CameraPreview } from './camera';
 import type { SetupStatus } from './desktop';
 import { SETUP_PHRASE } from './components/voice-panel';
 import { useLocalVoice } from './services/use-local-voice';
+import { voiceSampleWav } from './services/voice-sample';
 
 const steps = ['Welcome', 'Your camera', 'Meeting audio', 'Your voice', 'Your companion'];
 const titles = ['A little quieter.\nStill entirely you.', 'Find your\ncomfortable angle.', 'One small bridge.\nEvery conversation.', 'Let’s hear\nyour voice.', 'Your words.\nWithin reach.'];
@@ -11,7 +12,7 @@ const descriptions = [
   'Type a thought. Hear it in your voice, right in your meeting. We’ll guide you through the setup, one small step at a time.',
   'Set your webcam on its stand, close to eye level. Keep your whole face visible with light in front of you. You can also start with typing alone.',
   'A virtual microphone carries your generated voice into your call. You install it once; then choose it in your meeting’s audio settings.',
-  'Connect your voice, then send one phrase to your call. Nothing is spoken until you choose to send it.',
+  'Record or choose a short sample of your own voice. Review it, create your Cartesia voice, then test one phrase in your call.',
   'Your floating companion stays beside the conversation. Type a response, or choose a quick phrase whenever you need it.',
 ];
 function initialStep() {
@@ -33,6 +34,18 @@ export function Onboarding() {
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [widgetOpened, setWidgetOpened] = useState(false);
+  const [sample, setSample] = useState<Blob | null>(null);
+  const [sampleUrl, setSampleUrl] = useState('');
+  const [recordingVoice, setRecordingVoice] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [recordingInput, setRecordingInput] = useState('');
+  const voiceClock = useRef<ReturnType<typeof setInterval> | null>(null);
+  const captureEpoch = useRef(0);
+  const [voiceName, setVoiceName] = useState('My voice');
+  const [voiceConsent, setVoiceConsent] = useState(false);
+  const voiceRecorder = useRef<MediaRecorder | null>(null);
+  const voiceStream = useRef<MediaStream | null>(null);
+  const voiceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const alive = useRef(true);
   const taskLock = useRef(false);
@@ -46,8 +59,14 @@ export function Onboarding() {
 
   useEffect(() => {
     alive.current = true;
-    return () => { alive.current = false; };
+    return () => { alive.current = false; captureEpoch.current++; stopVoiceCapture(); };
   }, []);
+  useEffect(() => {
+    if (!sample) { setSampleUrl(''); return; }
+    const url = URL.createObjectURL(sample);
+    setSampleUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [sample]);
   useEffect(() => {
     localStorage.setItem('silent-calls:setup-step:v2', String(step));
     heading.current?.focus();
@@ -82,7 +101,88 @@ export function Onboarding() {
     catch (reason) { if (alive.current) setError(reason instanceof Error ? reason.message : 'Something went wrong. Please try again.'); }
     finally { taskLock.current = false; if (alive.current) setBusy(''); }
   }
-  function go(next: number) { setStream(null); setStep(next); }
+  function stopVoiceCapture() {
+    if (voiceTimer.current) clearTimeout(voiceTimer.current);
+    if (voiceClock.current) clearInterval(voiceClock.current);
+    voiceTimer.current = null;
+    voiceClock.current = null;
+    const recorder = voiceRecorder.current;
+    if (recorder && recorder.state !== 'inactive') recorder.stop();
+    voiceStream.current?.getTracks().forEach(track => track.stop());
+    voiceStream.current = null;
+  }
+  async function recordVoice() {
+    if (voiceRecorder.current) return;
+    if (typeof MediaRecorder === 'undefined') throw new Error('Microphone recording is unavailable. Choose an existing recording instead.');
+    const epoch = ++captureEpoch.current;
+    let media: MediaStream | null = null;
+    try {
+      media = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }, video: false });
+      if (!alive.current || epoch !== captureEpoch.current) { media.getTracks().forEach(track => track.stop()); return; }
+      // A virtual meeting microphone contains generated speech, not the user's voice.
+      if (/blackhole|cable (input|output)|vb-audio/i.test(media.getAudioTracks()[0]?.label || '')) {
+        media.getTracks().forEach(track => track.stop());
+        const inputs = await navigator.mediaDevices.enumerateDevices();
+        const physical = inputs.find(device => device.kind === 'audioinput' && device.deviceId !== 'default' && !/blackhole|cable (input|output)|vb-audio/i.test(device.label));
+        if (!physical) throw new Error('Choose a built-in or USB microphone as your system input, then record again. BlackHole/VB-Cable cannot record your voice.');
+        media = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: physical.deviceId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false }, video: false });
+      }
+      if (!alive.current || epoch !== captureEpoch.current) { media.getTracks().forEach(track => track.stop()); return; }
+      const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].find(type => MediaRecorder.isTypeSupported(type));
+      if (!mime) throw new Error('No supported audio recorder was found. Choose an existing recording instead.');
+      const stream = media;
+      const recorder = new MediaRecorder(stream, { mimeType: mime });
+      const chunks: Blob[] = [];
+      let failed = false;
+      let bytes = 0;
+      voiceStream.current = stream;
+      voiceRecorder.current = recorder;
+      recorder.ondataavailable = event => {
+        bytes += event.data.size;
+        if (bytes > 10 * 1024 * 1024) {
+          failed = true; stopVoiceCapture();
+          if (alive.current) setError('Recording exceeded 10 MB. Please record a shorter sample.');
+        } else if (event.data.size) chunks.push(event.data);
+      };
+      recorder.onerror = () => {
+        failed = true; stopVoiceCapture();
+        if (alive.current) setError('Microphone recording stopped unexpectedly. Check your microphone and try again.');
+      };
+      recorder.onstop = () => {
+        stream.getTracks().forEach(track => track.stop());
+        if (voiceTimer.current) clearTimeout(voiceTimer.current);
+        if (voiceClock.current) clearInterval(voiceClock.current);
+        voiceTimer.current = null; voiceClock.current = null;
+        voiceStream.current = null; voiceRecorder.current = null;
+        if (alive.current) setRecordingVoice(false);
+        if (!alive.current || epoch !== captureEpoch.current || failed) return;
+        const clip = new Blob(chunks, { type: mime });
+        if (!clip.size) { setError('The microphone returned no audio. Record again or choose a file.'); return; }
+        setSample(clip); setVoiceConsent(false);
+      };
+      recorder.start(250);
+      setSample(null); setVoiceConsent(false); setRecordingSeconds(0);
+      setRecordingInput(stream.getAudioTracks()[0]?.label || 'Microphone');
+      setRecordingVoice(true);
+      const started = performance.now();
+      voiceClock.current = setInterval(() => setRecordingSeconds(Math.min(15, Math.floor((performance.now() - started) / 1000))), 250);
+      voiceTimer.current = setTimeout(stopVoiceCapture, 15000);
+    } catch (reason) {
+      media?.getTracks().forEach(track => track.stop());
+      voiceStream.current = null; voiceRecorder.current = null;
+      if (reason instanceof DOMException && reason.name === 'NotAllowedError') throw new Error('Microphone access was denied. Allow Electron in System Settings → Privacy & Security → Microphone, then restart the app. You can also choose a recording.');
+      if (reason instanceof DOMException && reason.name === 'NotFoundError') throw new Error('No microphone was found. Connect a microphone or choose an existing voice recording.');
+      throw reason;
+    }
+  }
+  async function createVoice() {
+    if (!sample || !voiceConsent || !window.desktop?.cloneVoice) throw new Error('Review your sample and agree to upload it first.');
+    const wav = await voiceSampleWav(sample);
+    await window.desktop.cloneVoice(wav,voiceName);
+    if (alive.current) setHeard(false);
+    if (alive.current) { setSample(null); setVoiceConsent(false); setNotice('Your personal voice is ready. Send the test phrase when you are ready.'); }
+  }
+  function go(next: number) { captureEpoch.current++; stopVoiceCapture(); setStream(null); setStep(next); }
   function help(topic: 'blackhole' | 'vbcable' | 'cartesia') {
     return perform('Opening…', async () => {
       if (!window.desktop?.openAudioHelp) throw new Error('Open Silent Calls in the desktop app to continue.');
@@ -124,26 +224,26 @@ export function Onboarding() {
   }
 
   return <div className="app-shell guided-setup">
-    <aside className="sidebar"><a className="brand" href="#" onClick={event => { event.preventDefault(); if (!busy) go(0); }}><span className="brand-icon"><Waves size={23}/></span>silent calls<span className="brand-period">.</span></a>
+    <aside className="sidebar"><a className="brand" href="#" onClick={event => { event.preventDefault(); if (!busy && !recordingVoice) go(0); }}><span className="brand-icon"><Waves size={23}/></span>silent calls<span className="brand-period">.</span></a>
       <div className="sidebar-body"><p className="sidebar-intro">Make yourself heard.</p><nav aria-label="Setup progress"><ol className="step-list">{steps.map((label, index) => <li key={label} className={index === step ? 'active' : index < step ? 'finished' : ''} aria-current={index === step ? 'step' : undefined}><span className="step-index">{index < step ? <Check size={14}/> : index + 1}</span>{label}{index === step && <ChevronRight size={15}/>}</li>)}</ol></nav></div>
-      <div className="sidebar-note"><ShieldCheck size={19}/><p>Your camera is optional. Only text you choose to speak is sent to the voice provider. You stay in control.</p></div><span className="version">Silent Calls · Desktop setup</span>
+      <div className="sidebar-note"><ShieldCheck size={19}/><p>Your camera is optional. A voice sample reaches Cartesia only when you choose Create my voice. You stay in control.</p></div><span className="version">Silent Calls · Desktop setup</span>
     </aside>
-    <main className="onboarding-main"><header className="topbar"><span>Let’s make this yours</span><a href="#/workspace" className="text-button">Training & settings</a><span>Step <strong>{step + 1}</strong> of 5</span></header>
+    <main className="onboarding-main"><header className="topbar"><span>Let’s make this yours</span>{!busy && !recordingVoice && <a href="#/workspace" className="text-button">Training & settings</a>}<span>Step <strong>{step + 1}</strong> of 5</span></header>
       <div className="onboarding-content"><div className="copy-column"><h1 ref={heading} tabIndex={-1}>{titles[step]}</h1><p className="lead">{descriptions[step]}</p>
         {step === 0 && <div className="setup-overview"><p><Check size={17}/><span>Use the webcam you already have</span></p><p><Check size={17}/><span>Bring your voice into Zoom, Meet or FaceTime</span></p><p><Check size={17}/><span>Speak only when you choose</span></p><p className="small">Typed speech is available now. Lip-reading will connect when the model service is ready.</p></div>}
         {step === 1 && <div className="setup-overview"><p><Check size={17}/>Camera near eye level</p><p><Check size={17}/>Whole face in the guide</p><p><Check size={17}/>Light in front, not behind</p><p className="small">This preview stays on your computer. Enrollment and practice are available later in Training & settings.</p></div>}
         {step === 2 && <div className="setup-audio-copy"><h2>{driverFound ? 'Your audio bridge is available.' : windows ? 'Install VB-Cable once.' : 'Install BlackHole 2ch once.'}</h2><p>Follow the official installer and accept its system prompts. Reopen your calling app afterwards.</p><button className="text-button" disabled={!!busy} onClick={() => void help(windows ? 'vbcable' : 'blackhole')}>Open {windows ? 'VB-Cable' : 'BlackHole'} installer <ExternalLink size={14}/></button><button className="button setup-secondary" disabled={!!busy} onClick={() => void perform('Checking audio device…', detectDriver)}>{driverFound ? 'Check again' : 'Check audio device'}</button><p className="small" role="status">{deviceMessage || 'Checking asks for temporary microphone access to identify audio devices. No audio is saved.'}</p></div>}
-        {step === 3 && <div className="setup-voice-copy"><div className="setup-live-status" role="status"><span className={`dot ${connected ? '' : 'amber'}`}/>{connected ? 'Voice service connected' : busy || 'Let’s connect your voice'}</div><p className="small">Your voice connects automatically using the service configured for this app. No account details to enter. Your text is synthesized by Cartesia.</p><details className="setup-details"><summary>Advanced setup & troubleshooting</summary><p>{setup?.canStartService ? 'The installed Python service can be started from this app.' : 'The Python runtime is not bundled with the desktop installer yet. Install the repository’s Python dependencies or start the service separately.'} The service uses the developer’s backend configuration. If connection fails, check the service and audio driver. For a custom port or manual setup, use the audio guide.</p><a className="text-button" href="#/audio-setup">Open detailed audio setup <ArrowRight size={14}/></a></details></div>}
+        {step === 3 && <div className="setup-voice-copy"><div className="setup-live-status" role="status"><span className={`dot ${connected ? '' : 'amber'}`}/>{connected ? 'Voice service connected' : busy || 'Let’s connect your voice'}</div><p className="small">{voice.state.personalVoiceReady ? `Personal voice ready: ${voice.state.voiceName}` : voice.state.hasVoice ? 'Your configured voice is ready to use. You can send the test phrase or create a new personal voice below.' : 'Set up your own voice before sending the test phrase. Your recording stays on this computer until you choose Create my voice.'}</p><div className="voice-enrollment"><h2>Create your voice</h2><p className="small">In a quiet room, say a few natural sentences for 8–15 seconds. If you cannot speak now, choose an existing recording of your voice instead.</p><button className="button" disabled={!!busy || speaking || !connected} onClick={() => recordingVoice ? stopVoiceCapture() : void perform('Opening microphone…',recordVoice)}>{recordingVoice ? 'Stop recording' : 'Record my voice'}</button>{recordingVoice && <p className="voice-recording-status" role="status"><span className="dot"/>Recording · {recordingSeconds} / 15 s<span>{recordingInput}</span></p>}<label className="small" htmlFor="voice-sample-file">Or choose an existing recording</label><input id="voice-sample-file" type="file" accept="audio/*,.wav,.mp3,.m4a,.webm" disabled={recordingVoice || !!busy} onChange={event=>{const file=event.target.files?.[0];if(file){if(file.size === 0 || file.size > 10 * 1024 * 1024){setError('Choose a nonempty audio file smaller than 10 MB.');}else{setSample(file);setVoiceConsent(false);setError('');}}event.currentTarget.value='';}}/>{sample && <div className="voice-sample-review"><audio controls src={sampleUrl} aria-label="Review your voice sample"/><p className="small">Listen before creating your voice. This sample is not saved by Silent Calls.</p><button className="text-button" disabled={!!busy} onClick={()=>{setSample(null);setVoiceConsent(false);}}>Discard sample</button></div>}<label className="consent"><input type="checkbox" checked={voiceConsent} disabled={!sample || !!busy} onChange={event=>setVoiceConsent(event.target.checked)}/>This is my voice or a recording I have permission to use. I agree to send this sample to Cartesia to create my voice.</label><label htmlFor="personal-voice-name">Voice name</label><input id="personal-voice-name" disabled={!!busy || recordingVoice} maxLength={80} value={voiceName} onChange={event=>setVoiceName(event.target.value)}/><button className="button" disabled={!connected || !sample || !voiceConsent || !!busy || speaking || recordingVoice || !voiceName.trim()} onClick={()=>void perform('Creating your voice…',createVoice)}>Create my voice</button></div><details className="setup-details"><summary>Advanced setup & troubleshooting</summary><button className="text-button" disabled={!!busy || recordingVoice || voice.state.phase === 'cloning' || voice.state.phase === 'waiting'} onClick={() => void perform('Checking voice status…', async () => { await voice.disconnect(); await connectVoice(); })}>Reconnect and check voice status</button><p>{setup?.canStartService ? 'The installed Python service can be started from this app.' : 'The Python runtime is not bundled with the desktop installer yet. Install the repository’s Python dependencies or start the service separately.'} The service uses the developer’s Cartesia key, kept in Python. If connection fails, check the service and audio driver.</p><a className="text-button" href="#/audio-setup">Open detailed audio setup <ArrowRight size={14}/></a></details></div>}
         {step === 4 && <div className="setup-summary"><h2>Your setup at a glance</h2>{[[cameraChecked ? 'Camera checked this session' : 'Camera optional · type to speak', cameraChecked], [connected ? 'Voice service connected' : 'Voice service not connected', connected], [heard ? 'Meeting audio confirmed by you' : 'Meeting audio still needs confirmation', heard]].map(([label, ready]) => <p key={String(label)}><span className={`dot ${ready ? '' : 'amber'}`}/>{label}</p>)}<p className="small">Lip-reading and model training are separate. You can already use typed speech and quick phrases with your voice connected.</p><button className="text-button" disabled={!!busy} onClick={() => go(2)}>Revisit audio setup <ArrowRight size={14}/></button><button className="text-button" disabled={!!busy} onClick={() => { localStorage.removeItem('silent-calls:onboarding'); go(0); }}>Run setup again</button></div>}
         {(error || voice.error) && <p className="error" role="alert">{error || voice.error}</p>}{notice && <p className="small" role="status">{notice}</p>}
       </div><div className="visual-column">
         {step === 0 && <div className="setup-introduction"><div className="setup-example-label">Your next conversation</div><div className="setup-example"><div className="mini-brand"><Waves size={18}/> silent calls.</div><p>“I have something<br/>to add.”</p><div className="setup-example-input"><span>You type it.</span><ArrowRight size={17}/><Volume2 size={20}/><span>Your voice says it.</span></div></div><p className="visual-caption">An illustration of typed speech. Nothing is being sent.</p></div>}
         {step === 1 && <CameraPreview onStream={setStream}/>}
         {step === 2 && <section className="setup-routing"><Headphones size={28} strokeWidth={1.5}/><h2>Choose your meeting app.</h2><div className="meeting-apps" role="group" aria-label="Calling app">{[['meet','Google Meet'],['zoom','Zoom'], ...(!windows ? [['facetime','FaceTime']] : [])].map(([value,label]) => <button key={value} aria-pressed={meeting === value} onClick={() => setMeeting(value)}>{label}</button>)}</div><p className="setup-route-instruction">{routeInstruction}</p><div className="setup-device-line"><span>Silent Calls</span><ArrowRight size={18}/><strong>{microphone}</strong></div><p>Keep your meeting unmuted. Leave its speakers on your headphones or normal speakers.</p><p className="small">We can detect the device, but the microphone choice inside your meeting app needs your click.</p></section>}
-        {step === 3 && <section className="setup-first-phrase"><Volume2 size={30} strokeWidth={1.5}/><h2>A familiar voice.<br/>A new way to speak.</h2><blockquote>“{SETUP_PHRASE}”</blockquote><button className="button" disabled={!connected || speaking || !!busy} onClick={() => { setHeard(false); void voice.speak(SETUP_PHRASE); }}>{speaking ? 'Waiting for voice service…' : 'Send this phrase to my meeting'}<Volume2 size={16}/></button><p className="small" role="status">{voice.state.message}</p>{acknowledged && <p className="success"><Check size={15}/>Phrase acknowledged by the service</p>}<label className="consent"><input type="checkbox" checked={heard} disabled={!acknowledged || speaking || !connected} onChange={event => setHeard(event.target.checked)}/>Someone in my call heard it, or I saw the meeting microphone meter respond.</label><p className="small">You may not hear yourself locally. The phrase goes into the meeting microphone.</p></section>}
+        {step === 3 && <section className="setup-first-phrase"><Volume2 size={30} strokeWidth={1.5}/><h2>A familiar voice.<br/>A new way to speak.</h2><blockquote>“{SETUP_PHRASE}”</blockquote><button className="button" disabled={!connected || !voice.state.hasVoice || speaking || !!busy || recordingVoice} onClick={() => { setHeard(false); void voice.speak(SETUP_PHRASE); }}>{speaking ? 'Waiting for voice service…' : 'Send this phrase to my meeting'}<Volume2 size={16}/></button><p className="small" role="status">{voice.state.message}</p>{acknowledged && <p className="success"><Check size={15}/>Phrase acknowledged by the service</p>}<label className="consent"><input type="checkbox" checked={heard} disabled={!acknowledged || speaking || !connected} onChange={event => setHeard(event.target.checked)}/>Someone in my call heard it, or I saw the meeting microphone meter respond.</label><p className="small">You may not hear yourself locally. The phrase goes into the meeting microphone.</p></section>}
         {step === 4 && <section className="setup-finish"><div className="mini-brand"><Waves size={21}/> silent calls.</div><h2>Stay in<br/>the conversation.</h2><p>Type your words. Choose a quick phrase.<br/>Keep the conversation moving.</p><div className="setup-shortcut"><Keyboard size={20}/><span><strong>For mouthed capture, next</strong>Enable the camera and global key in the widget. Hold T while your meeting is focused.</span></div>{setup?.platform === 'darwin' && !setup.keyboardAllowed && <button className="text-button" disabled={!!busy} onClick={() => void perform('Opening permissions…', async () => { await window.desktop?.openSetupKeyboardSettings(); })}>Allow keyboard access in System Settings <ExternalLink size={13}/></button>}<p className="small">Keyboard access is optional for typed speech. The widget requests the native hook only when you enable it.</p></section>}
       </div></div>
-      <footer className="onboarding-footer"><button className="text-button" disabled={step === 0 || !!busy} onClick={() => go(step - 1)}><ArrowLeft size={16}/> Back</button><span className="footer-hint">{step === 0 ? 'A few small steps. Always at your pace.' : step === 3 && !connected ? <button className="text-button" disabled={!!busy} onClick={() => go(4)}>Set up voice later</button> : 'You can change these settings later.'}</span><button className="button" disabled={!!busy} onClick={next}>{busy || nextLabel}{step === 4 ? <MoveUpRight size={17}/> : <ArrowRight size={17}/>}</button></footer>
+      <footer className="onboarding-footer"><button className="text-button" disabled={step === 0 || !!busy || recordingVoice} onClick={() => go(step - 1)}><ArrowLeft size={16}/> Back</button><span className="footer-hint">{step === 0 ? 'A few small steps. Always at your pace.' : step === 3 ? <button className="text-button" disabled={!!busy || recordingVoice} onClick={() => go(4)}>Set up voice later</button> : 'You can change these settings later.'}</span><button className="button" disabled={!!busy || recordingVoice} onClick={next}>{busy || nextLabel}{step === 4 ? <MoveUpRight size={17}/> : <ArrowRight size={17}/>}</button></footer>
     </main>
   </div>;
 }
