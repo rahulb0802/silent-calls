@@ -42,6 +42,12 @@ export function CompactPill(p: Props) {
     observer.observe(el); fit();
     return () => observer.disconnect();
   }, []);
+  useEffect(() => {
+    // The full panel stays mounted underneath (it owns the camera); focusing it must not scroll the strip away.
+    const top = () => { if (window.scrollY || document.documentElement.scrollTop) window.scrollTo(0, 0); };
+    top(); window.addEventListener('scroll', top, true);
+    return () => window.removeEventListener('scroll', top, true);
+  }, []);
   const shown = p.candidates.slice(0, 3);
   const top = shown[p.highlight] ?? shown[0];
   const timings = Object.entries(p.work.timings);
