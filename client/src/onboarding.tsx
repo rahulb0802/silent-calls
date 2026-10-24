@@ -34,7 +34,7 @@ export function Onboarding() {
       <div className="sidebar-body"><p className="sidebar-intro">A space for your voice.</p><nav aria-label="Setup progress"><ol className="step-list">{steps.map((label, index) => <li key={label} className={index === step ? 'active' : index < step ? 'finished' : ''} aria-current={index === step ? 'step' : undefined}><span className="step-index">{index < step ? <Check size={14}/> : index + 1}</span>{label}{index === step && <ChevronRight size={15}/>}</li>)}</ol></nav></div>
       <div className="sidebar-note"><ShieldCheck size={19}/><p>Camera access is always your choice. Calibration stays in memory until a connected training adapter uploads it.</p></div><span className="version">Cal Hacks 13.0 · Frontend preview</span>
     </aside>
-    <main className="onboarding-main"><header className="topbar"><a href="#/workspace" className="text-button">Training & settings</a><span>{complete ? 'Welcome back' : 'Let’s make this yours'}</span><span>Setup <strong>{step + 1}</strong> / 5</span></header>
+    <main className="onboarding-main"><header className="topbar"><a href="#/audio-setup" className="text-button">Meeting audio setup</a><a href="#/workspace" className="text-button">Training & settings</a><span>{complete ? 'Welcome back' : 'Let’s make this yours'}</span><span>Setup <strong>{step + 1}</strong> / 5</span></header>
       <div className="onboarding-content"><div className="copy-column"><h1>{title}</h1><p className="lead">{[
         'Stay in the conversation, without speaking aloud. Mouth your words. Let your voice take it from there.',
         'A clear view of your face helps capture the words you mouth. Find a comfortable spot with light in front of you.',

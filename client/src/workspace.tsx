@@ -65,7 +65,7 @@ export function Workspace({backend}:{backend?:EnrollmentPort} = {}){
       else pollTimer.current=setTimeout(()=>void poll(next.id),2000);
     }catch(reason){if(mounted.current && !controller.signal.aborted){setBusy(false);setError(reason instanceof Error?reason.message:'Could not start training.');}}
   }
-  return <main className="workspace"><header className="workspace-header"><a href="#"><ArrowLeft size={16}/> Back to setup</a><span><Waves size={20}/> silent calls.</span><button className="button" onClick={()=>window.desktop?.openWidget()}>Open meeting widget</button></header>
+  return <main className="workspace"><header className="workspace-header"><a href="#"><ArrowLeft size={16}/> Back to setup</a><a className="text-button" href="#/audio-setup">Meeting audio setup</a><span><Waves size={20}/> silent calls.</span><button className="button" onClick={()=>window.desktop?.openWidget()}>Open meeting widget</button></header>
     <div className="workspace-heading"><h1>Make it yours.</h1><p>Camera calibration, your personal adapter, and the services that connect the conversation.</p></div>
     <div className="workspace-grid"><section className="service-settings"><h2>Service settings</h2><p>Use the endpoints your teammates provide. These values are for the team’s future adapter. Saving a URL does not connect or upload anything.</p>
       <label htmlFor="ws-endpoint">Meeting WebSocket URL</label><input id="ws-endpoint" type="url" placeholder="wss://your-server/v1/meeting" value={settings.websocketUrl} onChange={event=>{setNotice('');setSettings({...settings,websocketUrl:event.target.value});}} disabled={busy}/>
