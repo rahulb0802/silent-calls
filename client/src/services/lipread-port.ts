@@ -168,7 +168,8 @@ export class LipreadPort implements MeetingPort {
       if (!data || typeof data !== 'object') return;
       const id = typeof data.utt_id === 'string' ? data.utt_id : this.active;
       if(data.type==='learned' && Number.isInteger(data.n_corrections)){
-        if(this.learningReview?.id===id && this.learningReview.sent){
+        const review=this.learningReview;
+        if(review && review.id===id && review.sent){
           this.dismissLearning(id);this.emit({type:'learning.status',utteranceId:id,message:'Saved for your next training session.'});
           window.dispatchEvent(new CustomEvent(LEARNED,{detail:data.n_corrections}));
         }

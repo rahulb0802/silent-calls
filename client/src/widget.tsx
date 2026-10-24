@@ -121,7 +121,9 @@ export function MeetingWidget({service:providedPort}:{service?:MeetingPort} = {}
   };
   const beginRef = useRef(begin); beginRef.current = begin;
   onHandsFree.current = event => {
-    if(service.learningReview){if(event==='send')service.approveLearning();else if(event==='cancel' || event==='next' || event==='restart')service.dismissLearning();return;}
+    // starting to mouth again moves on: the unsent learning question is dismissed, the capture starts
+    if(service.learningReview && event==='start')service.dismissLearning();
+    else if(service.learningReview){if(event==='send')service.approveLearning();else if(event==='cancel' || event==='next' || event==='restart')service.dismissLearning();return;}
     if (event === 'start') { if (!serviceBusy) { nextTrigger.current='mouth'; capture.begin(); } return; }
     if (handsFreePhase === 'idle') {  // gestures over the suggested replies
       if (event === 'next' && replies.length) setReplyPick(index => (index + 1) % replies.length);
