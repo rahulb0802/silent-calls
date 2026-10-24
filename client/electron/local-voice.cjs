@@ -208,7 +208,7 @@ class LocalVoice {
     return this.snapshot();
   }
   clone(wav, inputName) {
-    if (!(wav instanceof Uint8Array) || wav.byteLength < 96044 || wav.byteLength > 650000 ||
+    if (!(wav instanceof Uint8Array) || wav.byteLength < 96044 || wav.byteLength > 1920044 ||
         Buffer.from(wav.subarray(0, 4)).toString('ascii') !== 'RIFF' ||
         Buffer.from(wav.subarray(8, 12)).toString('ascii') !== 'WAVE') throw new Error('Record a 3–20 second voice sample first.');
     const name = typeof inputName === 'string' ? inputName.trim() : '';
@@ -216,7 +216,7 @@ class LocalVoice {
     if (this.state.connection !== 'connected' || !this.socket || this.socket.readyState !== 1) throw new Error('Connect the voice service before creating your voice.');
     if (this.pendingText !== null || this.pendingClone || this.cloneUncertain) throw new Error('Reconnect and check voice status before trying again. Wait for the current voice request to finish.');
     const payload = JSON.stringify({ type: 'voice.clone', name, wav: Buffer.from(wav).toString('base64') });
-    if (payload.length > 900000) throw new Error('Voice sample is too large. Record up to 20 seconds.');
+    if (payload.length > 2600000) throw new Error('Voice sample is too large. Record up to 20 seconds.');
     this.update({ phase: 'cloning', message: 'Creating your voice with Cartesia…' });
     return new Promise((resolve, reject) => {
       this.pendingClone = { resolve, reject };

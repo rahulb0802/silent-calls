@@ -1,4 +1,4 @@
-/** Decode a reviewed recording in memory and make the 16 kHz mono WAV used by voice cloning. */
+/** Decode a reviewed recording in memory and make the 44.1 kHz mono WAV used by voice cloning. */
 export async function voiceSampleWav(blob: Blob): Promise<Uint8Array> {
   if (!blob.size || blob.size > 10 * 1024 * 1024) {
     throw new Error('Choose an audio recording smaller than 10 MB.');
@@ -15,7 +15,7 @@ export async function voiceSampleWav(blob: Blob): Promise<Uint8Array> {
   if (decoded.duration < 3 || decoded.duration > 20) {
     throw new Error('Use a voice recording between 3 and 20 seconds.');
   }
-  const sampleRate = 16000;
+  const sampleRate = 44100;
   const length = Math.ceil(decoded.duration * sampleRate);
   const offline = new OfflineAudioContext(1, length, sampleRate);
   const source = offline.createBufferSource();

@@ -12,6 +12,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import time
 from io import BytesIO
 from pathlib import Path
@@ -148,6 +149,40 @@ class VoiceOutput:
                 yield chunk
 
 
+def clone_error_message(error: httpx.HTTPStatusError) -> str:
+    """Return bounded provider diagnostics, never headers, raw bodies or audio."""
+    response = error.response
+    code = response.status_code
+    guidance = {
+        400: "Cartesia rejected the recording or clone settings.",
+        401: "The backend Cartesia API key is invalid or expired.",
+        402: "The Cartesia account needs credits or a plan that supports voice cloning. Check Billing in Cartesia; recording again will not fix this.",
+        403: "The Cartesia key/account is not allowed to clone voices. Check the key's voice permissions and account plan; recording again will not fix this.",
+        404: "Cartesia's cloning endpoint was unavailable for this API version.",
+        413: "Cartesia rejected the recording size. Use a shorter clip.",
+        415: "Cartesia could not read the audio format. Record a new sample in the app.",
+        422: "Cartesia could not accept the recording or clone settings.",
+        429: "Cartesia's usage or voice limit was reached. Check account limits before retrying.",
+    }.get(code, "Cartesia could not create the voice. Try again later." if code >= 500 else "Cartesia rejected the voice setup request.")
+    detail = ""
+    try:
+        data = response.json() if len(response.content) <= 16_384 else None
+        if isinstance(data, dict):
+            candidate = data.get("error") or data.get("message") or data.get("detail")
+            if isinstance(candidate, dict):
+                candidate = candidate.get("message") or candidate.get("detail")
+            if isinstance(candidate, str):
+                # Provider messages can include invalid values; remove secrets and encoded blobs.
+                detail = re.sub(r"(?i)(?:sk_car_|sk_live_|sk_test_)[A-Za-z0-9_-]+", "[redacted]", candidate)
+                detail = re.sub(r"(?i)bearer\s+\S+", "Bearer [redacted]", detail)
+                detail = re.sub(r"[A-Za-z0-9+/=_-]{80,}", "[redacted data]", detail)
+                detail = re.sub(r"(?i)(api[_ -]?key|token|authorization)\s*[:=]\s*[^\s,;]+", r"\1=[redacted]", detail)
+                detail = " ".join(detail.split())[:350]
+    except (ValueError, UnicodeError):
+        pass
+    return f"{guidance} (HTTP {code})" + (f" Cartesia: {detail}" if detail else "")
+
+
 async def clone_voice(s: Settings, clip: Path, name: str) -> str:
     """Clone a voice from a short, clean recording; returns the new voice id."""
     return await clone_voice_bytes(s, clip.read_bytes(), name)
@@ -158,7 +193,9 @@ async def clone_voice_bytes(s: Settings, wav: bytes, name: str) -> str:
     if not s.cartesia_api_key:
         raise RuntimeError("Cartesia is not configured on the local service.")
     async with _client(s, timeout=120) as http:
-        resp = await http.post("/voices/clone", data={"name": name, "language": "en"},
+        # Clone uses the documented contract independently of legacy TTS settings.
+        http.headers["Cartesia-Version"] = "2026-08-14"
+        resp = await http.post("/voices/clone", data={"name": name, "language": "en", "access": "private"},
                                files={"clip": ("voice.wav", BytesIO(wav), "audio/wav")})
     resp.raise_for_status()
     voice_id = resp.json().get("id")

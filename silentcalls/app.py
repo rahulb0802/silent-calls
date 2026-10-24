@@ -22,7 +22,7 @@ from .captions import CallCaptioner
 from .config import settings
 from .pipeline import Pipeline
 from .protocol import CandidatesMessage
-from .voice import VoiceOutput
+from .voice import VoiceOutput, clone_error_message
 
 log = logging.getLogger("silentcalls")
 
@@ -81,11 +81,7 @@ def handler(pipeline: Pipeline):
             except asyncio.CancelledError:
                 raise
             except httpx.HTTPStatusError as error:
-                code = error.response.status_code
-                detail = ("Cartesia credentials need attention in the backend configuration." if code in {401, 403}
-                          else "Cartesia usage limit reached. Check the account or try again later." if code == 429
-                          else "Cartesia could not create this voice. Try a clearer recording or try again later.")
-                await ws.send(json.dumps({"type": "voice.clone.error", "message": detail}))
+                await ws.send(json.dumps({"type": "voice.clone.error", "message": clone_error_message(error)}))
             except httpx.RequestError:
                 await ws.send(json.dumps({"type": "voice.clone.error", "message": "Cartesia could not be reached. The request may have arrived; check your Cartesia voice library before creating another voice."}))
             except (ValueError, RuntimeError) as error:
@@ -102,20 +98,20 @@ def handler(pipeline: Pipeline):
             if len(name) > 80:
                 raise ValueError("Voice name must be 80 characters or fewer.")
             encoded = msg.get("wav")
-            if not isinstance(encoded, str) or len(encoded) > 900_000:
+            if not isinstance(encoded, str) or len(encoded) > 2_600_000:
                 raise ValueError("Voice sample must be a short WAV recording.")
             try:
                 wav = base64.b64decode(encoded, validate=True)
                 with wave.open(io.BytesIO(wav), "rb") as sample:
                     seconds = sample.getnframes() / sample.getframerate()
                     valid = (sample.getnchannels() == 1 and sample.getsampwidth() == 2
-                             and sample.getframerate() == 16000 and 3 <= seconds <= 20)
+                             and sample.getframerate() in {16000, 44100, 48000} and 3 <= seconds <= 20)
                     if valid:
                         valid = len(sample.readframes(sample.getnframes())) == sample.getnframes() * 2
             except (binascii.Error, EOFError, ValueError, wave.Error, ZeroDivisionError) as e:
                 raise ValueError("Could not read the voice sample WAV.") from e
             if not valid:
-                raise ValueError("Record 3–20 seconds of mono, 16 kHz voice audio.")
+                raise ValueError("Record 3–20 seconds of mono WAV voice audio.")
             await pipeline.voice.clone_from_sample(wav, name)
             await ws.send(json.dumps({"type": "voice.ready", **pipeline.voice.profile}))
 
@@ -177,7 +173,7 @@ async def main() -> None:
         tasks.append(asyncio.create_task(CallCaptioner(settings, pipeline.on_caption).run()))
 
     try:
-        async with websockets.serve(handler(pipeline), settings.host, settings.port):
+        async with websockets.serve(handler(pipeline), settings.host, settings.port, max_size=3 * 1024 * 1024):
             log.info("listening on ws://%s:%d", settings.host, settings.port)
             await asyncio.Future()
     finally:
