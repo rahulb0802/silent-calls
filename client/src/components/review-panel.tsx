@@ -26,7 +26,7 @@ export function ReviewPanel() {
   }
   return <section className="review-panel" aria-label="Post-call review">
     <h2><ClipboardCheck size={13}/> After the call</h2>
-    {!review && <p>When the call ends, the coach looks at where lip-reading struggled and suggests words and practice sentences.</p>}
+    {!review && <p>A little reflection after your call. Save helpful words and practice what felt difficult.</p>}
     {review?.pending && <p role="status">Reviewing the call…</p>}
     {review && !review.pending && <>
       <p>{review.summary || 'Nothing to suggest from this call.'}</p>
@@ -34,9 +34,9 @@ export function ReviewPanel() {
         const key = `${p.kind}:${p.value}`;
         return <li key={key}>{p.kind === 'vocabulary' ? `Add “${p.value}” to your words` : `Practice: “${p.value}”`}
           <span>{p.reason}</span>
-          <button className="icon-text" disabled={approved[key]} onClick={() => approve(p.kind, p.value)}>{approved[key] ? 'Added' : 'Approve'}</button></li>;
+          <button className="icon-text" disabled={approved[key]} onClick={() => approve(p.kind, p.value)}>{approved[key] ? 'Added' : p.kind==='vocabulary'?'Save word':'Save practice'}</button></li>;
       })}</ul>}
-      {review.proposals.some(p => p.kind === 'practice') && <p className="small">Approved practice sentences appear first in calibration (Training &amp; settings).</p>}
+      {review.proposals.some(p => p.kind === 'practice') && <p className="small">Saved practice sentences appear in My voice &amp; practice.</p>}
     </>}
     <button className="icon-text" disabled={review?.pending} onClick={() => void start()}>{review && !review.pending ? 'Review again' : 'Review this call'}</button>
     {error && <p className="capture-error" role="alert">{error}</p>}

@@ -20,13 +20,13 @@ export function CopilotPanel() {
   const steps = copilot?.steps.map(step => step.tool === 'calendar' ? `checked your calendar (${step.results})`
     : `searched email “${step.query}” (${step.results})`).join(' · ');
   return <section className="copilot-panel" aria-label="Co-pilot prepared replies">
-    <h2><Sparkles size={13}/> Co-pilot<label><input type="checkbox" checked={!off} onChange={event => setCopilotOff(!event.target.checked)}/> on</label></h2>
-    {off ? <p className="copilot-empty">Off: captures are read by lip-reading alone.</p>
-      : !copilot?.replies.length ? <p className="copilot-empty">After the other person speaks, likely replies appear here. Mouth one to pick it.</p>
+    <h2><Sparkles size={13}/> Suggested replies<label><input type="checkbox" checked={!off} onChange={event => setCopilotOff(!event.target.checked)}/> on</label></h2>
+    {off ? <p className="copilot-empty">Suggestions are paused.</p>
+      : !copilot?.replies.length ? <p className="copilot-empty">Replies appear as the conversation unfolds. Mouth one, then confirm it to speak.</p>
       : <>
         <ol aria-live="polite">{copilot.replies.map((reply, index) => <li key={index}>{reply.text}
           {reply.facts.length > 0 && <span>{reply.facts.map(fact => `${SOURCE_LABEL[fact.source] ?? fact.source}: ${fact.detail}`).join(' · ')}</span>}</li>)}</ol>
-        <p className="copilot-meta">{steps}{copilot.latencyMs !== null ? ` · ready in ${(copilot.latencyMs / 1000).toFixed(1)} s` : ''}</p>
+        <details className="companion-details"><summary>How these were suggested</summary><p className="copilot-meta">{steps || 'Based on this conversation and your saved words.'}</p></details>
       </>}
   </section>;
 }
