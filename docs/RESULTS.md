@@ -18,6 +18,7 @@ Every number we can show, in the order we got it. Each row links to the run's fo
 | Jev latency (connection kept warm) | **80-250 ms** per request; a cold connection took ~1 s and missed the 0.5 s budget |
 | Enrollment needed for the adapter to help | **18+ training sentences**; 6 don't help. Minimum set to **30 clips** (24 train + 6 report) |
 | Names in the vocab, on sentences without names | **no false names** in any top 10 (beam bias 2.0, +75 ms) |
+| When the co-pilot anticipated the reply | top guess right **36% → 77%**, WER **37% → 19%** (+60 ms); no change when it didn't |
 
 **Test data:** 3 people × 30 silently mouthed call sentences (`server/eval_data/feasibility_sentences.csv`),
 recorded on laptop webcams with `record.html` before the event, plus 6 spoken-aloud clips each for 2 people.
@@ -324,3 +325,49 @@ Example ranking (`hi server jet yes i can` / `hi so very yes i can` / `hi sarvaj
 as a likely name): Jev put **"hi sarvajith yes i can" first at 87%** although it was the lip-reader's third
 guess. Call audio on Windows needs no second virtual cable: captions record the speakers through WASAPI
 loopback (`CALL_AUDIO_DEVICE=loopback`, never the VB-CABLE that carries our own voice).
+
+## 9. Knowing the likely replies: closed-set scoring for the call co-pilot
+
+The co-pilot (`silentcalls/copilot.py`) prepares the user's likely replies after each line the other person says
+(Claude + their calendar and email). The lip-reader then scores those sentences against the video
+(`server/lipread/model.py`, `score_texts`: the same weighted decoder + CTC + LM log-prob a beam hypothesis of that
+text would get; checked: a given sentence equal to the beam's top guess scores within 0.0 of it) and ranks them with
+its own guesses. Picking among a few known sentences is far easier than reading open-ended: **the truth is the
+best-scoring sentence of the list 98-99% of the time**. But on likelihood alone the beam's own best guess always
+wins (the beam is a likelihood maximizer), so a prepared reply gets a prior bonus `B` (`DecodeConfig.given_bonus`).
+
+**Choosing B** (offline from every sentence scored against every clip,
+[`given_scores`](../server/results/given_scores/sweep.md); lists of 5; "one word off" = the right sentence with one
+word swapped, the co-pilot's realistic mistake):
+
+| B | truth among 4 others: top 1 | truth among 4 look-alikes: top 1 | only one-word-off replies: a wrong one wins | only unrelated replies: a wrong one wins |
+|---|---|---|---|---|
+| 0 | 32% | 32% | 0% | 0% |
+| 4 | 59% | 59% | 0% | 0% |
+| **8** | **77%** | **77%** | **1%** | 0% |
+| 10 | 83% | 83% | 6% | 0% |
+| 12 | 88% | 88% | 16% | 0% |
+| 15 | 90% | 90% | 53% | 1% |
+
+B = 8: most of the gain with almost no wrong replies promoted. With the truth plus 4 one-word-off replies the truth still
+wins as often (77%), so the lips do separate near-identical sentences.
+
+**Through the real decoding path at B = 8** ([`given_d4_bonus8`](../server/results/given_d4_bonus8/summary.md), 90
+silent clips, lists of 5):
+
+| co-pilot's list | WER | exact@1 | exact@3 | exact@10 | a wrong reply on top | extra time |
+|---|---|---|---|---|---|---|
+| none (lip-reading alone) | 37% | 36% | 43% | 56% | - | - |
+| contains what was said (+4 other sentences) | **19%** | **77%** | **84%** | 84% | 0% | 60 ms |
+| contains what was said (+4 look-alikes) | **19%** | **77%** | **84%** | 84% | 0% | 60 ms |
+| doesn't contain it (5 other sentences) | 37% | 36% | 43% | 56% | 0% | 73 ms |
+
+When the co-pilot anticipates the reply, the right sentence goes from the top guess a third of the time to three
+times in four; when it doesn't, nothing changes. Caveat: the "replies" here are the other test sentences, not
+generated ones; real co-pilot misses are closer (hence the one-word-off check above).
+
+**The co-pilot itself** (Claude Opus 5.5, low effort, fast mode; fake calendar + inbox in `tests/test_copilot.py`
+and a live run): replies ready **2.3 s** after the other person's line, **2.9 s** with an email search
+(3.4 s on the first, cold call). Example: asked "What's the order number for the headphones you returned?", it searched
+the inbox, found the return email and offered "Sure, it's order number 112-4839201-7733105." with the email as the
+source. Live with a real Google account: 18 calendar events read, 4 replies with 6 calendar facts.

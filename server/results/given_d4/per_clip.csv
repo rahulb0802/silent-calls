@@ -1,0 +1,361 @@
+person,mode,id,condition,reference,top1,ref_words,top1_errors,top1_wer,exact_rank,exact@1,oracle_errors@1,within1@1,exact@3,oracle_errors@3,within1@3,exact@5,oracle_errors@5,within1@5,exact@10,oracle_errors@10,within1@10,list@1,wrong_given_top1,given_ms,total_ms
+nilesh,silent,01,open,hey can you hear me okay,and then you're going to be ok,6,6,1.0,,0,6,0,0,5,0,0,5,0,0,4,0,,0,0,1972
+nilesh,silent,01,random,hey can you hear me okay,and then you're going to be ok,6,6,1.0,,0,6,0,0,5,0,0,5,0,0,4,0,1,0,75,2056
+nilesh,silent,01,hard,hey can you hear me okay,and then you're going to be ok,6,6,1.0,,0,6,0,0,5,0,0,5,0,0,4,0,1,0,73,2049
+nilesh,silent,01,absent,hey can you hear me okay,and then you're going to be ok,6,6,1.0,,0,6,0,0,5,0,0,5,0,0,4,0,,0,74,2047
+nilesh,silent,02,open,hi sorry I'm in the library right now,it's already come in the library right now,8,3,0.375,,0,3,0,0,2,0,0,2,0,0,1,1,,0,0,1067
+nilesh,silent,02,random,hi sorry I'm in the library right now,it's already come in the library right now,8,3,0.375,,0,3,0,0,2,0,0,2,0,0,1,1,1,0,74,1223
+nilesh,silent,02,hard,hi sorry I'm in the library right now,it's already come in the library right now,8,3,0.375,,0,3,0,0,2,0,0,2,0,0,1,1,1,0,73,1133
+nilesh,silent,02,absent,hi sorry I'm in the library right now,it's already come in the library right now,8,3,0.375,,0,3,0,0,2,0,0,2,0,0,1,1,,0,73,1136
+nilesh,silent,03,open,yes that works for me,that's how it works for me,5,3,0.6,,0,3,0,0,3,0,0,3,0,0,3,0,,0,0,867
+nilesh,silent,03,random,yes that works for me,yes that works for me,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,74,930
+nilesh,silent,03,hard,yes that works for me,yes that works for me,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,73,930
+nilesh,silent,03,absent,yes that works for me,that's how it works for me,5,3,0.6,,0,3,0,0,3,0,0,3,0,0,3,0,,0,74,931
+nilesh,silent,04,open,no I haven't heard back yet,no i haven't come in yet,6,2,0.333,,0,2,0,0,1,1,0,1,1,0,1,1,,0,0,879
+nilesh,silent,04,random,no I haven't heard back yet,no i haven't come in yet,6,2,0.333,,0,2,0,0,1,1,0,1,1,0,1,1,1,0,74,940
+nilesh,silent,04,hard,no I haven't heard back yet,no i haven't come in yet,6,2,0.333,,0,2,0,0,1,1,0,1,1,0,1,1,1,0,73,938
+nilesh,silent,04,absent,no I haven't heard back yet,no i haven't come in yet,6,2,0.333,,0,2,0,0,1,1,0,1,1,0,1,1,,0,75,950
+nilesh,silent,05,open,sure go ahead,did you know that,3,4,1.333,,0,4,0,0,3,0,0,3,0,0,3,0,,0,0,795
+nilesh,silent,05,random,sure go ahead,did you know that,3,4,1.333,,0,4,0,0,3,0,0,3,0,0,3,0,1,0,76,729
+nilesh,silent,05,hard,sure go ahead,did you know that,3,4,1.333,,0,4,0,0,3,0,0,3,0,0,3,0,1,0,75,731
+nilesh,silent,05,absent,sure go ahead,did you know that,3,4,1.333,,0,4,0,0,3,0,0,3,0,0,3,0,,0,77,736
+nilesh,silent,06,open,I'll be there in ten minutes,i'll be there in ten minutes,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,0,838
+nilesh,silent,06,random,I'll be there in ten minutes,i'll be there in ten minutes,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,77,931
+nilesh,silent,06,hard,I'll be there in ten minutes,i'll be there in ten minutes,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,76,910
+nilesh,silent,06,absent,I'll be there in ten minutes,i'll be there in ten minutes,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,77,914
+nilesh,silent,07,open,can we move it to three thirty,removing the green card,7,7,1.0,,0,7,0,0,7,0,0,6,0,0,6,0,,0,0,826
+nilesh,silent,07,random,can we move it to three thirty,removing the green card,7,7,1.0,,0,7,0,0,7,0,0,6,0,0,6,0,1,0,75,886
+nilesh,silent,07,hard,can we move it to three thirty,removing the green card,7,7,1.0,,0,7,0,0,7,0,0,6,0,0,6,0,1,0,76,892
+nilesh,silent,07,absent,can we move it to three thirty,removing the green card,7,7,1.0,,0,7,0,0,7,0,0,6,0,0,6,0,,0,76,888
+nilesh,silent,08,open,let's meet tomorrow morning,tomorrow morning,4,2,0.5,,0,2,0,0,2,0,0,2,0,0,2,0,,0,0,726
+nilesh,silent,08,random,let's meet tomorrow morning,tomorrow morning,4,2,0.5,,0,2,0,0,2,0,0,2,0,0,2,0,1,0,75,878
+nilesh,silent,08,hard,let's meet tomorrow morning,tomorrow morning,4,2,0.5,,0,2,0,0,2,0,0,2,0,0,2,0,1,0,75,783
+nilesh,silent,08,absent,let's meet tomorrow morning,tomorrow morning,4,2,0.5,,0,2,0,0,2,0,0,2,0,0,2,0,,0,74,771
+nilesh,silent,09,open,my number is the same as before,my number is the same as before,7,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,0,974
+nilesh,silent,09,random,my number is the same as before,my number is the same as before,7,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,60,1031
+nilesh,silent,09,hard,my number is the same as before,my number is the same as before,7,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,60,1040
+nilesh,silent,09,absent,my number is the same as before,my number is the same as before,7,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,76,1045
+nilesh,silent,10,open,it was about forty dollars,it was about forty dollars,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,0,836
+nilesh,silent,10,random,it was about forty dollars,it was about forty dollars,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,60,897
+nilesh,silent,10,hard,it was about forty dollars,it was about forty dollars,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,61,899
+nilesh,silent,10,absent,it was about forty dollars,it was about forty dollars,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,76,909
+nilesh,silent,11,open,what time does it start,ridiculously tall,5,5,1.0,,0,5,0,0,5,0,0,3,0,0,3,0,,0,0,782
+nilesh,silent,11,random,what time does it start,ridiculously tall,5,5,1.0,,0,5,0,0,5,0,0,3,0,0,3,0,1,0,76,852
+nilesh,silent,11,hard,what time does it start,ridiculously tall,5,5,1.0,,0,5,0,0,5,0,0,3,0,0,3,0,1,0,75,945
+nilesh,silent,11,absent,what time does it start,ridiculously tall,5,5,1.0,,0,5,0,0,5,0,0,3,0,0,3,0,,0,76,855
+nilesh,silent,12,open,where should I park,question number,4,4,1.0,,0,4,0,0,4,0,0,1,1,0,1,1,,0,0,790
+nilesh,silent,12,random,where should I park,question number,4,4,1.0,,0,4,0,0,4,0,0,1,1,0,1,1,1,0,75,857
+nilesh,silent,12,hard,where should I park,question number,4,4,1.0,,0,4,0,0,4,0,0,1,1,0,1,1,1,0,75,858
+nilesh,silent,12,absent,where should I park,question number,4,4,1.0,,0,4,0,0,4,0,0,1,1,0,1,1,,0,75,848
+nilesh,silent,13,open,did you get my email,you get my email,5,1,0.2,3,0,1,1,1,0,1,1,0,1,1,0,1,,0,0,724
+nilesh,silent,13,random,did you get my email,you get my email,5,1,0.2,3,0,1,1,1,0,1,1,0,1,1,0,1,1,0,60,767
+nilesh,silent,13,hard,did you get my email,you get my email,5,1,0.2,3,0,1,1,1,0,1,1,0,1,1,0,1,1,0,60,767
+nilesh,silent,13,absent,did you get my email,you get my email,5,1,0.2,3,0,1,1,1,0,1,1,0,1,1,0,1,,0,76,785
+nilesh,silent,14,open,how did the interview go,i'm going to let everyone know,5,6,1.2,,0,6,0,0,3,0,0,3,0,0,3,0,,0,0,864
+nilesh,silent,14,random,how did the interview go,i'm going to let everyone know,5,6,1.2,,0,6,0,0,3,0,0,3,0,0,3,0,1,0,74,939
+nilesh,silent,14,hard,how did the interview go,i'm going to let everyone know,5,6,1.2,,0,6,0,0,3,0,0,3,0,0,3,0,1,0,74,1026
+nilesh,silent,14,absent,how did the interview go,i'm going to let everyone know,5,6,1.2,,0,6,0,0,3,0,0,3,0,0,3,0,,0,75,929
+nilesh,silent,15,open,can you send me the link,or something like,6,6,1.0,,0,6,0,0,6,0,0,6,0,0,6,0,,0,0,617
+nilesh,silent,15,random,can you send me the link,or something like,6,6,1.0,,0,6,0,0,6,0,0,6,0,0,6,0,1,0,74,692
+nilesh,silent,15,hard,can you send me the link,or something like,6,6,1.0,,0,6,0,0,6,0,0,6,0,0,6,0,0,0,74,692
+nilesh,silent,15,absent,can you send me the link,or something like,6,6,1.0,,0,6,0,0,6,0,0,6,0,0,6,0,,0,74,695
+nilesh,silent,16,open,please call me back later,it's coming back here,5,4,0.8,,0,4,0,0,3,0,0,3,0,0,3,0,,0,0,824
+nilesh,silent,16,random,please call me back later,it's coming back here,5,4,0.8,,0,4,0,0,3,0,0,3,0,0,3,0,1,0,75,903
+nilesh,silent,16,hard,please call me back later,it's coming back here,5,4,0.8,,0,4,0,0,3,0,0,3,0,0,3,0,1,0,76,905
+nilesh,silent,16,absent,please call me back later,it's coming back here,5,4,0.8,,0,4,0,0,3,0,0,3,0,0,3,0,,0,74,894
+nilesh,silent,17,open,could you say that again,you say that again,5,1,0.2,,0,1,1,0,1,1,0,1,1,0,1,1,,0,0,720
+nilesh,silent,17,random,could you say that again,you say that again,5,1,0.2,,0,1,1,0,1,1,0,1,1,0,1,1,1,0,74,759
+nilesh,silent,17,hard,could you say that again,you say that again,5,1,0.2,,0,1,1,0,1,1,0,1,1,0,1,1,1,0,74,762
+nilesh,silent,17,absent,could you say that again,you say that again,5,1,0.2,,0,1,1,0,1,1,0,1,1,0,1,1,,0,74,775
+nilesh,silent,18,open,can you speak a little louder,on monday,6,6,1.0,,0,6,0,0,6,0,0,5,0,0,5,0,,0,0,860
+nilesh,silent,18,random,can you speak a little louder,on monday,6,6,1.0,,0,6,0,0,6,0,0,5,0,0,5,0,1,0,79,882
+nilesh,silent,18,hard,can you speak a little louder,on monday,6,6,1.0,,0,6,0,0,6,0,0,5,0,0,5,0,1,0,75,867
+nilesh,silent,18,absent,can you speak a little louder,on monday,6,6,1.0,,0,6,0,0,6,0,0,5,0,0,5,0,,0,78,853
+nilesh,silent,19,open,I'm running a little late,i'm going to look at it,5,5,1.0,,0,5,0,0,4,0,0,4,0,0,4,0,,0,0,820
+nilesh,silent,19,random,I'm running a little late,i'm going to look at it,5,5,1.0,,0,5,0,0,4,0,0,4,0,0,4,0,1,0,74,875
+nilesh,silent,19,hard,I'm running a little late,i'm going to look at it,5,5,1.0,,0,5,0,0,4,0,0,4,0,0,4,0,1,0,73,879
+nilesh,silent,19,absent,I'm running a little late,i'm going to look at it,5,5,1.0,,0,5,0,0,4,0,0,4,0,0,4,0,,0,73,888
+nilesh,silent,20,open,I just finished my homework,i also finished my week,5,2,0.4,,0,2,0,0,1,1,0,1,1,0,1,1,,0,0,991
+nilesh,silent,20,random,I just finished my homework,i also finished my week,5,2,0.4,,0,2,0,0,1,1,0,1,1,0,1,1,1,0,72,1045
+nilesh,silent,20,hard,I just finished my homework,i also finished my week,5,2,0.4,,0,2,0,0,1,1,0,1,1,0,1,1,1,0,72,1043
+nilesh,silent,20,absent,I just finished my homework,i also finished my week,5,2,0.4,,0,2,0,0,1,1,0,1,1,0,1,1,,0,71,1034
+nilesh,silent,21,open,I'm not feeling very well today,i'm not feeling very well today,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,0,1157
+nilesh,silent,21,random,I'm not feeling very well today,i'm not feeling very well today,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,72,1124
+nilesh,silent,21,hard,I'm not feeling very well today,i'm not feeling very well today,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,72,1108
+nilesh,silent,21,absent,I'm not feeling very well today,i'm not feeling very well today,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,74,1130
+nilesh,silent,22,open,the doctor said I need to rest,doctor said i can do this,7,4,0.571,,0,4,0,0,3,0,0,3,0,0,3,0,,0,0,933
+nilesh,silent,22,random,the doctor said I need to rest,doctor said i can do this,7,4,0.571,,0,4,0,0,3,0,0,3,0,0,3,0,1,0,73,1018
+nilesh,silent,22,hard,the doctor said I need to rest,doctor said i can do this,7,4,0.571,,0,4,0,0,3,0,0,3,0,0,3,0,1,0,76,1008
+nilesh,silent,22,absent,the doctor said I need to rest,doctor said i can do this,7,4,0.571,,0,4,0,0,3,0,0,3,0,0,3,0,,0,73,1032
+nilesh,silent,23,open,that sounds like a great idea,it sounds like a great idea,6,1,0.167,2,0,1,1,1,0,1,1,0,1,1,0,1,,0,0,849
+nilesh,silent,23,random,that sounds like a great idea,it sounds like a great idea,6,1,0.167,2,0,1,1,1,0,1,1,0,1,1,0,1,1,0,59,902
+nilesh,silent,23,hard,that sounds like a great idea,it sounds like a great idea,6,1,0.167,2,0,1,1,1,0,1,1,0,1,1,0,1,1,0,58,882
+nilesh,silent,23,absent,that sounds like a great idea,it sounds like a great idea,6,1,0.167,2,0,1,1,1,0,1,1,0,1,1,0,1,,0,73,989
+nilesh,silent,24,open,I don't think that's a good plan,that's a good plan,7,3,0.429,2,0,3,0,1,0,1,1,0,1,1,0,1,,0,0,1013
+nilesh,silent,24,random,I don't think that's a good plan,that's a good plan,7,3,0.429,2,0,3,0,1,0,1,1,0,1,1,0,1,1,0,75,1082
+nilesh,silent,24,hard,I don't think that's a good plan,that's a good plan,7,3,0.429,2,0,3,0,1,0,1,1,0,1,1,0,1,1,0,73,1074
+nilesh,silent,24,absent,I don't think that's a good plan,that's a good plan,7,3,0.429,2,0,3,0,1,0,1,1,0,1,1,0,1,,0,73,1090
+nilesh,silent,25,open,I really like the new design,i really like to use,6,3,0.5,,0,3,0,0,1,1,0,1,1,0,1,1,,0,0,871
+nilesh,silent,25,random,I really like the new design,i really like to use,6,3,0.5,,0,3,0,0,1,1,0,1,1,0,1,1,1,0,73,934
+nilesh,silent,25,hard,I really like the new design,i really like to use,6,3,0.5,,0,3,0,0,1,1,0,1,1,0,1,1,1,0,73,956
+nilesh,silent,25,absent,I really like the new design,i really like to use,6,3,0.5,,0,3,0,0,1,1,0,1,1,0,1,1,,0,74,948
+nilesh,silent,26,open,I'll pick up the groceries on the way home,call me up don't stop me,9,8,0.889,,0,8,0,0,7,0,0,7,0,0,4,0,,0,0,1441
+nilesh,silent,26,random,I'll pick up the groceries on the way home,call me up don't stop me,9,8,0.889,,0,8,0,0,7,0,0,7,0,0,4,0,1,0,73,1423
+nilesh,silent,26,hard,I'll pick up the groceries on the way home,call me up don't stop me,9,8,0.889,,0,8,0,0,7,0,0,7,0,0,4,0,1,0,74,1432
+nilesh,silent,26,absent,I'll pick up the groceries on the way home,call me up don't stop me,9,8,0.889,,0,8,0,0,7,0,0,7,0,0,4,0,,0,72,1416
+nilesh,silent,27,open,leave the package at the front door,leave the bags at the front door,7,1,0.143,,0,1,1,0,1,1,0,1,1,0,1,1,,0,0,1296
+nilesh,silent,27,random,leave the package at the front door,leave the bags at the front door,7,1,0.143,,0,1,1,0,1,1,0,1,1,0,1,1,1,0,73,1382
+nilesh,silent,27,hard,leave the package at the front door,leave the bags at the front door,7,1,0.143,,0,1,1,0,1,1,0,1,1,0,1,1,1,0,73,1360
+nilesh,silent,27,absent,leave the package at the front door,leave the bags at the front door,7,1,0.143,,0,1,1,0,1,1,0,1,1,0,1,1,,0,73,1366
+nilesh,silent,28,open,we need to book the tickets tonight,another building is that,7,7,1.0,,0,7,0,0,7,0,0,7,0,0,7,0,,0,0,933
+nilesh,silent,28,random,we need to book the tickets tonight,another building is that,7,7,1.0,,0,7,0,0,7,0,0,7,0,0,7,0,0,0,74,992
+nilesh,silent,28,hard,we need to book the tickets tonight,another building is that,7,7,1.0,,0,7,0,0,7,0,0,7,0,0,7,0,0,0,73,1101
+nilesh,silent,28,absent,we need to book the tickets tonight,another building is that,7,7,1.0,,0,7,0,0,7,0,0,7,0,0,7,0,,0,73,993
+nilesh,silent,29,open,thanks so much talk to you soon,so i'm going to start,7,5,0.714,,0,5,0,0,5,0,0,5,0,0,5,0,,0,0,1052
+nilesh,silent,29,random,thanks so much talk to you soon,so i'm going to start,7,5,0.714,,0,5,0,0,5,0,0,5,0,0,5,0,1,0,73,1112
+nilesh,silent,29,hard,thanks so much talk to you soon,so i'm going to start,7,5,0.714,,0,5,0,0,5,0,0,5,0,0,5,0,1,0,73,1113
+nilesh,silent,29,absent,thanks so much talk to you soon,so i'm going to start,7,5,0.714,,0,5,0,0,5,0,0,5,0,0,5,0,,0,74,1114
+nilesh,silent,30,open,okay bye see you later,let me ask you again,5,4,0.8,,0,4,0,0,4,0,0,4,0,0,4,0,,0,0,755
+nilesh,silent,30,random,okay bye see you later,let me ask you again,5,4,0.8,,0,4,0,0,4,0,0,4,0,0,4,0,1,0,73,819
+nilesh,silent,30,hard,okay bye see you later,let me ask you again,5,4,0.8,,0,4,0,0,4,0,0,4,0,0,4,0,1,0,73,818
+nilesh,silent,30,absent,okay bye see you later,let me ask you again,5,4,0.8,,0,4,0,0,4,0,0,4,0,0,4,0,,0,73,819
+rahul,silent,01,open,hey can you hear me okay,hey can you hear me o k,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,0,1289
+rahul,silent,01,random,hey can you hear me okay,hey can you hear me o k,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,59,1345
+rahul,silent,01,hard,hey can you hear me okay,hey can you hear me o k,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,60,1356
+rahul,silent,01,absent,hey can you hear me okay,hey can you hear me o k,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,74,1457
+rahul,silent,02,open,hi sorry I'm in the library right now,sorry i'm in the library right now,8,1,0.125,5,0,1,1,0,1,1,1,0,1,1,0,1,,0,0,1646
+rahul,silent,02,random,hi sorry I'm in the library right now,sorry i'm in the library right now,8,1,0.125,5,0,1,1,0,1,1,1,0,1,1,0,1,1,0,73,1705
+rahul,silent,02,hard,hi sorry I'm in the library right now,sorry i'm in the library right now,8,1,0.125,5,0,1,1,0,1,1,1,0,1,1,0,1,1,0,73,1714
+rahul,silent,02,absent,hi sorry I'm in the library right now,sorry i'm in the library right now,8,1,0.125,5,0,1,1,0,1,1,1,0,1,1,0,1,,0,74,1707
+rahul,silent,03,open,yes that works for me,it's not one for me,5,3,0.6,,0,3,0,0,2,0,0,2,0,0,2,0,,0,0,951
+rahul,silent,03,random,yes that works for me,it's not one for me,5,3,0.6,,0,3,0,0,2,0,0,2,0,0,2,0,1,0,73,1020
+rahul,silent,03,hard,yes that works for me,it's not one for me,5,3,0.6,,0,3,0,0,2,0,0,2,0,0,2,0,1,0,73,1020
+rahul,silent,03,absent,yes that works for me,it's not one for me,5,3,0.6,,0,3,0,0,2,0,0,2,0,0,2,0,,0,73,1020
+rahul,silent,04,open,no I haven't heard back yet,no i haven't heard back yet,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,0,1363
+rahul,silent,04,random,no I haven't heard back yet,no i haven't heard back yet,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,73,1507
+rahul,silent,04,hard,no I haven't heard back yet,no i haven't heard back yet,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,73,1436
+rahul,silent,04,absent,no I haven't heard back yet,no i haven't heard back yet,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,74,1442
+rahul,silent,05,open,sure go ahead,sure go ahead,3,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,0,881
+rahul,silent,05,random,sure go ahead,sure go ahead,3,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,58,929
+rahul,silent,05,hard,sure go ahead,sure go ahead,3,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,58,931
+rahul,silent,05,absent,sure go ahead,sure go ahead,3,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,72,941
+rahul,silent,06,open,I'll be there in ten minutes,i'll be there in ten minutes,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,0,1333
+rahul,silent,06,random,I'll be there in ten minutes,i'll be there in ten minutes,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,73,1397
+rahul,silent,06,hard,I'll be there in ten minutes,i'll be there in ten minutes,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,73,1401
+rahul,silent,06,absent,I'll be there in ten minutes,i'll be there in ten minutes,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,73,1399
+rahul,silent,07,open,can we move it to three thirty,and we move into three thirty,7,3,0.429,,0,3,0,0,3,0,0,3,0,0,2,0,,0,0,1054
+rahul,silent,07,random,can we move it to three thirty,and we move into three thirty,7,3,0.429,,0,3,0,0,3,0,0,3,0,0,2,0,1,0,73,1222
+rahul,silent,07,hard,can we move it to three thirty,and we move into three thirty,7,3,0.429,,0,3,0,0,3,0,0,3,0,0,2,0,1,0,73,1126
+rahul,silent,07,absent,can we move it to three thirty,and we move into three thirty,7,3,0.429,,0,3,0,0,3,0,0,3,0,0,2,0,,0,73,1126
+rahul,silent,08,open,let's meet tomorrow morning,let's meet tomorrow morning,4,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,0,981
+rahul,silent,08,random,let's meet tomorrow morning,let's meet tomorrow morning,4,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,59,1034
+rahul,silent,08,hard,let's meet tomorrow morning,let's meet tomorrow morning,4,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,59,1036
+rahul,silent,08,absent,let's meet tomorrow morning,let's meet tomorrow morning,4,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,73,1045
+rahul,silent,09,open,my number is the same as before,i got a pretty good example before i,7,7,1.0,,0,7,0,0,6,0,0,6,0,0,5,0,,0,0,1221
+rahul,silent,09,random,my number is the same as before,i got a pretty good example before i,7,7,1.0,8,0,7,0,0,6,0,0,6,0,1,0,1,1,0,74,1302
+rahul,silent,09,hard,my number is the same as before,i got a pretty good example before i,7,7,1.0,8,0,7,0,0,6,0,0,6,0,1,0,1,1,0,73,1296
+rahul,silent,09,absent,my number is the same as before,i got a pretty good example before i,7,7,1.0,,0,7,0,0,6,0,0,6,0,0,5,0,,0,73,1305
+rahul,silent,10,open,it was about forty dollars,it was about forty dollars,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,0,840
+rahul,silent,10,random,it was about forty dollars,it was about forty dollars,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,59,908
+rahul,silent,10,hard,it was about forty dollars,it was about forty dollars,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,59,897
+rahul,silent,10,absent,it was about forty dollars,it was about forty dollars,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,74,1014
+rahul,silent,11,open,what time does it start,what time is this going,5,3,0.6,5,0,3,0,0,3,0,1,0,1,1,0,1,,0,0,915
+rahul,silent,11,random,what time does it start,what time is this going,5,3,0.6,5,0,3,0,0,3,0,1,0,1,1,0,1,1,0,58,978
+rahul,silent,11,hard,what time does it start,what time is this going,5,3,0.6,5,0,3,0,0,3,0,1,0,1,1,0,1,1,0,59,969
+rahul,silent,11,absent,what time does it start,what time is this going,5,3,0.6,5,0,3,0,0,3,0,1,0,1,1,0,1,,0,74,1000
+rahul,silent,12,open,where should I park,where should i party,4,1,0.25,10,0,1,1,0,1,1,0,1,1,1,0,1,,0,0,804
+rahul,silent,12,random,where should I park,where should i party,4,1,0.25,10,0,1,1,0,1,1,0,1,1,1,0,1,1,0,73,888
+rahul,silent,12,hard,where should I park,where should i party,4,1,0.25,10,0,1,1,0,1,1,0,1,1,1,0,1,1,0,73,873
+rahul,silent,12,absent,where should I park,where should i party,4,1,0.25,10,0,1,1,0,1,1,0,1,1,1,0,1,,0,73,874
+rahul,silent,13,open,did you get my email,can you get my email,5,1,0.2,,0,1,1,0,1,1,0,1,1,0,1,1,,0,0,855
+rahul,silent,13,random,did you get my email,can you get my email,5,1,0.2,,0,1,1,0,1,1,0,1,1,0,1,1,1,0,73,926
+rahul,silent,13,hard,did you get my email,can you get my email,5,1,0.2,,0,1,1,0,1,1,0,1,1,0,1,1,1,0,73,929
+rahul,silent,13,absent,did you get my email,can you get my email,5,1,0.2,,0,1,1,0,1,1,0,1,1,0,1,1,,0,73,925
+rahul,silent,14,open,how did the interview go,how can i feel at home,5,5,1.0,,0,5,0,0,5,0,0,5,0,0,5,0,,0,0,1009
+rahul,silent,14,random,how did the interview go,how can i feel at home,5,5,1.0,,0,5,0,0,5,0,0,5,0,0,5,0,1,0,73,1158
+rahul,silent,14,hard,how did the interview go,how can i feel at home,5,5,1.0,,0,5,0,0,5,0,0,5,0,0,5,0,1,0,73,1073
+rahul,silent,14,absent,how did the interview go,how can i feel at home,5,5,1.0,,0,5,0,0,5,0,0,5,0,0,5,0,,0,73,1085
+rahul,silent,15,open,can you send me the link,and do something like,6,6,1.0,,0,6,0,0,3,0,0,3,0,0,3,0,,0,0,932
+rahul,silent,15,random,can you send me the link,and do something like,6,6,1.0,,0,6,0,0,3,0,0,3,0,0,3,0,1,0,73,1001
+rahul,silent,15,hard,can you send me the link,and do something like,6,6,1.0,,0,6,0,0,3,0,0,3,0,0,3,0,1,0,73,1001
+rahul,silent,15,absent,can you send me the link,and do something like,6,6,1.0,,0,6,0,0,3,0,0,3,0,0,3,0,,0,73,1018
+rahul,silent,16,open,please call me back later,he taught me my leader,5,4,0.8,,0,4,0,0,4,0,0,4,0,0,4,0,,0,0,1000
+rahul,silent,16,random,please call me back later,he taught me my leader,5,4,0.8,,0,4,0,0,4,0,0,4,0,0,4,0,1,0,73,1080
+rahul,silent,16,hard,please call me back later,he taught me my leader,5,4,0.8,,0,4,0,0,4,0,0,4,0,0,4,0,1,0,73,1070
+rahul,silent,16,absent,please call me back later,he taught me my leader,5,4,0.8,,0,4,0,0,4,0,0,4,0,0,4,0,,0,73,1075
+rahul,silent,17,open,could you say that again,could you say that again,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,0,849
+rahul,silent,17,random,could you say that again,could you say that again,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,58,819
+rahul,silent,17,hard,could you say that again,could you say that again,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,58,809
+rahul,silent,17,absent,could you say that again,could you say that again,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,73,824
+rahul,silent,18,open,can you speak a little louder,can you speak a little louder,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,0,904
+rahul,silent,18,random,can you speak a little louder,can you speak a little louder,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,58,952
+rahul,silent,18,hard,can you speak a little louder,can you speak a little louder,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,59,957
+rahul,silent,18,absent,can you speak a little louder,can you speak a little louder,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,73,968
+rahul,silent,19,open,I'm running a little late,i'm running a little late,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,0,923
+rahul,silent,19,random,I'm running a little late,i'm running a little late,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,72,981
+rahul,silent,19,hard,I'm running a little late,i'm running a little late,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,73,987
+rahul,silent,19,absent,I'm running a little late,i'm running a little late,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,73,983
+rahul,silent,20,open,I just finished my homework,i try to finish my homework,5,3,0.6,2,0,3,0,1,0,1,1,0,1,1,0,1,,0,0,890
+rahul,silent,20,random,I just finished my homework,i try to finish my homework,5,3,0.6,2,0,3,0,1,0,1,1,0,1,1,0,1,1,0,73,960
+rahul,silent,20,hard,I just finished my homework,i try to finish my homework,5,3,0.6,2,0,3,0,1,0,1,1,0,1,1,0,1,1,0,73,963
+rahul,silent,20,absent,I just finished my homework,i try to finish my homework,5,3,0.6,2,0,3,0,1,0,1,1,0,1,1,0,1,,0,73,958
+rahul,silent,21,open,I'm not feeling very well today,i'm not feeling very well to day,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,0,1150
+rahul,silent,21,random,I'm not feeling very well today,i'm not feeling very well to day,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,74,1308
+rahul,silent,21,hard,I'm not feeling very well today,i'm not feeling very well to day,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,74,1211
+rahul,silent,21,absent,I'm not feeling very well today,i'm not feeling very well to day,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,74,1225
+rahul,silent,22,open,the doctor said I need to rest,and understand i need to rest,7,3,0.429,8,0,3,0,0,1,1,0,1,1,1,0,1,,0,0,1009
+rahul,silent,22,random,the doctor said I need to rest,and understand i need to rest,7,3,0.429,8,0,3,0,0,1,1,0,1,1,1,0,1,1,0,73,1081
+rahul,silent,22,hard,the doctor said I need to rest,and understand i need to rest,7,3,0.429,8,0,3,0,0,1,1,0,1,1,1,0,1,1,0,73,1081
+rahul,silent,22,absent,the doctor said I need to rest,and understand i need to rest,7,3,0.429,8,0,3,0,0,1,1,0,1,1,1,0,1,,0,73,1083
+rahul,silent,23,open,that sounds like a great idea,it sounds like a great idea,6,1,0.167,2,0,1,1,1,0,1,1,0,1,1,0,1,,0,0,778
+rahul,silent,23,random,that sounds like a great idea,it sounds like a great idea,6,1,0.167,2,0,1,1,1,0,1,1,0,1,1,0,1,1,0,59,843
+rahul,silent,23,hard,that sounds like a great idea,it sounds like a great idea,6,1,0.167,2,0,1,1,1,0,1,1,0,1,1,0,1,1,0,59,837
+rahul,silent,23,absent,that sounds like a great idea,it sounds like a great idea,6,1,0.167,2,0,1,1,1,0,1,1,0,1,1,0,1,,0,73,860
+rahul,silent,24,open,I don't think that's a good plan,i know that that's a grand plan,7,3,0.429,,0,3,0,0,3,0,0,3,0,0,3,0,,0,0,1207
+rahul,silent,24,random,I don't think that's a good plan,i know that that's a grand plan,7,3,0.429,,0,3,0,0,3,0,0,3,0,0,3,0,1,0,74,1388
+rahul,silent,24,hard,I don't think that's a good plan,i know that that's a grand plan,7,3,0.429,,0,3,0,0,3,0,0,3,0,0,3,0,1,0,74,1288
+rahul,silent,24,absent,I don't think that's a good plan,i know that that's a grand plan,7,3,0.429,,0,3,0,0,3,0,0,3,0,0,3,0,,0,74,1281
+rahul,silent,25,open,I really like the new design,i really like the new design,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,0,1127
+rahul,silent,25,random,I really like the new design,i really like the new design,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,73,1194
+rahul,silent,25,hard,I really like the new design,i really like the new design,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,73,1195
+rahul,silent,25,absent,I really like the new design,i really like the new design,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,73,1202
+rahul,silent,26,open,I'll pick up the groceries on the way home,i'll make up groceries on the way home,9,2,0.222,5,0,2,0,0,1,1,1,0,1,1,0,1,,0,0,1616
+rahul,silent,26,random,I'll pick up the groceries on the way home,i'll make up groceries on the way home,9,2,0.222,5,0,2,0,0,1,1,1,0,1,1,0,1,1,0,73,1689
+rahul,silent,26,hard,I'll pick up the groceries on the way home,i'll make up groceries on the way home,9,2,0.222,5,0,2,0,0,1,1,1,0,1,1,0,1,1,0,73,1689
+rahul,silent,26,absent,I'll pick up the groceries on the way home,i'll make up groceries on the way home,9,2,0.222,5,0,2,0,0,1,1,1,0,1,1,0,1,,0,73,1689
+rahul,silent,27,open,leave the package at the front door,if they buy each other very short,7,7,1.0,,0,7,0,0,7,0,0,7,0,0,4,0,,0,0,1165
+rahul,silent,27,random,leave the package at the front door,if they buy each other very short,7,7,1.0,,0,7,0,0,7,0,0,7,0,0,4,0,1,0,74,1324
+rahul,silent,27,hard,leave the package at the front door,if they buy each other very short,7,7,1.0,,0,7,0,0,7,0,0,7,0,0,4,0,1,0,74,1233
+rahul,silent,27,absent,leave the package at the front door,if they buy each other very short,7,7,1.0,,0,7,0,0,7,0,0,7,0,0,4,0,,0,73,1237
+rahul,silent,28,open,we need to book the tickets tonight,we need to more than a chance to die,7,6,0.857,,0,6,0,0,6,0,0,6,0,0,6,0,,0,0,1568
+rahul,silent,28,random,we need to book the tickets tonight,we need to more than a chance to die,7,6,0.857,,0,6,0,0,6,0,0,6,0,0,6,0,1,0,73,1643
+rahul,silent,28,hard,we need to book the tickets tonight,we need to more than a chance to die,7,6,0.857,,0,6,0,0,6,0,0,6,0,0,6,0,1,0,73,1650
+rahul,silent,28,absent,we need to book the tickets tonight,we need to more than a chance to die,7,6,0.857,,0,6,0,0,6,0,0,6,0,0,6,0,,0,73,1640
+rahul,silent,29,open,thanks so much talk to you soon,so much on tuesday,7,5,0.714,,0,5,0,0,5,0,0,4,0,0,4,0,,0,0,1254
+rahul,silent,29,random,thanks so much talk to you soon,so much on tuesday,7,5,0.714,,0,5,0,0,5,0,0,4,0,0,4,0,1,0,73,1328
+rahul,silent,29,hard,thanks so much talk to you soon,so much on tuesday,7,5,0.714,,0,5,0,0,5,0,0,4,0,0,4,0,1,0,73,1332
+rahul,silent,29,absent,thanks so much talk to you soon,so much on tuesday,7,5,0.714,,0,5,0,0,5,0,0,4,0,0,4,0,,0,73,1337
+rahul,silent,30,open,okay bye see you later,hurt him i see you later,5,3,0.6,,0,3,0,0,3,0,0,3,0,0,3,0,,0,0,1003
+rahul,silent,30,random,okay bye see you later,hurt him i see you later,5,3,0.6,,0,3,0,0,3,0,0,3,0,0,3,0,1,0,73,1163
+rahul,silent,30,hard,okay bye see you later,hurt him i see you later,5,3,0.6,,0,3,0,0,3,0,0,3,0,0,3,0,1,0,73,1076
+rahul,silent,30,absent,okay bye see you later,hurt him i see you later,5,3,0.6,,0,3,0,0,3,0,0,3,0,0,3,0,,0,72,1079
+sarvajith,silent,01,open,hey can you hear me okay,hey can you hear me ok,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,0,792
+sarvajith,silent,01,random,hey can you hear me okay,hey can you hear me ok,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,59,857
+sarvajith,silent,01,hard,hey can you hear me okay,hey can you hear me ok,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,58,850
+sarvajith,silent,01,absent,hey can you hear me okay,hey can you hear me ok,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,74,870
+sarvajith,silent,02,open,hi sorry I'm in the library right now,i started out by the library right now,8,4,0.5,,0,4,0,0,3,0,0,3,0,0,3,0,,0,0,1199
+sarvajith,silent,02,random,hi sorry I'm in the library right now,i started out by the library right now,8,4,0.5,,0,4,0,0,3,0,0,3,0,0,3,0,1,0,74,1279
+sarvajith,silent,02,hard,hi sorry I'm in the library right now,i started out by the library right now,8,4,0.5,,0,4,0,0,3,0,0,3,0,0,3,0,1,0,73,1271
+sarvajith,silent,02,absent,hi sorry I'm in the library right now,i started out by the library right now,8,4,0.5,,0,4,0,0,3,0,0,3,0,0,3,0,,0,73,1278
+sarvajith,silent,03,open,yes that works for me,yes that was me,5,2,0.4,3,0,2,0,1,0,1,1,0,1,1,0,1,,0,0,712
+sarvajith,silent,03,random,yes that works for me,yes that was me,5,2,0.4,3,0,2,0,1,0,1,1,0,1,1,0,1,1,0,59,872
+sarvajith,silent,03,hard,yes that works for me,yes that was me,5,2,0.4,3,0,2,0,1,0,1,1,0,1,1,0,1,1,0,58,766
+sarvajith,silent,03,absent,yes that works for me,yes that was me,5,2,0.4,3,0,2,0,1,0,1,1,0,1,1,0,1,,0,73,793
+sarvajith,silent,04,open,no I haven't heard back yet,no i haven't heard back yet,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,0,914
+sarvajith,silent,04,random,no I haven't heard back yet,no i haven't heard back yet,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,73,995
+sarvajith,silent,04,hard,no I haven't heard back yet,no i haven't heard back yet,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,73,987
+sarvajith,silent,04,absent,no I haven't heard back yet,no i haven't heard back yet,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,73,1000
+sarvajith,silent,05,open,sure go ahead,go ahead,3,1,0.333,8,0,1,1,0,1,1,0,1,1,1,0,1,,0,0,700
+sarvajith,silent,05,random,sure go ahead,go ahead,3,1,0.333,8,0,1,1,0,1,1,0,1,1,1,0,1,1,0,59,758
+sarvajith,silent,05,hard,sure go ahead,go ahead,3,1,0.333,8,0,1,1,0,1,1,0,1,1,1,0,1,1,0,58,768
+sarvajith,silent,05,absent,sure go ahead,go ahead,3,1,0.333,8,0,1,1,0,1,1,0,1,1,1,0,1,,0,72,768
+sarvajith,silent,06,open,I'll be there in ten minutes,i'll be there in ten minutes,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,0,866
+sarvajith,silent,06,random,I'll be there in ten minutes,i'll be there in ten minutes,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,72,928
+sarvajith,silent,06,hard,I'll be there in ten minutes,i'll be there in ten minutes,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,72,938
+sarvajith,silent,06,absent,I'll be there in ten minutes,i'll be there in ten minutes,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,72,926
+sarvajith,silent,07,open,can we move it to three thirty,can we move it to thirty,7,1,0.143,4,0,1,1,0,1,1,1,0,1,1,0,1,,0,0,1074
+sarvajith,silent,07,random,can we move it to three thirty,can we move it to thirty,7,1,0.143,4,0,1,1,0,1,1,1,0,1,1,0,1,1,0,58,1030
+sarvajith,silent,07,hard,can we move it to three thirty,can we move it to thirty,7,1,0.143,4,0,1,1,0,1,1,1,0,1,1,0,1,1,0,58,1039
+sarvajith,silent,07,absent,can we move it to three thirty,can we move it to thirty,7,1,0.143,4,0,1,1,0,1,1,1,0,1,1,0,1,,0,74,1052
+sarvajith,silent,08,open,let's meet tomorrow morning,let's meet tomorrow morning,4,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,0,902
+sarvajith,silent,08,random,let's meet tomorrow morning,let's meet tomorrow morning,4,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,60,955
+sarvajith,silent,08,hard,let's meet tomorrow morning,let's meet tomorrow morning,4,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,58,951
+sarvajith,silent,08,absent,let's meet tomorrow morning,let's meet tomorrow morning,4,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,74,966
+sarvajith,silent,09,open,my number is the same as before,my number is the same as before,7,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,0,955
+sarvajith,silent,09,random,my number is the same as before,my number is the same as before,7,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,59,1000
+sarvajith,silent,09,hard,my number is the same as before,my number is the same as before,7,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,59,1014
+sarvajith,silent,09,absent,my number is the same as before,my number is the same as before,7,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,74,1015
+sarvajith,silent,10,open,it was about forty dollars,it was about forty dollars,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,0,897
+sarvajith,silent,10,random,it was about forty dollars,it was about forty dollars,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,59,859
+sarvajith,silent,10,hard,it was about forty dollars,it was about forty dollars,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,59,856
+sarvajith,silent,10,absent,it was about forty dollars,it was about forty dollars,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,72,868
+sarvajith,silent,11,open,what time does it start,what time does it start,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,0,759
+sarvajith,silent,11,random,what time does it start,what time does it start,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,58,827
+sarvajith,silent,11,hard,what time does it start,what time does it start,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,58,817
+sarvajith,silent,11,absent,what time does it start,what time does it start,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,73,844
+sarvajith,silent,12,open,where should I park,why don't you get married,4,5,1.25,7,0,5,0,0,4,0,0,2,0,1,0,1,,0,0,910
+sarvajith,silent,12,random,where should I park,why don't you get married,4,5,1.25,7,0,5,0,0,4,0,0,2,0,1,0,1,1,0,72,991
+sarvajith,silent,12,hard,where should I park,why don't you get married,4,5,1.25,7,0,5,0,0,4,0,0,2,0,1,0,1,1,0,72,975
+sarvajith,silent,12,absent,where should I park,why don't you get married,4,5,1.25,7,0,5,0,0,4,0,0,2,0,1,0,1,,0,73,990
+sarvajith,silent,13,open,did you get my email,did you get my email,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,0,717
+sarvajith,silent,13,random,did you get my email,did you get my email,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,59,868
+sarvajith,silent,13,hard,did you get my email,did you get my email,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,58,777
+sarvajith,silent,13,absent,did you get my email,did you get my email,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,72,785
+sarvajith,silent,14,open,how did the interview go,how did the interview go,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,0,650
+sarvajith,silent,14,random,how did the interview go,how did the interview go,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,58,696
+sarvajith,silent,14,hard,how did the interview go,how did the interview go,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,58,696
+sarvajith,silent,14,absent,how did the interview go,how did the interview go,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,72,716
+sarvajith,silent,15,open,can you send me the link,can you tell me that like,6,3,0.5,,0,3,0,0,3,0,0,3,0,0,3,0,,0,0,934
+sarvajith,silent,15,random,can you send me the link,can you tell me that like,6,3,0.5,,0,3,0,0,3,0,0,3,0,0,3,0,1,0,73,1019
+sarvajith,silent,15,hard,can you send me the link,can you tell me that like,6,3,0.5,,0,3,0,0,3,0,0,3,0,0,3,0,1,0,72,1006
+sarvajith,silent,15,absent,can you send me the link,can you tell me that like,6,3,0.5,,0,3,0,0,3,0,0,3,0,0,3,0,,0,73,1011
+sarvajith,silent,16,open,please call me back later,please call me back later,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,0,703
+sarvajith,silent,16,random,please call me back later,please call me back later,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,59,767
+sarvajith,silent,16,hard,please call me back later,please call me back later,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,59,774
+sarvajith,silent,16,absent,please call me back later,please call me back later,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,74,783
+sarvajith,silent,17,open,could you say that again,you say that again,5,1,0.2,2,0,1,1,1,0,1,1,0,1,1,0,1,,0,0,779
+sarvajith,silent,17,random,could you say that again,you say that again,5,1,0.2,2,0,1,1,1,0,1,1,0,1,1,0,1,1,0,60,832
+sarvajith,silent,17,hard,could you say that again,you say that again,5,1,0.2,2,0,1,1,1,0,1,1,0,1,1,0,1,1,0,59,930
+sarvajith,silent,17,absent,could you say that again,you say that again,5,1,0.2,2,0,1,1,1,0,1,1,0,1,1,0,1,,0,74,847
+sarvajith,silent,18,open,can you speak a little louder,can you speak a little louder,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,0,862
+sarvajith,silent,18,random,can you speak a little louder,can you speak a little louder,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,59,929
+sarvajith,silent,18,hard,can you speak a little louder,can you speak a little louder,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,60,917
+sarvajith,silent,18,absent,can you speak a little louder,can you speak a little louder,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,74,939
+sarvajith,silent,19,open,I'm running a little late,i'm running a little late,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,0,850
+sarvajith,silent,19,random,I'm running a little late,i'm running a little late,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,74,931
+sarvajith,silent,19,hard,I'm running a little late,i'm running a little late,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,74,920
+sarvajith,silent,19,absent,I'm running a little late,i'm running a little late,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,74,934
+sarvajith,silent,20,open,I just finished my homework,i just finished my homework,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,0,732
+sarvajith,silent,20,random,I just finished my homework,i just finished my homework,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,74,806
+sarvajith,silent,20,hard,I just finished my homework,i just finished my homework,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,73,806
+sarvajith,silent,20,absent,I just finished my homework,i just finished my homework,5,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,73,807
+sarvajith,silent,21,open,I'm not feeling very well today,i'm not feeling very well to day,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,0,950
+sarvajith,silent,21,random,I'm not feeling very well today,i'm not feeling very well to day,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,74,1105
+sarvajith,silent,21,hard,I'm not feeling very well today,i'm not feeling very well to day,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,72,1017
+sarvajith,silent,21,absent,I'm not feeling very well today,i'm not feeling very well to day,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,72,1013
+sarvajith,silent,22,open,the doctor said I need to rest,the doctor said i need rest,7,1,0.143,10,0,1,1,0,1,1,0,1,1,1,0,1,,0,0,789
+sarvajith,silent,22,random,the doctor said I need to rest,the doctor said i need rest,7,1,0.143,10,0,1,1,0,1,1,0,1,1,1,0,1,1,0,73,860
+sarvajith,silent,22,hard,the doctor said I need to rest,the doctor said i need rest,7,1,0.143,10,0,1,1,0,1,1,0,1,1,1,0,1,1,0,73,859
+sarvajith,silent,22,absent,the doctor said I need to rest,the doctor said i need rest,7,1,0.143,10,0,1,1,0,1,1,0,1,1,1,0,1,,0,73,858
+sarvajith,silent,23,open,that sounds like a great idea,that sounds like a great idea,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,0,758
+sarvajith,silent,23,random,that sounds like a great idea,that sounds like a great idea,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,58,805
+sarvajith,silent,23,hard,that sounds like a great idea,that sounds like a great idea,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,58,803
+sarvajith,silent,23,absent,that sounds like a great idea,that sounds like a great idea,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,72,823
+sarvajith,silent,24,open,I don't think that's a good plan,i don't think that's a good plan,7,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,0,1083
+sarvajith,silent,24,random,I don't think that's a good plan,i don't think that's a good plan,7,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,73,1157
+sarvajith,silent,24,hard,I don't think that's a good plan,i don't think that's a good plan,7,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,72,1252
+sarvajith,silent,24,absent,I don't think that's a good plan,i don't think that's a good plan,7,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,72,1151
+sarvajith,silent,25,open,I really like the new design,i really like the new design,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,0,842
+sarvajith,silent,25,random,I really like the new design,i really like the new design,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,72,912
+sarvajith,silent,25,hard,I really like the new design,i really like the new design,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,73,916
+sarvajith,silent,25,absent,I really like the new design,i really like the new design,6,0,0.0,1,1,0,1,1,0,1,1,0,1,1,0,1,,0,73,912
+sarvajith,silent,26,open,I'll pick up the groceries on the way home,i'll pick up the groceries on my way home,9,1,0.111,10,0,1,1,0,1,1,0,1,1,1,0,1,,0,0,1322
+sarvajith,silent,26,random,I'll pick up the groceries on the way home,i'll pick up the groceries on my way home,9,1,0.111,10,0,1,1,0,1,1,0,1,1,1,0,1,1,0,73,1391
+sarvajith,silent,26,hard,I'll pick up the groceries on the way home,i'll pick up the groceries on my way home,9,1,0.111,10,0,1,1,0,1,1,0,1,1,1,0,1,1,0,73,1391
+sarvajith,silent,26,absent,I'll pick up the groceries on the way home,i'll pick up the groceries on my way home,9,1,0.111,10,0,1,1,0,1,1,0,1,1,1,0,1,,0,73,1397
+sarvajith,silent,27,open,leave the package at the front door,leave the package on the front door,7,1,0.143,4,0,1,1,0,1,1,1,0,1,1,0,1,,0,0,996
+sarvajith,silent,27,random,leave the package at the front door,leave the package on the front door,7,1,0.143,4,0,1,1,0,1,1,1,0,1,1,0,1,1,0,58,1059
+sarvajith,silent,27,hard,leave the package at the front door,leave the package on the front door,7,1,0.143,4,0,1,1,0,1,1,1,0,1,1,0,1,1,0,59,1146
+sarvajith,silent,27,absent,leave the package at the front door,leave the package on the front door,7,1,0.143,4,0,1,1,0,1,1,1,0,1,1,0,1,,0,74,1074
+sarvajith,silent,28,open,we need to book the tickets tonight,we need to book the tickets to day,7,1,0.143,,0,1,1,0,1,1,0,1,1,0,1,1,,0,0,1091
+sarvajith,silent,28,random,we need to book the tickets tonight,we need to book the tickets to day,7,1,0.143,,0,1,1,0,1,1,0,1,1,0,1,1,1,0,72,1152
+sarvajith,silent,28,hard,we need to book the tickets tonight,we need to book the tickets to day,7,1,0.143,,0,1,1,0,1,1,0,1,1,0,1,1,1,0,72,1165
+sarvajith,silent,28,absent,we need to book the tickets tonight,we need to book the tickets to day,7,1,0.143,,0,1,1,0,1,1,0,1,1,0,1,1,,0,72,1153
+sarvajith,silent,29,open,thanks so much talk to you soon,thanks so much doctor,7,4,0.571,,0,4,0,0,4,0,0,4,0,0,4,0,,0,0,899
+sarvajith,silent,29,random,thanks so much talk to you soon,thanks so much doctor,7,4,0.571,,0,4,0,0,4,0,0,4,0,0,4,0,1,0,72,959
+sarvajith,silent,29,hard,thanks so much talk to you soon,thanks so much doctor,7,4,0.571,,0,4,0,0,4,0,0,4,0,0,4,0,1,0,72,967
+sarvajith,silent,29,absent,thanks so much talk to you soon,thanks so much doctor,7,4,0.571,,0,4,0,0,4,0,0,4,0,0,4,0,,0,72,959
+sarvajith,silent,30,open,okay bye see you later,okay buy see you later,5,1,0.2,,0,1,1,0,1,1,0,1,1,0,1,1,,0,0,847
+sarvajith,silent,30,random,okay bye see you later,okay buy see you later,5,1,0.2,,0,1,1,0,1,1,0,1,1,0,1,1,1,0,72,909
+sarvajith,silent,30,hard,okay bye see you later,okay buy see you later,5,1,0.2,,0,1,1,0,1,1,0,1,1,0,1,1,1,0,74,928
+sarvajith,silent,30,absent,okay bye see you later,okay buy see you later,5,1,0.2,,0,1,1,0,1,1,0,1,1,0,1,1,,0,74,1015

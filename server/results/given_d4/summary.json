@@ -1,0 +1,41 @@
+{
+  "distractors": 4,
+  "clips": 90,
+  "conditions": {
+    "open": {
+      "top1_wer": 0.3733,
+      "exact@1": 0.3556,
+      "exact@3": 0.4333,
+      "exact@10": 0.5556,
+      "wrong_given_top1": 0,
+      "given_ms_median": 0.0
+    },
+    "random": {
+      "top1_wer": 0.3676,
+      "exact@1": 0.3667,
+      "exact@3": 0.4444,
+      "exact@10": 0.5778,
+      "wrong_given_top1": 0,
+      "given_ms_median": 73.0,
+      "list@1": 0.9889
+    },
+    "hard": {
+      "top1_wer": 0.3676,
+      "exact@1": 0.3667,
+      "exact@3": 0.4444,
+      "exact@10": 0.5778,
+      "wrong_given_top1": 0,
+      "given_ms_median": 73.0,
+      "list@1": 0.9778
+    },
+    "absent": {
+      "top1_wer": 0.3733,
+      "exact@1": 0.3556,
+      "exact@3": 0.4333,
+      "exact@10": 0.5556,
+      "wrong_given_top1": 0,
+      "given_ms_median": 73.0
+    }
+  },
+  "calibration_abs_diff_median": 0.0
+}
