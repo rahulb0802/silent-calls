@@ -24,3 +24,7 @@ Merged layout: this document now lives under client/docs. The canonical team spe
 ## Typed speech increment
 
 Typed speech and quick phrases now have a dedicated Electron main-process bridge to Nilesh's local `say`/`spoken` service. This is distinct from the still-unconnected lip-reading `MeetingPort`. The widget works without the camera for typing. The new Meeting audio setup route provides BlackHole/VB-Cable routing instructions, app-specific microphone selection and a manually sent setup phrase. Connection opens only on an explicit click, remains loopback-only, and never sends video. API keys/output-device configuration stay in Python's `.env`. Acknowledgement is not treated as proof that a meeting participant heard audio. No test, build, device check, provider call or app launch was performed for this increment. See root docs/TYPED_SPEECH.md.
+
+## Guided onboarding
+
+Replaced stale voice-coming-later onboarding with camera-optional first run, explicit audio-device enumeration, app-specific routing, encrypted optional Cartesia configuration and an explicit managed-local-service connection action. The final step distinguishes live connection, camera observation and user-confirmed route delivery. Training remains in the workspace and is not implied by setup completion. Native permissions, driver installation, Cartesia cloning and meeting microphone selection remain user actions. Bundled Python/service distribution is still TODO. Not built or tested per instruction.

@@ -26,3 +26,7 @@ Capture and native key hooks are implemented. MediaPipe mouth feedback accepts a
 ## Local typed-speech increment
 
 Typed speech and quick phrases connect, after an explicit user action, to Nilesh's loopback voice service on 127.0.0.1 with a configurable local port (default 8765). The existing Python service sends confirmed text to Cartesia and handles virtual-device output. Webcam frames and training video never use this bridge. Provider keys remain server-side. The BlackHole/VB-Cable setup screen explains output-device and meeting-microphone selection for Zoom, Meet and FaceTime. No driver installation or audio setting is changed automatically. Connection and acknowledgement are not treated as proof that the other participant heard audio. Lip-reading and training adapters remain unconnected.
+
+## Guided onboarding increment
+
+First-run setup leads to real typed speech, with optional camera framing and later model enrollment. In a repository checkout with Python dependencies installed, the desktop can start the fixed voice-only service on user request and stop only its own child at app quit. Existing externally started services are reused. Optional Cartesia credentials use Electron system-backed encryption in userData; credentials are never returned through status or stored in localStorage. A signed bundled Python runtime, automatic driver installation, in-app voice cloning, and automatic selection inside meeting apps are not shipped. Camera permission, temporary microphone enumeration and sending speech require explicit user action.
