@@ -1,0 +1,7 @@
+anthropic>=2.3
+httpx>=0.28
+websockets>=14
+sounddevice>=0.5
+numpy>=2.0
+pydantic>=2.0
+python-dotenv>=1.0

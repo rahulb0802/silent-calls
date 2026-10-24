@@ -1,0 +1,67 @@
+"""Messages shared between the components. PROPOSAL - agree these Friday night.
+
+Lip-reading server (GPU, Person 1), per utterance:
+  client -> server  {"type": "start", "utterance_id": "u1"}
+  client -> server  binary frames (JPEG bytes, one per webcam frame, while the key is held)
+  client -> server  {"type": "end", "utterance_id": "u1"}
+  server -> client  CandidatesMessage (below)
+
+Desktop app <-> this process (ws://127.0.0.1:8765, see app.py):
+  in:  CandidatesMessage                         forward the lip-reader's output here
+  in:  {"type": "confirm", "utterance_id", "text"}   user picked an option -> speak it
+  in:  {"type": "say", "text"}                   speak arbitrary text (typed fallback)
+  in:  {"type": "opener"}                        play the "speech assistant" opener
+  out: DecisionEvent, RepairEvent, CaptionEvent, SpokenEvent
+"""
+
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+
+class Candidate(BaseModel):
+    text: str
+    score: float  # lip-reader beam log-prob; higher is better
+
+
+class CandidatesMessage(BaseModel):
+    type: Literal["candidates"] = "candidates"
+    utterance_id: str
+    candidates: list[Candidate]  # best first, up to the beam size (40)
+    model_ms: float | None = None  # crop + model time on the GPU, for latency logging
+
+
+class Option(BaseModel):
+    text: str
+    prob: float  # combined lip-reading + Jev probability
+    p_lip: float
+    p_jev: float | None = None
+
+
+class DecisionEvent(BaseModel):
+    type: Literal["decision"] = "decision"
+    utterance_id: str
+    route: Literal["speak", "choose", "repeat"]
+    options: list[Option]  # top 3
+    timings_ms: dict[str, float] = Field(default_factory=dict)
+
+
+class RepairEvent(BaseModel):
+    """Claude's suggested fix; only ever shown as an extra option, never auto-spoken."""
+
+    type: Literal["repair"] = "repair"
+    utterance_id: str
+    text: str
+    latency_ms: float
+
+
+class CaptionEvent(BaseModel):
+    type: Literal["caption"] = "caption"
+    speaker: Literal["them", "me"]
+    text: str
+
+
+class SpokenEvent(BaseModel):
+    type: Literal["spoken"] = "spoken"
+    text: str
+    first_audio_ms: float
