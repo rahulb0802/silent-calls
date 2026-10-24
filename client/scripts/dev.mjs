@@ -2,6 +2,8 @@ import { createServer } from 'vite';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import electron from 'electron';
+const {ensureFaceModel}=await import('./fetch-face-model.mjs');
+try{await ensureFaceModel();}catch(error){console.warn(`${error.message} Hands-free setup will show a retry message; buttons and typing remain available.`);}
 const server = await createServer();
 await server.listen();
 const env = { ...process.env, ELECTRON_RENDERER_URL: 'http://127.0.0.1:5173', SILENT_CALLS_LAUNCHER_PID: String(process.pid) };

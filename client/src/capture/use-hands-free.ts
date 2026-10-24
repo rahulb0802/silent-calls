@@ -6,8 +6,8 @@ type Saved = { enabled: boolean; mode: GestureMode; startBy: StartBy; mouthOn?: 
 function load(): Saved {
   try {
     const value = JSON.parse(localStorage.getItem(KEY) || '{}');
-    return { enabled: value.enabled === true, mode: value.mode === 'face' ? 'face' : 'head', startBy: value.startBy === 'mouth' ? 'mouth' : 'nod', mouthOn: Number.isFinite(value.mouthOn) && value.mouthOn > 0 ? value.mouthOn : undefined };
-  } catch { return { enabled: false, mode: 'head', startBy: 'nod' }; }
+    return { enabled: true, mode: value.mode === 'face' ? 'face' : 'head', startBy: value.startBy === 'mouth' ? 'mouth' : 'nod', mouthOn: Number.isFinite(value.mouthOn) && value.mouthOn > 0 ? value.mouthOn : undefined };
+  } catch { return { enabled: true, mode: 'head', startBy: 'nod' }; }
 }
 export type Calibration = { step: 'idle' | 'rest' | 'mouth' | 'done' | 'failed'; secondsLeft: number };
 const REST_MS = 4000, MOUTH_MS = 5000;
@@ -24,15 +24,29 @@ export function useHandsFree(phase: HandsFreePhase, talkingAt: number, suggestio
   const [calibration, setCalibration] = useState<Calibration>({ step: 'idle', secondsLeft: 0 });
   const calib = useRef<{ step: 'rest' | 'mouth'; until: number; rest: number[]; mouth: number[] } | null>(null);
   const lastMeter = useRef(0);
+  const practiceUntil=useRef(0);
   // Tuning recording: 15 s of face readings (numbers only, no images), saved as a JSON file.
   const rec = useRef<{ until: number; start: number; rows: unknown[] } | null>(null);
   const [recording, setRecording] = useState(0);
 
   const save = useCallback((next: Saved) => {
+    next={...next,enabled:true};
     setSaved(next);
     engine.current.config = { mode: next.mode, startBy: next.startBy, mouthOn: next.mouthOn };
     try { localStorage.setItem(KEY, JSON.stringify(next)); } catch { /* settings stay for this session */ }
   }, []);
+
+  useEffect(()=>{
+    const sync=(event?:StorageEvent)=>{
+      if(!event || event.key==='silent-calls:gesture-practice:v1'){
+        try{practiceUntil.current=JSON.parse(localStorage.getItem('silent-calls:gesture-practice:v1') || '{}').until || 0;}catch{practiceUntil.current=0;}
+      }
+      if(event && (event.key===KEY || event.key===null)){
+        const next=load();setSaved(next);engine.current=new HandsFree({mode:next.mode,startBy:next.startBy,mouthOn:next.mouthOn});
+      }
+    };
+    sync();window.addEventListener('storage',sync);return()=>window.removeEventListener('storage',sync);
+  },[]);
 
   const onSample = useCallback((sample: FaceSample) => {
     const r = rec.current;
@@ -64,7 +78,7 @@ export function useHandsFree(phase: HandsFreePhase, talkingAt: number, suggestio
       return;
     }
     const s = state.current;
-    if (!s.enabled) return;
+    if (!s.enabled || Date.now()<practiceUntil.current) return;
     const events = engine.current.push(sample, s.phase, sample.t - s.talkingAt < 1500, s.suggestions);
     if (sample.t - lastMeter.current > 200) { lastMeter.current = sample.t; setMeter({ level: engine.current.mouth, threshold: engine.current.threshold }); }
     for (const event of events) { console.info(`[hands-free] ${event} (mouth ${engine.current.mouth.toFixed(2)} / start at ${engine.current.threshold.toFixed(2)})`); s.onEvent(event); }
@@ -78,8 +92,8 @@ export function useHandsFree(phase: HandsFreePhase, talkingAt: number, suggestio
 
   return {
     enabled: saved.enabled, mode: saved.mode, calibrated: saved.mouthOn !== undefined,
-    setEnabled: (enabled: boolean) => save({ ...saved, enabled }),
     setMode: (mode: GestureMode) => save({ ...saved, mode }),
+    setHeadGestures: () => save({...saved,mode:'head',startBy:'nod'}),
     startBy: saved.startBy,
     setStartBy: (startBy: StartBy) => save({ ...saved, startBy }),
     resetCalibration: () => save({ ...saved, mouthOn: undefined }),
