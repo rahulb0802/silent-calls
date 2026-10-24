@@ -1,3 +1,5 @@
+import {LipreadPort} from './services/lipread-port';
+import {loadSettings} from './services/settings';
 import {VoicePanel} from './components/voice-panel';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, Camera, CameraOff, GripHorizontal, Pause, Play, Waves, X } from 'lucide-react';
@@ -8,7 +10,10 @@ import type {CaptureCallbacks} from './capture/use-capture';
 import { useCapture } from './capture/use-capture';
 import type { HoldKey, HoldStatus } from './desktop';
 const keyLabels: Record<HoldKey, string> = { F8: 'F8', F9: 'F9', F10: 'F10', CtrlRight: 'Right Ctrl' };
-export function MeetingWidget({service:port}:{service?:MeetingPort} = {}) {
+export function MeetingWidget({service:providedPort}:{service?:MeetingPort} = {}) {
+  const [gpuPort] = useState(() => new LipreadPort(loadSettings()));
+  const port = providedPort || gpuPort;
+  const [editedText,setEditedText] = useState('');
   const callbacks=useRef<CaptureCallbacks>({});
   const capture=useCapture({onStart:value=>callbacks.current.onStart?.(value),onFrame:value=>callbacks.current.onFrame?.(value),onEnd:value=>callbacks.current.onEnd?.(value),onCancel:()=>callbacks.current.onCancel?.(),onVideoFrame:(video,now)=>callbacks.current.onVideoFrame?.(video,now)});
   const [modelBuffer,setModelBuffer]=useState<Uint8Array|null>(null);
@@ -27,7 +32,10 @@ export function MeetingWidget({service:port}:{service?:MeetingPort} = {}) {
   const [frame, setFrame] = useState(0);
   const [playing, setPlaying] = useState(false);
   const container = useRef<HTMLElement>(null);
-  const beginRef = useRef(capture.begin); beginRef.current = capture.begin;
+  const serviceBusy = service.phase === 'processing' || service.phase === 'queued' || service.phase === 'speaking';
+  const begin = () => { if (!serviceBusy) capture.begin(); };
+  const beginRef = useRef(begin); beginRef.current = begin;
+  useEffect(() => { setEditedText(service.candidates[0]?.text || ''); }, [service.candidates]);
   const releaseRef = useRef(capture.release); releaseRef.current = capture.release;
   const stopRef = useRef(capture.stop); stopRef.current = capture.stop;
   useEffect(() => {
@@ -77,7 +85,7 @@ export function MeetingWidget({service:port}:{service?:MeetingPort} = {}) {
   async function stop() { await window.desktop?.stopGlobalHold(); capture.stop(); setPlaying(false); container.current?.focus(); }
   useEffect(() => {
     const down = (event: KeyboardEvent) => {
-      if ((event.target as HTMLElement).closest('input,select,textarea,button')) return;
+      if ((event.target as HTMLElement).closest('input,select,textarea')) return;
       if(service.phase==='choosing' && ['1','2','3'].includes(event.key)){const candidate=service.candidates[Number(event.key)-1];if(candidate){event.preventDefault();service.confirm(candidate);}return;}
       const matches = key === 'CtrlRight' ? event.code === 'ControlRight' : event.code === key;
       if (matches && !hook.active) { event.preventDefault(); if (!event.repeat) beginRef.current(); }
@@ -96,7 +104,17 @@ export function MeetingWidget({service:port}:{service?:MeetingPort} = {}) {
     <header className="widget-header"><div className="widget-logo"><Waves size={21}/> silent calls<span>.</span></div><GripHorizontal size={19} className="drag-grip"/><button className="icon-button" aria-label="Close meeting widget" onClick={() => window.desktop ? window.desktop.closeWidget() : window.close()}><X size={17}/></button></header>
     <div className="widget-body"><div className="widget-status"><span className={`dot ${busy ? 'recording-dot' : ''}`}/>{capture.cameraOn ? 'Camera enabled' : 'Camera off'}<span className="demo-badge">{service.connected?'Service connected':'Local capture'}</span></div>
       <h1 aria-live="polite">{title}</h1>
-      <VoicePanel/>
+      {!providedPort && <section className="gpu-connect" aria-label="GPU lip-reading connection"><div><strong>Lip-reading</strong><span className={`dot ${service.connected ? '' : 'amber'}`}/>{service.connected ? 'GPU connected' : 'Not connected'}</div><p role="status">{service.message}</p><div className="gpu-actions"><button className="hold-button" disabled={service.phase === 'queued' || service.phase === 'speaking' || busy} onClick={() => service.connected ? gpuPort.disconnect() : gpuPort.connect(loadSettings())}>{service.connected ? 'Disconnect GPU' : 'Connect lip-reading'}</button><button className="icon-text" onClick={() => window.desktop?.showMain('workspace')}>Connection settings <ArrowUpRight size={12}/></button></div><p className="capture-help">Connecting enables uploads while you hold the key. Keep the SSH tunnel open. Video is sent to the GPU for inference and stays in memory.</p></section>}
+      <section className="meeting-results" aria-label="Lip-reading results">
+        {service.phase==='processing' && <p className="capture-help" role="status">{service.upload.bufferedBytes > 0 ? `Uploading ${Math.ceil(service.upload.bufferedBytes/1024)} KB queued · ${service.upload.sentFrames} frames` : 'Waiting for the GPU to read your phrase… Venue Wi-Fi can take 10 seconds or longer.'}</p>}
+        {service.phase==='processing' && <button className="retry" onClick={()=>{service.cancel();capture.clear();}}>Cancel this request</button>}
+        {service.phase==='queued' && <p className="capture-help" role="status">Your phrase is confirmed. Waiting for the local voice service…</p>}
+        {service.phase==='speaking' && <p className="capture-help" role="status">Voice playback reported by the service…</p>}
+        {service.candidates.length > 0 && <><h2>Choose what you meant.</h2><p className="capture-help">Selecting a phrase speaks it through your meeting microphone. Nothing is spoken automatically.</p><div className="candidate-list live-candidates" aria-label="Top three phrases">{service.candidates.slice(0,3).map((candidate,index)=><button key={candidate.id} disabled={service.phase!=='choosing' || !service.connected} onClick={()=>{service.confirm(candidate);container.current?.focus();}}><kbd>{index+1}</kbd><span>{candidate.text}</span></button>)}</div>{service.candidates.length>3 && <details className="gpu-more"><summary>Show {service.candidates.length-3} more suggestions</summary><div className="candidate-list live-candidates">{service.candidates.slice(3).map(candidate=><button key={candidate.id} disabled={service.phase!=='choosing' || !service.connected} onClick={()=>service.confirm(candidate)}><span>{candidate.text}</span></button>)}</div></details>}<label className="gpu-edit-label" htmlFor="gpu-edit">Or correct the phrase before speaking</label><textarea id="gpu-edit" rows={2} maxLength={5000} value={editedText} disabled={service.phase!=='choosing'} onChange={event=>setEditedText(event.target.value)}/><button className="hold-button" disabled={service.phase!=='choosing' || !editedText.trim() || !service.connected} onClick={()=>service.confirm(service.candidates[0],editedText)}>Speak edited phrase</button><button className="retry" disabled={service.phase!=='choosing'} onClick={()=>{service.cancel();capture.clear();container.current?.focus();}}>Discard & mouth it again</button></>}
+        {(service.confidence !== undefined || Object.keys(service.timings).length > 0 || service.quality) && <details className="gpu-more"><summary>Server details</summary>{service.confidence !== undefined && <p>Server confidence: {Math.round(service.confidence*100)}% · not measured accuracy</p>}{Object.entries(service.timings).map(([name,value])=><p key={name}>{name}: {Math.round(value)}ms</p>)}{service.quality && <p>Quality: {service.quality}</p>}</details>}
+        {service.error && <p className="capture-error" role="alert">{service.error}</p>}
+        {service.captions.length > 0 && <div className="meeting-captions" aria-live="polite">{service.captions.map((line,index)=><p key={index}><strong>{line.speaker}</strong>{line.text}</p>)}</div>}
+      </section>
       <div className={`live-camera ${clip ? 'reviewing' : ''}`}>
         <video ref={capture.video} autoPlay muted playsInline aria-label="Live camera preview"/>
         {clip?.frames[frame] && <img src={clip.frames[frame].jpeg} alt={`Captured frame ${frame + 1} of ${clip.frames.length}`}/>}
@@ -108,19 +126,12 @@ export function MeetingWidget({service:port}:{service?:MeetingPort} = {}) {
       {!modelBuffer && <label className="model-picker">Choose local MediaPipe model<input type="file" accept=".task" onChange={event=>{const file=event.target.files?.[0];if(file)void file.arrayBuffer().then(buffer=>{setModelBuffer(new Uint8Array(buffer));setModelError('');}).catch(()=>setModelError('Could not open the model file. Try again.'));}}/></label>}
       {modelError && <p className="capture-error" role="alert">{modelError}</p>}
       {capture.error && <p className="capture-error" role="alert">{capture.error}</p>}
-      {!capture.cameraOn ? <button className="hold-button" onClick={() => {setPlaying(false);void capture.enable(device || undefined);}}><Camera size={16}/> Enable camera</button> : <button className={`hold-button ${busy ? 'held' : ''}`} disabled={!ready && capture.phase !== 'capturing'} onPointerDown={event => { event.currentTarget.setPointerCapture(event.pointerId); capture.begin(); }} onPointerUp={capture.release} onPointerCancel={capture.release} onBlur={() => {if (!hook.active) capture.release();}} onKeyDown={event => {if (['Space','Enter'].includes(event.code)) {event.preventDefault();if (!event.repeat) capture.begin();}}} onKeyUp={event => {if (['Space','Enter'].includes(event.code)) {event.preventDefault();capture.release();}}}><span className="record-dot"/>{capture.phase === 'starting' ? 'Warming up the frame buffer…' : capture.phase === 'tail' ? 'Capturing 0.3s post-roll…' : capture.phase === 'capturing' ? 'Release to finish' : 'Hold to capture'}<kbd>{keyLabels[key]}</kbd></button>}
+      {!capture.cameraOn ? <button className="hold-button" onClick={() => {setPlaying(false);void capture.enable(device || undefined);}}><Camera size={16}/> Enable camera</button> : <button className={`hold-button ${busy ? 'held' : ''}`} disabled={serviceBusy || (!ready && capture.phase !== 'capturing')} onPointerDown={event => { event.currentTarget.setPointerCapture(event.pointerId); beginRef.current(); }} onPointerUp={capture.release} onPointerCancel={capture.release} onBlur={() => {if (!hook.active) capture.release();}} onKeyDown={event => {if (['Space','Enter'].includes(event.code)) {event.preventDefault();if (!event.repeat) beginRef.current();}}} onKeyUp={event => {if (['Space','Enter'].includes(event.code)) {event.preventDefault();capture.release();}}}><span className="record-dot"/>{capture.phase === 'starting' ? 'Warming up the frame buffer…' : capture.phase === 'tail' ? 'Capturing 0.3s post-roll…' : capture.phase === 'capturing' ? 'Release to finish' : 'Hold to capture'}<kbd>{keyLabels[key]}</kbd></button>}
       <div className="capture-settings"><label htmlFor="camera-device">Camera</label><select id="camera-device" value={device} disabled={capture.cameraOn} onChange={event => setDevice(event.target.value)}><option value="">System default</option>{devices.map((camera,index) => <option key={camera.deviceId || index} value={camera.deviceId}>{camera.label || `Camera ${index + 1}`}</option>)}</select><label htmlFor="hold-key">Hold key</label><select id="hold-key" value={key} disabled={hook.active || busy || hookPending} onChange={event => {const selected=event.target.value as HoldKey;setKey(selected);localStorage.setItem('silent-calls:hold-key:v1',selected);}}>{Object.entries(keyLabels).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></div>
       <div className="global-controls"><button className="icon-text" disabled={!window.desktop || (!hook.active && (!ready || hookPending))} onClick={() => hook.active ? void stop() : void enableGlobal()}>{hook.active ? <Pause size={14}/> : <Play size={14}/>} {hook.active ? 'Disable global key & camera' : enablingHook ? 'Enabling…' : 'Enable global key'}</button>{!hook.active && window.desktop && <button className="icon-text" onClick={() => window.desktop?.openKeyboardSettings()}>Permissions <ArrowUpRight size={12}/></button>}</div>
       <p className="capture-help" role="status">{window.desktop ? hook.message : 'Browser preview: the hold key works only while this tab is focused. Use Electron for global capture.'}</p>
       <div className="capture-metrics"><span>{capture.stats.fps} fps measured / 25 target</span><span>{capture.stats.bufferedMs}ms buffered</span></div>
-      {port && <div className="meeting-results"><h2>Conversation</h2><div className="meeting-captions" aria-live="polite">{service.captions.length?service.captions.map((line,index)=><p key={index}><strong>{line.speaker}</strong>{line.text}</p>):<p>{service.connected?'Waiting for conversation captions…':'Captions appear when the meeting adapter is connected.'}</p>}</div>
-      {service.phase==='processing' && <p className="capture-help" role="status">Waiting for phrase candidates…</p>}
-      {service.phase==='queued' && <p className="capture-help" role="status">Phrase confirmed. Waiting for voice service…</p>}
-      {service.phase==='speaking' && <p className="capture-help" role="status">Voice service reports that it is speaking…</p>}
-      {service.candidates.length>0 && <div className="candidate-list live-candidates" aria-label="Choose what you meant">{service.candidates.map((candidate,index)=><button key={candidate.id} disabled={service.phase!=='choosing' || !service.connected} onClick={()=>{service.confirm(candidate);container.current?.focus();}}><kbd>{index+1}</kbd><span>{candidate.text}</span></button>)}<button className="retry" onClick={()=>{service.cancel();capture.clear();container.current?.focus();}}>Discard candidates & retry</button></div>}
-
-      {service.error && <p className="capture-error" role="alert">{service.error}</p>}
-      <p className="capture-help">{service.connected?'The approved adapter receives frames while you hold the key. Uncertain phrases always need your choice.':'Lip-reading is not connected. Camera captures stay local; use Type to speak above for the local voice service.'}</p></div>}
+      <details className="typed-fallback"><summary>Type instead · quick phrases</summary><VoicePanel/></details>
       <button className="icon-text" onClick={()=>window.desktop?window.desktop.showMain('workspace'):window.open(`${location.pathname}#/workspace`,'_blank')}>Training & settings <ArrowUpRight size={13}/></button>
       <p className="capture-help">Meeting video stays in memory and is discarded when you stop the camera.</p>
     </div>
