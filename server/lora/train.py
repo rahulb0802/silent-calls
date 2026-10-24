@@ -24,7 +24,7 @@ from ..lipread.metrics import score, summarize
 from ..lipread.model import DecodeConfig, decode, load
 from ..lipread.paths import ADAPTER_DIR, RESULTS_DIR, add_vsr_to_path
 from . import lora
-from .data import Sample, Tokenizer, augment, center, collate, load_enrollment, load_feasibility
+from .data import MIN_CLIPS, Sample, Tokenizer, augment, center, collate, load_enrollment, load_feasibility
 
 add_vsr_to_path()
 from espnet.nets.pytorch_backend.nets_utils import make_non_pad_mask  # noqa: E402
@@ -121,10 +121,15 @@ def train(args, avsr=None) -> dict:
     rng = random.Random(args.seed)
 
     samples = load_feasibility(args.user) if args.source == "feasibility" else load_enrollment(user_key)
-    if len(samples) < 8:
+    if len(samples) < MIN_CLIPS and args.source == "enroll":
         status.update(state="failed", error=f"only {len(samples)} clips for {args.user}")
         raise SystemExit(f"only {len(samples)} {args.source} clips for {args.user}")
     train_set, test_set = split(samples, args.test_frac, args.seed, args.fold, args.folds)
+    if args.max_train:  # learning-curve experiments: train on only this many of the training sentences
+        keep = sorted({s.key for s in train_set})
+        random.Random(args.seed + 7).shuffle(keep)
+        keep = set(keep[:args.max_train])
+        train_set = [s for s in train_set if s.key in keep]
     val_set: list[Sample] = []
     if len(train_set) >= 30:  # small validation split from the training sentences, for picking the step
         train_set, val_set = split(train_set, 0.12, args.seed + 1)
@@ -278,6 +283,7 @@ def build_parser(prog: str = "python -m server.lora.train") -> argparse.Argument
     p.add_argument("--test-frac", type=float, default=0.2)
     p.add_argument("--fold", type=int, help="cross-validation: hold out this fold of the sentences")
     p.add_argument("--folds", type=int, default=5)
+    p.add_argument("--max-train", type=int, help="train on at most this many sentences (learning curve)")
     p.add_argument("--eval-steps", help="e.g. 50,100,200: also score the held-out set at these steps")
     p.add_argument("--beam", type=int, default=40)
     p.add_argument("--seed", type=int, default=0)

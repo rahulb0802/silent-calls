@@ -82,8 +82,8 @@ def start_training(user_id: str, steps: int = 100, test_feasibility: bool = True
     if job and job.poll() is None:
         raise HTTPException(409, "already training")
     n = len(list((ENROLL_DIR / key).glob("*.npz")))
-    if n < 8:
-        raise HTTPException(400, f"need at least 8 enrollment clips, have {n}")
+    if n < lora_data.MIN_CLIPS:
+        raise HTTPException(400, f"need at least {lora_data.MIN_CLIPS} enrollment clips, have {n}")
     out = ADAPTER_DIR / key
     out.mkdir(parents=True, exist_ok=True)
     (out / "status.json").write_text(json.dumps({"state": "queued", "started": time.time()}))

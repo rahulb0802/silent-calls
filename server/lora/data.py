@@ -18,6 +18,9 @@ import torch
 from ..lipread.paths import CACHE_DIR, ENROLL_DIR, EVAL_DATA, SPM_MODEL
 
 HERE = Path(__file__).resolve().parent
+# Fewest enrollment clips we train on: 30 leaves 24 to train after the 20% held out for the report, the smallest
+# training set with a measured gain (docs/RESULTS.md, section 5).
+MIN_CLIPS = 30
 MEAN, STD = 0.421, 0.165  # the checkpoint's input normalization
 
 
