@@ -20,6 +20,7 @@ from pathlib import Path
 import torch
 from torch import nn
 
+from ..lipread import vocab as vb
 from ..lipread.metrics import score, summarize
 from ..lipread.model import DecodeConfig, decode, load
 from ..lipread.paths import ADAPTER_DIR, RESULTS_DIR, add_vsr_to_path
@@ -70,17 +71,39 @@ def split(samples: list[Sample], test_frac: float, seed: int, fold: int | None =
     if fold is not None:
         test = set(keys[fold * len(keys) // folds:(fold + 1) * len(keys) // folds])
     else:
-        test = set(keys[:max(1, round(len(keys) * test_frac))])
+        # personal sentences (name + vocabulary) are held out in proportion, at least one if there are two,
+        # so the report always says whether the names come out right
+        personal = [k for k in keys if k.startswith(vb.PERSONAL_PREFIX)]
+        other = [k for k in keys if not k.startswith(vb.PERSONAL_PREFIX)]
+        n_personal = max(1 if len(personal) >= 2 else 0, round(len(personal) * test_frac))
+        n_other = max(0 if n_personal else 1, round(len(keys) * test_frac) - n_personal)
+        test = set(personal[:n_personal] + other[:n_other])
     return [s for s in samples if s.key not in test], [s for s in samples if s.key in test]
 
 
-def evaluate(avsr, samples: list[Sample]) -> tuple[dict, list[dict]]:
+def evaluate(avsr, samples: list[Sample], vocab: list[str] | None = None) -> tuple[dict, list[dict]]:
+    """Score samples; with a vocab, decode with the name bias on (as live) and record whether each sentence's
+    vocabulary words made the top 1 / top 5."""
     rows = []
     for s in samples:
-        nbest, _ = decode(avsr, s.crop, 10)
+        nbest, _ = decode(avsr, s.crop, 10, vocab)
         hyps = [c[0] for c in nbest]
-        rows.append({"key": s.key, "ref": s.text, "top1": hyps[0] if hyps else "", **score(s.text, hyps)})
+        row = {"key": s.key, "ref": s.text, "top1": hyps[0] if hyps else "", **score(s.text, hyps)}
+        words = vb.words_in(s.text, vocab or [])
+        if words:
+            row["vocab_words"] = words
+            row["vocab@1"] = int(all(vb.words_in(h, words) == words for h in hyps[:1]) and bool(hyps))
+            row["vocab@5"] = int(any(vb.words_in(h, words) == words for h in hyps[:5]))
+        rows.append(row)
     return summarize(rows), rows
+
+
+def vocab_summary(rows: list[dict]) -> dict | None:
+    named = [r for r in rows if "vocab_words" in r]
+    if not named:
+        return None
+    return {"clips": len(named), "vocab@1": sum(r["vocab@1"] for r in named) / len(named),
+            "vocab@5": sum(r["vocab@5"] for r in named) / len(named)}
 
 
 @torch.no_grad()
@@ -134,6 +157,8 @@ def train(args, avsr=None) -> dict:
     if len(train_set) >= 30:  # small validation split from the training sentences, for picking the step
         train_set, val_set = split(train_set, 0.12, args.seed + 1)
     extra_test = load_feasibility(args.user) if args.test_feasibility and args.source != "feasibility" else []
+    # the user's name + saved vocabulary, so held-out sentences are decoded with the name bias, as in a call
+    vocab = vb.clean(vb.load_user(args.user) + [vb.own_name(args.user) or ""]) if args.source == "enroll" else []
 
     avsr = avsr or load(DecodeConfig(beam=args.beam), args.device)
     model = avsr.model
@@ -144,7 +169,7 @@ def train(args, avsr=None) -> dict:
 
     status.update(state="evaluating", phase="before", n_train=len(train_set), n_test=len(test_set))
     lora.set_active(model, None)
-    before, before_rows = evaluate(avsr, test_set)
+    before, before_rows = evaluate(avsr, test_set, vocab)
     before_x = evaluate(avsr, extra_test)[0] if extra_test else None
     log.info("before: %s", before)
 
@@ -191,7 +216,7 @@ def train(args, avsr=None) -> dict:
                 best = (point["val_loss"], {k: v.clone() for k, v in lora.state(model, user_key).items()}, step)
         curve.append(point)
         if step in eval_steps:  # accuracy on the held-out sentences at this step (for choosing --steps)
-            s_, rows_ = evaluate(avsr, test_set)
+            s_, rows_ = evaluate(avsr, test_set, vocab)
             checkpoints[step] = {"test": s_, "rows": rows_,
                                  "feasibility": evaluate(avsr, extra_test)[0] if extra_test else None}
             log.info("step %d held-out: %s", step, s_)
@@ -209,7 +234,7 @@ def train(args, avsr=None) -> dict:
 
     status.update(state="evaluating", phase="after")
     lora.set_active(model, user_key)
-    after, after_rows = evaluate(avsr, test_set)
+    after, after_rows = evaluate(avsr, test_set, vocab)
     after_x = evaluate(avsr, extra_test)[0] if extra_test else None
     log.info("after: %s", after)
 
@@ -220,6 +245,7 @@ def train(args, avsr=None) -> dict:
         "n_test": len(test_set), "test_sentences": sorted({s.key for s in test_set}),
         "before_wer": before["top1_wer"], "after_wer": after["top1_wer"],
         "before_top5": before["exact@5"], "after_top5": after["exact@5"],
+        "vocab_before": vocab_summary(before_rows), "vocab_after": vocab_summary(after_rows),
         "before": before, "after": after,
         "feasibility_before": before_x, "feasibility_after": after_x,
         "per_clip": [{"key": b_["key"], "ref": b_["ref"], "before": b_["top1"], "after": a_["top1"],

@@ -1,3 +1,4 @@
+import {vocabularyTerms} from './personal-library';
 import type {ServiceSettings} from './settings';
 export type EnrollmentPrompt={id:string;sentence:string};
 export type EnrollmentProgress={n_clips:number;sentence_ids:string[]};
@@ -36,8 +37,11 @@ export class EnrollmentApi {
     }finally{clearTimeout(timeout);signal.removeEventListener('abort',abort);}
   }
   private path(prefix:string,suffix=''){return `/${prefix}/${encodeURIComponent(this.user)}${suffix}`;}
+  /** Your saved vocabulary goes to the server first, so the prompts include a few sentences with your name
+   * and your words (within the first 30), and the lip-reader is biased toward them for this profile. */
   async prompts(signal:AbortSignal):Promise<EnrollmentPrompt[]> {
-    const value=await this.request('/enroll/sentences',signal);
+    await this.request(this.path('vocab'),signal,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({words:vocabularyTerms()})});
+    const value=await this.request(`/enroll/sentences?user_id=${encodeURIComponent(this.user)}`,signal);
     if(!Array.isArray(value) || !value.length || value.length>200 || value.some(item=>!item || typeof item.id!=='string' || !item.id || typeof item.sentence!=='string' || !item.sentence))throw new Error('The server returned an invalid prompt list.');
     return value;
   }

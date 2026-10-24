@@ -15,6 +15,7 @@ import numpy as np
 import sentencepiece as spm
 import torch
 
+from ..lipread import vocab as vb
 from ..lipread.paths import CACHE_DIR, ENROLL_DIR, EVAL_DATA, SPM_MODEL
 
 HERE = Path(__file__).resolve().parent
@@ -31,9 +32,13 @@ class Sample:
     crop: np.ndarray  # (T, 96, 96) uint8
 
 
-def enroll_sentences() -> list[dict]:
+def enroll_sentences(user_id: str | None = None) -> list[dict]:
+    """The enrollment prompts; for a user, with their personal sentences (name + vocabulary) in the first 30."""
     with open(HERE / "enroll_sentences.csv", encoding="utf-8") as f:
-        return list(csv.DictReader(f))
+        prompts = list(csv.DictReader(f))
+    if not user_id:
+        return prompts
+    return vb.with_personal(prompts, vb.personal_sentences(user_id, vb.load_user(user_id)))
 
 
 def feasibility_sentences() -> dict[str, str]:

@@ -3,7 +3,7 @@
     from server.lipread.routes import router as lipread_router
     app.include_router(lipread_router)
 
-GET  /enroll/sentences             -> [{id, sentence}]
+GET  /enroll/sentences[?user_id=]  -> [{id, sentence}]; with user_id, personal sentences in the first 30
 GET  /enroll/{user_id}             -> {n_clips, sentence_ids}
 POST /enroll/{user_id}/clip        multipart: sentence_id, file (webm/mp4 from MediaRecorder), [text]
                                    -> {ok, sentence_id, quality, n_clips}; stores the mouth crop only
@@ -37,8 +37,9 @@ _jobs: dict[str, subprocess.Popen] = {}
 
 
 @router.get("/enroll/sentences")
-def enroll_sentences() -> list[dict]:
-    return lora_data.enroll_sentences()
+def enroll_sentences(user_id: str | None = None) -> list[dict]:
+    """With user_id: their personal sentences (name + saved vocabulary, PUT /vocab first) in the first 30."""
+    return lora_data.enroll_sentences(user_id)
 
 
 @router.get("/enroll/{user_id}")
@@ -50,7 +51,7 @@ def enroll_progress(user_id: str) -> dict:
 @router.post("/enroll/{user_id}/clip")
 def enroll_clip(user_id: str, sentence_id: str = Form(...), file: UploadFile = File(...),
                 text: str | None = Form(None)) -> dict:
-    sentences = {s["id"]: s["sentence"] for s in lora_data.enroll_sentences()}
+    sentences = {s["id"]: s["sentence"] for s in lora_data.enroll_sentences(user_id)}
     if sentence_id not in sentences:
         raise HTTPException(400, "choose a sentence from the enrollment prompts")
     text = sentences[sentence_id]

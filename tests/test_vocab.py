@@ -144,3 +144,41 @@ def test_bias_flips_beam_to_name(bias):
 
     assert search(False) == good
     assert search(True) == name
+
+
+# ---- personal enrollment prompts ----
+
+
+def test_personal_sentences_name_then_vocabulary():
+    p = vb.personal_sentences("Rahul", ["Sarvajith", "rahul", "Kubernetes"])
+    assert [x["sentence"] for x in p] == ["hi my name is rahul", "can we talk about sarvajith later",
+                                         "did you get my message about kubernetes"]
+    assert all(x["id"].startswith(vb.PERSONAL_PREFIX) for x in p)
+    assert vb.personal_sentences("Rahul", ["Sarvajith"])[1]["id"] == p[1]["id"]  # stable ids
+    assert [x["sentence"] for x in vb.personal_sentences("user-42", ["priya"])] == ["can we talk about priya later"]
+    assert len(vb.personal_sentences("rahul", [f"word{c}" for c in "abcdefgh"])) == len(vb.PERSONAL_SLOTS)
+
+
+def test_personal_sentences_land_in_the_first_30():
+    base = [{"id": f"e{i:02d}", "sentence": f"s{i}"} for i in range(60)]
+    personal = vb.personal_sentences("rahul", ["a1", "b2", "c3", "d4", "e5", "f6"])
+    out = vb.with_personal(base, personal)
+    assert len(out) == 65 and [x for x in out if x not in base] == personal
+    assert all(out.index(x) < 30 for x in personal)
+
+
+def test_words_in():
+    assert vb.words_in("Hi, my name is Rahul!", ["rahul", "priya"]) == ["rahul"]
+    assert vb.words_in("rahulx is here", ["rahul"]) == []
+
+
+def test_split_holds_out_personal_sentences():
+    pytest.importorskip("torch")
+    try:
+        from server.lora import train as T
+    except ImportError as e:
+        pytest.skip(f"trainer not importable: {e}")
+    samples = [T.Sample(f"e{i:02d}", "x", None) for i in range(25)] + [T.Sample(f"p_{i}", "x", None) for i in range(5)]
+    tr, te = T.split(samples, 0.2, seed=0)
+    assert len(te) == 6 and sum(s.key.startswith("p_") for s in te) == 1
+    assert len(tr) + len(te) == 30

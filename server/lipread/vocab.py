@@ -11,6 +11,7 @@ Where the list comes from: the user's own list (PUT /vocab/{user_id}), plus name
 (names_from_text on the captions), plus whatever the caller passes per utterance.
 """
 
+import hashlib
 import json
 import re
 
@@ -196,3 +197,46 @@ def add_name_variants(nbest: list[tuple[str, float, int]], vocab: list[str],
         keep = set(t for t, _, _ in nbest[:nbest_size - len(variants)]) | {v[1] for v in variants}
         merged = [c for c in merged if c[0] in keep][:nbest_size]
     return merged
+
+
+# ---- personal enrollment prompts ----
+# A few enrollment sentences built from the user's own name and vocabulary, so the adapter sees how they mouth
+# those words, and the held-out ones measure whether the names come out right. Placed among the first 30
+# prompts (the training minimum), and kept to 5 of 60+: more and the adapter memorizes a few sentences.
+PERSONAL_SLOTS = (1, 6, 11, 16, 21)  # positions in the prompt list
+PERSONAL_PREFIX = "p_"
+TEMPLATES = ("can we talk about {w} later", "did you get my message about {w}", "i just heard back about {w}",
+             "let me check on {w} and get back to you", "{w} is on my list for today")
+
+
+def own_name(user_id: str | None) -> str | None:
+    """The profile id, if it looks like a name ("Rahul"), lowercase."""
+    name = (user_id or "").strip().lower()
+    return name if re.fullmatch(r"[a-z][a-z' -]{1,39}", name) else None
+
+
+def personal_sentences(user_id: str | None, vocab: list[str]) -> list[dict]:
+    """[{id, sentence}]: "hi my name is <you>" if the profile id is a name, then one sentence per vocabulary
+    word, up to len(PERSONAL_SLOTS). Ids hash the text, so editing the vocabulary makes new prompts and
+    leaves the clips already recorded valid."""
+    me = own_name(user_id)
+    sentences = [f"hi my name is {me}"] if me else []
+    words = [w for w in clean(vocab) if w != me]
+    for i, w in enumerate(words[:len(PERSONAL_SLOTS) - len(sentences)]):
+        sentences.append(TEMPLATES[i % len(TEMPLATES)].format(w=w))
+    return [{"id": PERSONAL_PREFIX + hashlib.sha1(t.encode()).hexdigest()[:8], "sentence": t} for t in sentences]
+
+
+def with_personal(prompts: list[dict], personal: list[dict]) -> list[dict]:
+    """The prompt list with the personal sentences at PERSONAL_SLOTS (all within the first 30)."""
+    out = list(prompts)
+    for slot, p in zip(PERSONAL_SLOTS, personal):
+        out.insert(min(slot, len(out)), p)
+    return out
+
+
+def words_in(text: str, vocab: list[str]) -> list[str]:
+    """The vocabulary words that occur in text (whole words, case-insensitive)."""
+    t = " " + " ".join(re.sub(r"[^a-z' ]+", " ", text.lower()).split()) + " "
+    return [w for w in vocab if f" {w} " in t]
+

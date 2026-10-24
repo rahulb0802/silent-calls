@@ -61,7 +61,7 @@ Served by the GPU server (`server/lipread/routes.py`, mounted with `app.include_
 
 | method + path | body | response |
 |---|---|---|
-| `GET /enroll/sentences` | | `[{id, sentence}]` (60 prompts, none overlap the 30 test sentences) |
+| `GET /enroll/sentences?user_id=` | | `[{id, sentence}]`: 60 prompts (none overlap the 30 test sentences); with `user_id`, up to 5 personal ones (`p_…`: "hi my name is …" and one per saved vocabulary word) among the first 30. The app sends `PUT /vocab/{user_id}` first. |
 | `GET /enroll/{user_id}` | | `{n_clips, sentence_ids}` |
 | `POST /enroll/{user_id}/clip` | multipart: `sentence_id`, `file` (the MediaRecorder webm), optional `text` | `{ok, sentence_id, quality: {face_rate, mouth_motion, flags, ...}, n_clips}`. `ok: false` → ask the user to redo it. Only the 96×96 mouth crop is kept; the video is deleted. |
 | `POST /train/{user_id}?steps=100` | | `{job_id, state: "queued"}`; 409 if already training, 400 unless 30–60 accepted clips (onboarding requirement) |
