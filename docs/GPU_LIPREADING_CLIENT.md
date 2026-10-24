@@ -51,3 +51,7 @@ The default is now T, using native `UiohookKey.T` and renderer `KeyT`. Hold-key 
 ### Hold-key recovery
 
 The focused widget now handles its own key-down/up even when the native hook reports active. Capture transitions are idempotent, so duplicate native/renderer events cannot start two utterances. Visible key feedback explains camera-off, warming-up and previous-request blocks. Global enable moves focus away from editable controls. This fallback only covers the focused widget; holding while Meet/Zoom is focused still requires native key permissions and Enable global key. No tests, app launches or verification passes were run.
+
+## Source alignment after Person 2 code landed
+
+See GPU_CONTRACT_AUDIT.md. The inference JPEG wire flow matches dev_app.py. Active holds now end at14s to stay within reader.py's15s/375-frame cap including pre/post roll. Sampling keeps a25fps timeline rather than skipping duplicate camera timestamps. Server details report the actual adapter or base-model fallback. Training HTTP/UI and proposed webm mode remain separate work. Changes have not been run or pushed.
