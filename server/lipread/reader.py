@@ -3,6 +3,7 @@
     reader = LipReader()                         # loads the model, warms up the GPU (~10 s)
     reader.on_frame("u7", jpeg)                  # per frame, as it arrives: decode + face detect now
     result = await reader.finish("u7", "rahul")  # crop + model -> top 10, frees the frames
+    result = await reader.finish("u7", "rahul", vocab=["Sarvajith"])  # ... biased toward names (vocab.py)
     reader.cancel("u7")
 
 Face detection runs on a CPU thread pool while the user is still mouthing, so after release only the
@@ -23,6 +24,7 @@ import torch
 
 from ..lora import lora
 from . import frames as fr
+from . import vocab as vb
 from .model import DecodeConfig, decode, load
 from .paths import ADAPTER_DIR, MODEL_FPS
 
@@ -40,6 +42,7 @@ class LipResult:
     face_wait_ms: int = 0  # time after finish() spent waiting for face detection to catch up
     n_tokens: list[int] = field(default_factory=list)  # per candidate, for length-normalized scores
     adapter: str | None = None  # user whose LoRA adapter was used, if any
+    name_variants: list[str] = field(default_factory=list)  # candidates added by the lip-shape name match
     quality: dict = field(default_factory=dict)  # see frames.quality(); "flags" is human-readable
     error: str | None = None  # "no_face" | "crop_failed" | "too_short"; candidates is then empty
     timings_ms: dict = field(default_factory=dict)
@@ -85,8 +88,10 @@ class LipReader:
         if len(utt.webm) < 50_000_000:
             utt.webm.extend(data)
 
-    async def finish(self, utt_id: str, user_id: str | None = None, use_adapter: bool = True) -> LipResult:
-        utt = self._utts.pop(utt_id, None) or _Utterance()
+    async def finish(self, utt_id: str, user_id: str | None = None, use_adapter: bool = True,
+                     vocab: list[str] | None = None) -> LipResult:
+        """vocab: names/rare words for this utterance (e.g. heard in the call), added to the user's saved list."""
+        utt =self._utts.pop(utt_id, None) or _Utterance()
         t0 = time.perf_counter()
         loop = asyncio.get_running_loop()
         if utt.webm:
@@ -102,7 +107,8 @@ class LipReader:
             res.face_wait_ms = round(face_wait_ms)
             return res
         crop, q, crop_ms = res
-        out = await loop.run_in_executor(self._gpu, self._run_model, crop, user_id if use_adapter else None)
+        out = await loop.run_in_executor(self._gpu, self._run_model, crop, user_id if use_adapter else None,
+                                         self.vocab_for(user_id, vocab))
         out.crop_ms, out.quality, out.face_wait_ms = round(crop_ms), q, round(face_wait_ms)
         out.timings_ms.update(face_wait_ms=out.face_wait_ms, crop_ms=out.crop_ms)
         return out
@@ -115,19 +121,24 @@ class LipReader:
 
     # ---- whole-clip API (eval, enrollment) ----
 
-    def read_frames(self, frames: list[np.ndarray], user_id: str | None = None) -> LipResult:
+    def vocab_for(self, user_id: str | None, extra: list[str] | None = None) -> list[str]:
+        return vb.clean(vb.load_user(user_id) + list(extra or []))
+
+    def read_frames(self, frames: list[np.ndarray], user_id: str | None = None,
+                    vocab: list[str] | None = None) -> LipResult:
         landmarks = self._cpu.submit(lambda: self._detector().detect_all(frames)).result()
         res = self._crop(frames, landmarks, fallback=False)
         if isinstance(res, LipResult):
             return res
         crop, q, crop_ms = res
-        out = self.read_crop(crop, user_id)
+        out = self.read_crop(crop, user_id, vocab)
         out.crop_ms, out.quality = round(crop_ms), q
         out.timings_ms["crop_ms"] = out.crop_ms
         return out
 
-    def read_crop(self, crop: np.ndarray, user_id: str | None = None) -> LipResult:
-        return self._gpu.submit(self._run_model, crop, user_id).result()
+    def read_crop(self, crop: np.ndarray, user_id: str | None = None, vocab: list[str] | None = None) -> LipResult:
+        """vocab is used as given (the eval passes its own list); finish() also adds the user's saved list."""
+        return self._gpu.submit(self._run_model, crop, user_id, vb.clean(vocab)).result()
 
     # ---- internals ----
 
@@ -191,13 +202,16 @@ class LipReader:
         lora.set_active(self.avsr.model, name)
         return name
 
-    def _run_model(self, crop: np.ndarray, user_id: str | None) -> LipResult:
+    def _run_model(self, crop: np.ndarray, user_id: str | None, vocab: list[str] | None = None) -> LipResult:
         t0 = time.perf_counter()
         adapter = self._use_adapter(user_id)
-        nbest, t = decode(self.avsr, crop, self.cfg.nbest)
+        nbest, t = decode(self.avsr, crop, self.cfg.nbest, vocab if self.cfg.name_bias > 0 else None)
+        decoded = {c[0] for c in nbest}
+        nbest = vb.add_name_variants(nbest, vocab or [], self.cfg.nbest)
         ms = (time.perf_counter() - t0) * 1000
         return LipResult(candidates=[(c[0], c[1]) for c in nbest], crop_ms=0, lipread_ms=round(ms),
                          n_tokens=[c[2] for c in nbest], adapter=adapter,
+                         name_variants=[c[0] for c in nbest if c[0] not in decoded],
                          timings_ms={"lipread_ms": round(ms), **{k: round(v) for k, v in t.items()}})
 
     def _warmup(self) -> None:

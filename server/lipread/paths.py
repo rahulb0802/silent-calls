@@ -18,6 +18,7 @@ CLIPS_DIR = Path(os.environ.get("CLIPS_DIR", HOME / "clips"))  # feasibility rec
 CACHE_DIR = HOME / "cache"  # mouth crops of the feasibility clips, so decoder sweeps skip face detection
 ENROLL_DIR = HOME / "enroll"  # <user_id>/<sentence_id>.npz: mouth crop + text (never raw video)
 ADAPTER_DIR = HOME / "adapters"  # <user_id>/adapter.pt, report.json, status.json
+VOCAB_DIR = HOME / "vocab"  # <user_id>.json: {"words": [...]}, names the decoder is biased toward
 
 SERVER_DIR = Path(__file__).resolve().parent.parent
 EVAL_DATA = SERVER_DIR / "eval_data"
