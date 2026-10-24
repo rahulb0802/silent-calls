@@ -1,7 +1,8 @@
-const { app, BrowserWindow, ipcMain, screen, session, systemPreferences, shell, powerMonitor, protocol, net } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, session, systemPreferences, shell, powerMonitor, protocol, net, safeStorage } = require('electron');
 const path = require('node:path');
 const {pathToFileURL}=require('node:url');
 protocol.registerSchemesAsPrivileged([{scheme:'silent',privileges:{standard:true,secure:true,supportFetchAPI:true,corsEnabled:true,stream:true}}]);
+const { createSetupService } = require('./setup-service.cjs');
 const { LocalVoice } = require('./local-voice.cjs');
 const { createGlobalHold } = require('./global-hold.cjs');
 let mainWindow, widget;
@@ -10,7 +11,9 @@ const voice = new LocalVoice(status => {
     if (win && !win.isDestroyed() && !win.webContents.isDestroyed()) win.webContents.send('voice:status', status);
   }
 });
+const setup = createSetupService({app, safeStorage, systemPreferences, voice});
 const audioHelp = {
+  cartesia: 'https://play.cartesia.ai/voices',
   blackhole: 'https://existential.audio/blackhole/',
   vbcable: 'https://vb-audio.com/Cable/',
   zoom: 'https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=KB0060836',
@@ -65,6 +68,13 @@ app.whenReady().then(() => {
   function localVoiceCaller(event) {
     if (!trusted(event.sender)) throw new Error('Desktop app window required.');
   }
+  ipcMain.handle('setup:status', event => { localVoiceCaller(event); return setup.status(); });
+  ipcMain.handle('setup:save', (event, input) => { localVoiceCaller(event); return setup.save(input); });
+  ipcMain.handle('setup:connect', event => { localVoiceCaller(event); return setup.connect(); });
+  ipcMain.handle('setup:keyboard', event => {
+    localVoiceCaller(event);
+    if (process.platform === 'darwin') return shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility');
+  });
   ipcMain.handle('voice:status', event => { localVoiceCaller(event); return voice.snapshot(); });
   ipcMain.handle('voice:connect', (event, port) => { localVoiceCaller(event); return voice.connect(port); });
   ipcMain.handle('voice:disconnect', event => { localVoiceCaller(event); return voice.disconnect(); });
@@ -91,4 +101,4 @@ app.whenReady().then(() => {
 });
 app.on('window-all-closed', () => { voice.disconnect(); if (process.platform !== 'darwin') app.quit(); });
 
-app.on('before-quit', () => { hold.stop(); voice.disconnect(); });
+app.on('before-quit', () => { hold.stop(); voice.disconnect(); setup.stop(); });
