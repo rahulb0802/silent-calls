@@ -22,3 +22,7 @@ Keyboard controls, readable contrast, reduced motion, and speech-optional onboar
 
 ## Person 1 implementation boundary
 Capture and native key hooks are implemented. MediaPipe mouth feedback accepts a local model file. The main app includes calibration recording, service settings, and adapter-training/accuracy UI; live widget includes caption/candidate/quick-phrase controls. Network transports are not installed. MeetingPort and EnrollmentPort define the integration interfaces; backend actions stay disabled until adapters are supplied. No automatic model download or video upload occurs.
+
+## Local typed-speech increment
+
+Typed speech and quick phrases connect, after an explicit user action, to Nilesh's loopback voice service on 127.0.0.1 with a configurable local port (default 8765). The existing Python service sends confirmed text to Cartesia and handles virtual-device output. Webcam frames and training video never use this bridge. Provider keys remain server-side. The BlackHole/VB-Cable setup screen explains output-device and meeting-microphone selection for Zoom, Meet and FaceTime. No driver installation or audio setting is changed automatically. Connection and acknowledgement are not treated as proof that the other participant heard audio. Lip-reading and training adapters remain unconnected.

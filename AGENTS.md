@@ -32,6 +32,7 @@ working demo, not production quality.
   the core loop working.
 
 ## Git workflow
+- Commit sequentially by added feature, with a separate focused commit for each feature. Preserve this convention for future work.
 - Claude may commit, push, and merge directly to `main` in this repo. No pull requests needed.
 - Work on a short-lived feature branch, then merge it into `main` and push.
 - Before merging: `git fetch` and rebase onto `origin/main` so teammates' work isn't overwritten.

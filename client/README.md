@@ -79,3 +79,9 @@ This is an integration-ready frontend increment, not a completed end-to-end Pers
 
 ## Combined repository
 Run client commands from `client/`; run Python commands from the repository root. Meeting-video export was removed to follow the root AGENTS.md memory-only rule; any older export description above is superseded. The former backend README is at `../docs/COMPONENTS_7_9.md`. Read `../docs/MERGE_AUDIT.md`: the interim Python service and draft GPU protocol are not interchangeable, and the frontend has no transport adapter installed.
+
+## Local typed speech and quick phrases
+
+**Meeting audio setup** now opens a BlackHole/VB-Cable guide and a real local voice panel. The same panel appears above camera capture in the floating widget. It connects through Electron main-process IPC to Nilesh's service on `ws://127.0.0.1:8765` (local port configurable), using the existing `say`/`spoken` messages. No camera permission is needed for typed speech. The page includes separate Zoom, Meet and FaceTime instructions and an explicitly clicked setup phrase.
+
+Start the Python service from the repository root with real voice enabled: `.venv/bin/python -m silentcalls.app --no-captions --no-jev --no-claude`. Then restart Electron to load the new main/preload bridge. See [full setup](../docs/TYPED_SPEECH.md). Earlier statements that all voice controls are disabled are superseded for typed speech; the future lip-reading adapter remains disconnected. No tests/builds were run for this feature.

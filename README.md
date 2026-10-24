@@ -50,8 +50,20 @@ The service listens on `ws://127.0.0.1:8765`. Audio is captured and played local
 
 ## Integration boundary
 
-The local service implements the interim messages in `silentcalls/protocol.py`. The GPU orchestrator's draft `/ws/session` and `/ws/call-audio` messages are in [docs/PROTOCOL.md](docs/PROTOCOL.md); that contract was preserved unchanged. They are different protocols, and the client currently has typed adapter interfaces rather than a network implementation.
+The local service implements the interim messages in `silentcalls/protocol.py`. The GPU orchestrator's draft `/ws/session` and `/ws/call-audio` messages are in [docs/PROTOCOL.md](docs/PROTOCOL.md); that contract was preserved unchanged. They are different protocols. Typed speech uses a dedicated loopback bridge for the interim service; video and enrollment still have typed interfaces without installed transports.
 
 Still needed: the real GPU lip-reading/orchestrator endpoints, approved transport adapters, per-user authentication/ownership, enrollment/training endpoints, and final client-side audio routing when the orchestrator returns PCM. Do not connect the current local decision service as though it accepts webcam frames.
 
 See the [combined audit](docs/MERGE_AUDIT.md) for fixes and remaining gaps. No tests, builds, provider calls or device checks were run during this merge, at the user's request.
+
+## Typed speech while the lip-reading model trains
+
+Open **Meeting audio setup** in Electron. Connect to Nilesh's local voice service and use Type to speak or quick phrases, with the camera off if desired. The service outputs to BlackHole (Mac) or VB-Cable (Windows); select that device as the meeting microphone.
+
+For the voice-only path, run from the repository root:
+
+```sh
+.venv/bin/python -m silentcalls.app --no-captions --no-jev --no-claude
+```
+
+Configure your real Cartesia key, cloned voice ID and `VIRTUAL_MIC_DEVICE` in `.env` first. In another terminal run `cd client && npm run dev`. This new typed-speech bridge connects only to localhost and sends no camera data; the GPU/lip-reading/enrollment adapters remain separate unfinished work. See [typed speech setup](docs/TYPED_SPEECH.md) for routing, Windows commands and acknowledgement limits. The feature has not been built, tested or launched during implementation.

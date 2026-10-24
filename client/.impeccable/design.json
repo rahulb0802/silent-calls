@@ -167,6 +167,18 @@
       "landmarkSampleIntervalMs": 200,
       "modelSource": "local user-selected file",
       "backendConnection": "adapter required; no network transport installed"
+    },
+    "typedSpeech": {
+      "setupRoute": "#/audio-setup",
+      "widgetComponent": "VoicePanel",
+      "connection": "explicit connect; loopback-only main-process WebSocket",
+      "defaultPort": 8765,
+      "maxTextLength": 5000,
+      "inFlightLimit": 1,
+      "acknowledgementTimeoutMs": 45000,
+      "lightSurface": "existing workspace palette",
+      "darkSurface": "existing widget palette",
+      "verification": "not run at user request"
     }
   },
   "components": [

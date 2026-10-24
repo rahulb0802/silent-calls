@@ -20,3 +20,7 @@ The selected hold key is not suppressed in other apps. A 30-second watchdog prev
 Commit source, package.json, package-lock.json, scripts, public documentation, and the existing state/buffer tests. Do not commit node_modules, dist, release packages, environment files, exported captures, logs, or generated model/runtime assets; .gitignore excludes them. No commit or push has been performed by this task.
 
 Merged layout: this document now lives under client/docs. The canonical team specs/protocol and combined audit live under the root docs/ directory. Meeting-video export was removed to comply with the root agent guide.
+
+## Typed speech increment
+
+Typed speech and quick phrases now have a dedicated Electron main-process bridge to Nilesh's local `say`/`spoken` service. This is distinct from the still-unconnected lip-reading `MeetingPort`. The widget works without the camera for typing. The new Meeting audio setup route provides BlackHole/VB-Cable routing instructions, app-specific microphone selection and a manually sent setup phrase. Connection opens only on an explicit click, remains loopback-only, and never sends video. API keys/output-device configuration stay in Python's `.env`. Acknowledgement is not treated as proof that a meeting participant heard audio. No test, build, device check, provider call or app launch was performed for this increment. See root docs/TYPED_SPEECH.md.
