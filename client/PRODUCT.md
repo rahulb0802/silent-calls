@@ -42,3 +42,7 @@ Users can maintain a locally persistent personal library, initially empty. Expli
 ## Live training increment
 
 User-authorized integration now uses the existing GPU enrollment and training HTTP endpoints, preserving the server contract. Eight accepted clips unlock explicit training; progress can be resumed across page/app visits, since data and the job live on the GPU. Recording does not upload, upload requires consent, and unuploaded video stays in memory. Actual held-out WER, top-five match and per-sentence results are displayed without inventing accuracy or guaranteed improvement. Backend identity/authentication and GPU process scheduling remain server responsibilities.
+
+## Personal voice onboarding completion
+
+The voice step now records or imports a reviewed audio sample, asks for explicit upload consent, and creates a Cartesia voice through the local service without exposing provider keys. Recording status, playback, voice-name input, recoverable errors and status reconnect use the existing cream/forest controls and responsive layout. An existing configured voice remains usable; a newly created voice ID/name persists outside the repo. No automated or visual validation was run per user request. See docs/VOICE_ONBOARDING.md for the exact restart/manual-use flow.

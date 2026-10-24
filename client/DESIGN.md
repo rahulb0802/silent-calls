@@ -154,3 +154,7 @@ Vocabulary & saved phrases opens a dedicated cream/forest main-window route with
 ## Live enrollment and training
 
 Training & settings now leads with the enrollment workflow, with optional connection settings above and a fixed-profile session during capture/upload. Camera and clip review sit beside consent, authoritative accepted-count, training stages and results. Prompts come from the GPU; the server chooses held-out splits. WER is explicitly lower-is-better and may exceed100%, top-five match is higher-is-better. Progress uses real steps only during training and an indeterminate state while loading/evaluating. Local clips are reviewed before explicit upload and server quality rejection leads to a retake. Existing cream/forest typography and control styling is preserved. No visual or runtime verification was performed per user preference.
+
+## Personal voice onboarding completion
+
+The voice step now records or imports a reviewed audio sample, asks for explicit upload consent, and creates a Cartesia voice through the local service without exposing provider keys. Recording status, playback, voice-name input, recoverable errors and status reconnect use the existing cream/forest controls and responsive layout. An existing configured voice remains usable; a newly created voice ID/name persists outside the repo. No automated or visual validation was run per user request. See docs/VOICE_ONBOARDING.md for the exact restart/manual-use flow.
