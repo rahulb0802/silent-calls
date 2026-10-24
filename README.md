@@ -6,8 +6,9 @@
 
 ### Take a call without making a sound.
 
-Mouth your reply at your webcam. Silent Calls reads your lips, works out what you meant from the conversation,
-and says it into Zoom, Meet or FaceTime **in your own cloned voice**.
+Mouth your reply at your webcam. A lip-reading model on a cloud GPU reads it, a personal adapter trained on
+*your* lips in 35 seconds makes it read you better, and Silent Calls says it into Zoom, Meet or FaceTime
+**in your own cloned voice**.
 
 ![Cal Hacks 13.0](https://img.shields.io/badge/Cal_Hacks-13.0-1f6f50?style=flat-square)
 [![Python 3.11](https://img.shields.io/badge/python-3.11-3776AB?style=flat-square&logo=python&logoColor=white)](requirements.txt)
@@ -25,10 +26,10 @@ and says it into Zoom, Meet or FaceTime **in your own cloned voice**.
 
 <table>
 <tr>
-<td align="center" width="25%"><h2>77%</h2>right sentence on top when the co-pilot anticipated the reply<br/><sub>up from 36% lip-reading alone</sub></td>
-<td align="center" width="25%"><h2>0.92 s</h2>key release → candidates on the GPU<br/><sub>1.3 s over venue Wi-Fi</sub></td>
-<td align="center" width="25%"><h2>~90 ms</h2>pick → first audio in your cloned voice<br/><sub>Cartesia Sonic</sub></td>
-<td align="center" width="25%"><h2>35 s</h2>to train your personal lip-reading adapter<br/><sub>WER 37% → 31% on unseen sentences</sub></td>
+<td align="center" width="25%"><h2>35 s</h2>to train a personal lip-reading adapter on your face<br/><sub>1.2M parameters, 0.5% of the model</sub></td>
+<td align="center" width="25%"><h2>37% → 31%</h2>word error rate on sentences the adapter never saw<br/><sub>no change on anyone else: it's personal</sub></td>
+<td align="center" width="25%"><h2>0.92 s</h2>from releasing the key to 10 sentence guesses<br/><sub>1.3 s over venue Wi-Fi</sub></td>
+<td align="center" width="25%"><h2>77%</h2>right sentence on top once the co-pilot anticipates the reply<br/><sub>up from 36%</sub></td>
 </tr>
 </table>
 
@@ -44,57 +45,114 @@ a webcam.
 
 ## How it works
 
+### 1. Read the lips: a visual speech recognition model on the GPU
+
 ```mermaid
 flowchart LR
-    subgraph LAPTOP["Your laptop: Electron + React app, local Python service"]
+    CAM["Webcam<br/>VP8 stream, 25 fps"] --> MP["MediaPipe<br/>face landmarks"]
+    MP --> CROP["96×96 mouth crop<br/>aligned to a mean face"]
+    CROP --> ENC["AutoAVSR encoder<br/>visual frontend + 12 Conformer blocks"]
+    LORA[["your LoRA adapter"]] -.-> ENC
+    ENC --> BEAM["Beam search, width 40<br/>attention decoder + CTC + LM"]
+    VOCAB[["your names + vocabulary"]] -.-> BEAM
+    GIVEN[["co-pilot's replies,<br/>scored on the same video"]] -.-> BEAM
+    BEAM --> TOP["Top 10 sentences<br/>with scores"]
+```
+
+While you hold a key and mouth a sentence, the app streams video to an NVIDIA A16 on Vultr. With frames streamed
+as they're captured, face detection finishes during the hold, so after you release the key only the mouth crop,
+the encoder and the beam search are left: **0.92 s** median to a ranked top 10. On weak Wi-Fi the app sends a
+compressed VP8 stream instead, decoded after release: **1.3 s** end to end over the venue's network.
+
+The model is **AutoAVSR** (visual-only, LRS3, ~250M parameters, 19.1% WER on its benchmark), which knows nothing
+about your face, your webcam or your conversation. We extended its decoder in three ways
+([`server/lipread/model.py`](server/lipread/model.py)):
+
+- **Personal adapters** (below): a per-user LoRA inside the encoder, swapped in per request.
+- **Vocabulary bias:** a beam scorer that rewards subword pieces spelling one of your names or words, and takes
+  the bonus back if the word isn't finished. No false names in 102 clips with no names spoken.
+- **Closed-set scoring:** sentences we expect you might say are scored against the video with exactly the
+  log-probability a beam hypothesis would get, then ranked alongside the beam's own guesses (step 3).
+
+We also tuned the decoder on our own clips (LM weight 0.2, CTC weight 0.1, beam 40) and moved the client from
+JPEG frames to a VP8 stream so it works on venue Wi-Fi.
+
+### 2. Learn your lips: a personal adapter in 35 seconds
+
+```mermaid
+flowchart LR
+    CAL["Calibration<br/>30–60 prompted sentences,<br/>incl. your name + words"] --> STORE["Mouth crops only<br/>stored per user"]
+    STORE --> SPLIT["80% train<br/>20% held out"]
+    SPLIT --> TRAIN["LoRA training on GPU 1<br/>100 steps · ~35 s"]
+    TRAIN --> REPORT["Before / after report<br/>on the held-out clips"]
+    TRAIN --> HOT["Hot-loaded on your<br/>next utterance (GPU 0)"]
+    COACH["Post-call coach:<br/>approved practice sentences"] -.-> CAL
+```
+
+People mouth words differently, and a pretrained model reads some of us far better than others (16% WER for one of
+our testers, 57% for another). So the app has a 10-minute calibration: you mouth 30–60 prompted call sentences,
+including ones built from your own name and vocabulary, and the server trains an adapter just for you
+([`server/lora/`](server/lora/)):
+
+| | |
+|---|---|
+| **What's trained** | Rank-16 LoRA (alpha 32) on the query/key/value/output projections of all 12 Conformer blocks: 1.18M parameters, 0.5% of the model. Visual frontend, decoder and LM stay frozen. |
+| **Recipe** | 100 steps, batch 8, AdamW lr 1e-3 with warm-up + cosine decay, fp16. The checkpoint's own loss (0.1 × CTC + 0.9 × attention). Augmentation from the AutoAVSR recipe: random 88×88 crops and adaptive time masking. |
+| **Where** | GPU 1 of the A16, as a subprocess, so training never slows a live call on GPU 0. ~0.35 s per step. |
+| **How we chose it** | Cross-validated sweeps: rank 8 vs 16, attention-only vs attention + feed-forward (overfits), 50–300 steps, 6–24 training sentences. Rank 16 at lr 1e-3 matches 300 steps of rank 8 in a third of the time. |
+| **Is it personal?** | Yes. Your adapter cuts WER by about a sixth on sentences it never saw; someone else's adapter on your lips does nothing (control below). |
+
+The adapter is written per user and loaded only for that user's requests; retraining reloads it on the next
+utterance with no added latency.
+
+### 3. In a call: the conversation fills in what lips can't carry
+
+```mermaid
+flowchart LR
+    subgraph GPU["Vultr GPU · NVIDIA A16"]
+        LIP["Lip-reader<br/>+ your adapter + your vocabulary"]
+    end
+
+    subgraph LAPTOP["Your laptop: Electron app + local Python service"]
         direction TB
         CAM["Hold a key,<br/>mouth your reply"]
-        CAP["Live captions of the<br/>other person<br/><i>Cartesia Ink STT</i>"]
-        COP["Co-pilot<br/><i>Claude + your Calendar / Gmail</i>"]
+        CAP["Captions of the other person<br/><i>Cartesia Ink STT</i>"]
+        COP["Co-pilot<br/><i>Claude + Calendar / Gmail</i>"]
         DEC["Rank + repair<br/><i>TypeSafe Jev · Claude</i>"]
         PICK["You pick 1 / 2 / 3"]
         TTS["Your cloned voice<br/><i>Cartesia Sonic</i>"]
     end
 
-    subgraph GPU["Vultr GPU · NVIDIA A16"]
-        direction TB
-        LIP["AutoAVSR lip-reader<br/>MediaPipe mouth crop · beam search"]
-        BIAS["+ your names and vocabulary<br/>+ co-pilot replies scored on the video<br/>+ your personal LoRA adapter"]
-        LIP --- BIAS
-    end
-
-    CAM -- "VP8 video over SSH tunnel" --> LIP
+    CAM -- "VP8 over SSH tunnel" --> LIP
     CAP --> COP
     COP -- "likely replies" --> LIP
-    LIP -- "top 10 guesses" --> DEC
+    LIP -- "top 10" --> DEC
     CAP --> DEC
     DEC --> PICK --> TTS
-    TTS -- "virtual mic<br/>VB-CABLE / BlackHole" --> CALL(["Zoom · Meet · FaceTime"])
+    TTS -- "virtual mic" --> CALL(["Zoom · Meet · FaceTime"])
 ```
 
-1. **The other person talks.** Their audio is captioned live with Cartesia speech-to-text, recorded from your
-   speakers (no second cable on Windows).
-2. **The co-pilot prepares your likely replies.** Claude reads the conversation and, with read-only access to your
-   calendar and email, drafts what you'll probably say. Asked *"are you free Tuesday?"*, it already has *"I'm free
-   after 3 on Tuesday"* ready, citing the calendar entry it used.
-3. **You mouth your reply** while holding a key. The GPU lip-reader decodes the video and also scores the
-   co-pilot's replies against the same video. Your lips pick the reply; the co-pilot supplies what lips can't carry
-   (times, order numbers, names).
-4. **Jev ranks the options with the conversation**, and Claude offers a repaired sentence if the lip-reader is off
-   (lip-reading confuses p/b/m, f/v, and so on).
-5. **You pick one** (keys 1–3) and it's spoken in your cloned voice. **Nothing is ever spoken without your pick.**
+1. **You mouth your reply** while holding a key. The lip-reader decodes it with your adapter and vocabulary.
+2. **The co-pilot's replies are scored against the same video.** While the other person was talking (captioned live
+   by Cartesia), Claude prepared up to 4 likely replies from the conversation and, read-only, your calendar and email.
+   The model scores each one on your lips: *your mouthing picks the reply*, and the co-pilot supplies what lips can't
+   show (times, order numbers, names). With the right reply in the list, the top guess is right **77%** of the time
+   instead of 36%; when it isn't, nothing gets worse.
+3. **Jev ranks the options with the conversation**, and Claude offers a repaired sentence when the lip-reader is
+   close but wrong (p/b/m and f/v look identical on lips).
+4. **You pick one** (keys 1–3) and it's spoken in your cloned voice through a virtual microphone, ~90 ms to first
+   audio. **Nothing is ever spoken without your pick.**
 
-It gets better the more you use it: a 10-minute calibration (30–60 sentences, including ones with your own name and
-vocabulary) trains a personal adapter in about 35 seconds, and after each call a **coach agent** proposes words and
-practice sentences from the places lip-reading struggled.
+After the call, a **coach agent** looks at where lip-reading struggled and proposes words and practice sentences;
+the ones you approve feed the vocabulary bias and your next calibration.
 
 ## Results
 
 Measured on **90 silently mouthed call sentences from 3 people**, recorded on ordinary laptop webcams, plus
-spoken-aloud clips as a control. With no training on our data, the pretrained lip-reader puts the right sentence
-first **36%** of the time and in its top 10 **56%** of the time; everything below builds on that. Each accuracy
-number links back to a run folder in [`server/results/`](server/results/) with per-clip CSVs and every N-best list;
-the full log with all sweeps and timings is [docs/RESULTS.md](docs/RESULTS.md).
+spoken-aloud clips as a control. Out of the box, the pretrained model puts the right sentence first **36%** of the
+time and in its top 10 **56%** of the time. Each accuracy number links to a run folder in
+[`server/results/`](server/results/) with per-clip CSVs and every N-best list; the full log with every sweep and
+timing is [docs/RESULTS.md](docs/RESULTS.md).
 
 > **Metrics.** *WER*: word error rate of the top guess. *exact@K*: the exact sentence is among the top K guesses.
 > *within1@5*: some top-5 guess is at most one word off.
@@ -103,10 +161,11 @@ the full log with all sweeps and timings is [docs/RESULTS.md](docs/RESULTS.md).
 
 | | Before | After |
 |---|---|---|
-| **Co-pilot anticipated the reply** (closed-set scoring, +60 ms) | top guess 36%, WER 37% | top guess **77%**, top 3 **84%**, WER **19%** |
-| **Jev reranking with the call context** | top 1 31%, top 3 41% | top 1 **42%**, top 3 **56%** |
 | **Personal LoRA adapter**, sentences it never saw | WER 37%, exact@5 49%, within1@5 64% | WER **31%**, exact@5 **56%**, within1@5 **73%** |
 | Same adapter on *someone else's* lips (control) | WER 37% | WER 37%: **the gain is personal** |
+| Biggest single gain (one tester, own adapter) | WER 38% | WER **21%** |
+| **Co-pilot anticipated the reply** (closed-set scoring, +60 ms) | top guess 36%, WER 37% | top guess **77%**, top 3 **84%**, WER **19%** |
+| **Jev reranking with the call context** | top 1 31%, top 3 41% | top 1 **42%**, top 3 **56%** |
 
 ### Latency, end to end
 
@@ -114,62 +173,39 @@ the full log with all sweeps and timings is [docs/RESULTS.md](docs/RESULTS.md).
 |---|---|
 | Lip-read after key release (A16, face detection hidden during the hold) | **0.92 s** median |
 | Key release → candidates on the laptop, over venue Wi-Fi | **1.3 s** median |
+| Personal adapter training (100 steps on one A16) | **~35 s** |
 | Jev ranking (warm connection) | **80–250 ms** |
 | Pick → first audio in your cloned voice | **87–95 ms** |
 | Co-pilot replies ready after the other person's line | **2.3 s** (2.9 s with an email search) |
 | Claude repair offered as an extra option | ~3 s |
-| Personal adapter training (1.2M params, 0.5% of the model) | **~35 s** on one A16 |
-
-<details>
-<summary><b>Closed-set scoring: how the co-pilot's replies reach the lip-reader</b></summary>
-<br/>
-
-The lip-reader scores each prepared reply against the video with the same decoder + CTC + LM log-probability a
-beam hypothesis would get, then ranks it alongside its own guesses. Among a short list, **the true sentence is the
-best-scoring one 98–99% of the time**, but the beam's own best guess always wins on likelihood alone, so prepared
-replies get a prior bonus *B*. Choosing *B* offline ([`given_scores`](server/results/given_scores/sweep.md), lists
-of 5):
-
-| B | truth among 4 others: top 1 | truth among 4 look-alikes: top 1 | only one-word-off replies: a wrong one wins |
-|---|---|---|---|
-| 0 | 32% | 32% | 0% |
-| 4 | 59% | 59% | 0% |
-| **8** | **77%** | **77%** | **1%** |
-| 12 | 88% | 88% | 16% |
-| 15 | 90% | 90% | 53% |
-
-Through the real decoding path at B = 8 ([`given_d4_bonus8`](server/results/given_d4_bonus8/summary.md)):
-
-| Co-pilot's list | WER | exact@1 | exact@3 | wrong reply on top |
-|---|---|---|---|---|
-| none (lip-reading alone) | 37% | 36% | 43% | – |
-| contains what was said (+4 other sentences) | **19%** | **77%** | **84%** | 0% |
-| contains what was said (+4 look-alikes) | **19%** | **77%** | **84%** | 0% |
-| doesn't contain it | 37% | 36% | 43% | 0% |
-
-When the co-pilot is right, the right sentence goes from top guess a third of the time to three times in four.
-When it's wrong, **nothing gets worse**.
-
-</details>
 
 <details>
 <summary><b>Personal adapters: cross-validated, with a control</b></summary>
 <br/>
 
-Rank-16 LoRA on the encoder's attention projections; frontend, decoder and LM frozen. 5-fold cross-validation by
-sentence: every clip is scored by an adapter that never trained on it
-([`lora_cv5_final_r16_s100_lm0.2`](server/results/lora_cv5_final_r16_s100_lm0.2/crossval.md)).
+5-fold cross-validation by sentence: each person's 30 sentences are split into 5 groups, an adapter trains on 24 and
+is scored on the 6 it never saw, so every clip is scored by an adapter that didn't train on it
+([`lora_cv5_final_r16_s100_lm0.2`](server/results/lora_cv5_final_r16_s100_lm0.2/crossval.md)). The control scores
+each adapter on the *other two people's* clips of the same held-out sentences.
 
-| | clips | WER | exact@1 | exact@5 | exact@10 | within1@5 |
-|---|---|---|---|---|---|---|
-| base model | 90 | 37% | 36% | 49% | 56% | 64% |
-| **own adapter** (100 steps) | 90 | **31%** | **40%** | **56%** | **60%** | **73%** |
-| other people's clips, someone else's adapter | 180 | 37% | 35% | 49% | 56% | 65% |
+| | clips | WER | exact@1 | exact@5 | exact@10 | oracle WER@10 | within1@5 |
+|---|---|---|---|---|---|---|---|
+| base model | 90 | 37% | 36% | 49% | 56% | 24% | 64% |
+| **own adapter** (100 steps) | 90 | **31%** | **40%** | **56%** | **60%** | **18%** | **73%** |
+| other people's clips, someone else's adapter | 180 | 37% | 35% | 49% | 56% | 24% | 65% |
 
 Per person, WER base → own adapter: Rahul 38% → **21%**, Sarvajith 15% → 13%, Nilesh 59% → 58% (his clips were
-cut off and fast, which no adapter fixes).
+cut off and fast, which no adapter fixes). It learns how *you* mouth words and your camera, not the sentences.
 
-**How much calibration is enough?** Same setup, training on only N sentences:
+**Finding the recipe** (same cross-validation, all 90 clips; base is 38% WER / 53% exact@10 at the older LM weight):
+
+| adapter | trainable params | steps | WER | exact@10 | training time |
+|---|---|---|---|---|---|
+| rank 8, attention only, lr 5e-4 | 590k | 300 | 29% | 60% | ~110 s |
+| rank 8, attention + feed-forward | 2.06M | 300 | 34% | 60% | ~110 s |
+| **rank 16, attention only, lr 1e-3** | 1.18M | **100** | 29% | 61% | **~35 s** |
+
+**How much calibration is enough?** Final recipe, training on only N sentences:
 
 | training sentences | 0 | 6 | 12 | 18 | 24 |
 |---|---|---|---|---|---|
@@ -178,6 +214,35 @@ cut off and fast, which no adapter fixes).
 
 Six sentences hurt (the adapter memorizes them); the full gain is there by 18. The app requires 30 clips (24 to
 train, 6 for its before/after report) and asks for 60.
+
+**First real enrollments** through the app (small held-out sets, so anecdotes rather than measurements): Rahul's
+held-out WER 34% → 13%; Sarvajith's adapter, scored on the separate 30-sentence test set, exact@10 83% → 90%.
+
+</details>
+
+<details>
+<summary><b>Decoder tuning and name biasing</b></summary>
+<br/>
+
+**Decoder sweep** ([`sweep.md`](server/results/sweep.md)), no training, 90 silent clips:
+
+| LM weight | CTC weight | WER | exact@1 | exact@10 |
+|---|---|---|---|---|
+| 0.0 | 0.1 | 41% | 33% | 53% |
+| 0.1 | 0.1 | 40% | 34% | 53% |
+| **0.2** | **0.1** | **37%** | **36%** | **56%** |
+| 0.3 (old default) | 0.1 | 38% | 32% | 53% |
+| 0.5 | 0.1 | 39% | 30% | 48% |
+
+A lighter LM also leaves more room for conversation context. Beam 20 would save 0.26 s for ~2 points of exact@10;
+we keep 40 because the network, not the GPU, dominates the delay.
+
+**Names.** On 102 clips with 8 names passed as vocabulary and **no names spoken**, a bias of 2.0 put **no false
+name in any top 10**, for +75 ms ([`names_vocab_biasonly`](server/results/names_vocab_biasonly/summary.md)). At 4,
+hypotheses that keep spelling names survive so long the beam ran out of GPU memory, so 2.0 stays. Lip-shape name
+swaps were noisy (*"like a"* looks like *"anika"*, *"pray"* like *"priya"*) and are off by default. Live, *"hi my
+name is Rahul"* came out as *"hi my name is **wrong**"*; Claude's repair, knowing "Rahul" is a likely name, offered
+**"Hi, my name is Rahul."**
 
 </details>
 
@@ -200,30 +265,44 @@ tables in [docs/RESULTS.md §2–3](docs/RESULTS.md#2-live-path-frames-streamed-
 </details>
 
 <details>
-<summary><b>Names: vocabulary biasing without false positives</b></summary>
+<summary><b>Closed-set scoring: how the co-pilot's replies meet the lip-reader</b></summary>
 <br/>
 
-Names are where lip-reading fails hardest, so names from your profile, saved vocabulary and the call captions bias
-the beam search. On 102 clips with 8 names passed as vocabulary and **no names spoken**, a bias of 2.0 put **no
-false name in any top 10**, for +75 ms ([`names_vocab_biasonly`](server/results/names_vocab_biasonly/summary.md)).
-Lip-shape name swaps were noisy (*"like a"* looks like *"anika"*, *"pray"* like *"priya"*), so they're off by default.
+Among a short list, **the true sentence is the best-scoring one 98–99% of the time**, but the beam's own best guess
+always wins on likelihood alone (the beam is a likelihood maximizer), so prepared replies get a prior bonus *B*.
+Choosing *B* offline ([`given_scores`](server/results/given_scores/sweep.md), lists of 5):
 
-Live, *"hi my name is Rahul"* came out as *"hi my name is **wrong**"*; Claude's repair, knowing "Rahul" is a likely
-name, returned **"Hi, my name is Rahul."** as an option. That's why repair is part of the loop.
+| B | truth among 4 others: top 1 | truth among 4 look-alikes: top 1 | only one-word-off replies: a wrong one wins |
+|---|---|---|---|
+| 0 | 32% | 32% | 0% |
+| 4 | 59% | 59% | 0% |
+| **8** | **77%** | **77%** | **1%** |
+| 12 | 88% | 88% | 16% |
+| 15 | 90% | 90% | 53% |
+
+Through the real decoding path at B = 8 ([`given_d4_bonus8`](server/results/given_d4_bonus8/summary.md)):
+
+| Co-pilot's list | WER | exact@1 | exact@3 | wrong reply on top |
+|---|---|---|---|---|
+| none (lip-reading alone) | 37% | 36% | 43% | – |
+| contains what was said (+4 other sentences) | **19%** | **77%** | **84%** | 0% |
+| contains what was said (+4 look-alikes) | **19%** | **77%** | **84%** | 0% |
+| doesn't contain it | 37% | 36% | 43% | 0% |
+
+The lips really do separate near-identical sentences: with the truth plus 4 one-word-off replies, the truth still
+wins 77% of the time.
 
 </details>
 
 <details>
-<summary><b>Decoder tuning, decision weights and the call loop</b></summary>
+<summary><b>Conversation context: Jev and decision weights</b></summary>
 <br/>
 
-- **Decoder sweep** ([`sweep.md`](server/results/sweep.md)): LM weight 0.0–0.5 × CTC weight 0.1/0.3, beam 20/40.
-  Chose LM 0.2, CTC 0.1, beam 40 (best exact@1 and exact@10, and a lighter LM leaves room for conversation context).
-- **Decision weights** (`silentcalls/fit_weights.py`): w_lip 0.5, w_jev 1.2. At combined score ≥ 0.97, 14 of 90
-  clips were all correct. Auto-speak is still **off**: the user always picks.
-- **Jev in practice:** with *"hi server jet yes i can"*, *"hi so very yes i can"*, *"hi sarvajith yes i can"* and
+- **Fusion** (`silentcalls/fit_weights.py`): w_lip 0.5, w_jev 1.2. At combined score ≥ 0.97, 14 of 90 clips were
+  all correct. Auto-speak is still **off**: the user always picks.
+- **In practice:** with *"hi server jet yes i can"*, *"hi so very yes i can"*, *"hi sarvajith yes i can"* and
   Sarvajith as a likely name, Jev ranked the lip-reader's **third** guess first at 87%.
-- **Keeping Jev warm** cut its latency from ~1 s (over the 0.5 s budget) to 98–245 ms.
+- **Keeping the connection warm** cut Jev's latency from ~1 s (over the 0.5 s budget) to 98–245 ms.
 
 </details>
 
@@ -254,8 +333,7 @@ the fallback.
 After a call, Claude Opus 5.5 reviews every line you spoke (what was shown vs. what was finally said) and calls
 proposal tools; you approve each one in the widget. On a scripted call where *"Priya"* came out as *"pray"* and
 *"Devansh"* as *"the bunch"*, it proposed **Priya, Devansh, Figma** and two practice sentences, each with quoted
-evidence, in 15.9 s, and left the correctly read line alone. Approved words feed the decoder bias; approved
-sentences become calibration prompts.
+evidence, in 15.9 s, and left the correctly read line alone.
 
 </details>
 
@@ -266,17 +344,20 @@ so small differences are noise; we say so in the log wherever it matters.
 
 ## Built with
 
-| | What it does in Silent Calls |
-|---|---|
-| **[Cartesia](https://cartesia.ai)** | The user's voice, end to end. **Voice cloning** from a short guided recording in onboarding ([`silentcalls/voice.py`](silentcalls/voice.py)); **Sonic TTS** speaks every picked reply in that voice, streamed as PCM into the virtual mic (~90 ms to first audio); **Ink STT** (streaming WebSocket) captions the other person word by word, feeding the co-pilot, Jev and Claude. |
-| **[Claude](https://www.anthropic.com/api)** | Three agents, none of which ever speaks on its own. **Co-pilot** ([`silentcalls/copilot.py`](silentcalls/copilot.py)): Opus 5.5 (fast mode, low effort) reads the conversation and calendar, decides whether to search Gmail (a tool it calls with Gmail search syntax), and returns up to 4 replies with the facts and sources it used. **Repair** ([`silentcalls/decision.py`](silentcalls/decision.py)): proposes the sentence you most likely meant from the top 10, accounting for lip-reading confusions. **Coach** ([`silentcalls/coach.py`](silentcalls/coach.py)): reviews the call and proposes fixes. Structured outputs throughout; server-side refusal fallbacks enabled. |
-| **[Vultr Cloud GPU](https://www.vultr.com/products/cloud-gpu/)** | An NVIDIA A16 (2 × 16 GB) runs the lip-reader as a `systemd` service ([`server/lipread.service`](server/lipread.service)). GPU 0 serves calls; GPU 1 trains personal adapters so training never slows a call. Every evaluation in this README ran there. |
-| **TypeSafe Jev** | Decision layer ([`silentcalls/decision.py`](silentcalls/decision.py)): one choice question over the top 10 with the live conversation as state; its probabilities are fused with lip scores (weights fitted on our clips). |
-| **Google Calendar + Gmail APIs** | Read-only, your own account ([`silentcalls/google_data.py`](silentcalls/google_data.py)): the next 7 days of events go into the co-pilot's context; Gmail search is a tool it calls when the conversation needs a fact. Snippets only, never stored or logged. |
-| **AutoAVSR + ESPnet (PyTorch)** | The visual speech recognition model and beam search, which we extended with vocabulary bias, closed-set scoring of given sentences, and per-user LoRA adapters ([`server/lipread/`](server/lipread/), [`server/lora/`](server/lora/)). |
-| **MediaPipe** | Face landmarks for the mouth crop on the GPU, and a local mouth-movement meter in the app. |
-| **Electron + React** | The desktop app: onboarding, voice cloning, calibration, an always-on-top meeting widget, a global hold-to-talk key, and the SSH tunnel to the GPU (opened automatically). |
-| **VB-CABLE / BlackHole, WASAPI loopback** | The virtual microphone your cloned voice plays into, and call-audio capture for captions. |
+**Webcam → Vultr GPU** (MediaPipe crop, AutoAVSR + your LoRA) **→ top 10 → Jev + Claude** rank and repair, using
+Cartesia captions and Claude's co-pilot **→ you pick → Cartesia** speaks it in your voice **→ virtual mic → the call.**
+
+| Layer | Tool | Role |
+|---|---|---|
+| **Model** | **AutoAVSR + ESPnet** on **PyTorch** | Lip-reading model and beam search, extended with LoRA adapters, vocabulary bias and closed-set scoring ([`server/lipread/`](server/lipread/), [`server/lora/`](server/lora/)) |
+| | **MediaPipe** | Face landmarks for the mouth crop; a local mouth-movement meter in the app |
+| | **[Vultr Cloud GPU](https://www.vultr.com/products/cloud-gpu/)** | NVIDIA A16: GPU 0 serves calls (FastAPI, `systemd`), GPU 1 trains adapters; every evaluation ran here |
+| **Voice** | **[Cartesia](https://cartesia.ai)** | Voice cloning in onboarding, Sonic TTS for every reply (~90 ms), Ink streaming STT for live captions ([`silentcalls/voice.py`](silentcalls/voice.py)) |
+| **Context** | **[Claude](https://www.anthropic.com/api)** | Co-pilot (Opus 5.5 fast mode, Gmail search as a tool), repair of near-miss sentences, post-call coach ([`copilot.py`](silentcalls/copilot.py), [`decision.py`](silentcalls/decision.py), [`coach.py`](silentcalls/coach.py)) |
+| | **TypeSafe Jev** | Ranks the top 10 with the live conversation; fused with the lip scores ([`decision.py`](silentcalls/decision.py)) |
+| | **Google Calendar + Gmail** | Read-only facts for the co-pilot: next 7 days of events, email search snippets ([`google_data.py`](silentcalls/google_data.py)) |
+| **App** | **Electron + React** | Onboarding, calibration, always-on-top meeting widget, global hold-to-talk key, automatic SSH tunnel to the GPU |
+| | **VB-CABLE / BlackHole, WASAPI loopback** | Virtual mic for your cloned voice; call-audio capture for captions |
 
 ## Run it
 
@@ -331,8 +412,10 @@ python tools/check_setup.py --live   # also one tiny request each to Jev, Claude
 
 ## Known limits
 
-- **Lip-reading is hard.** Alone, the right sentence is the top guess about a third of the time. The product is
-  designed around that: three options to pick from, Jev's ranking, Claude's repair, the co-pilot, a personal adapter.
+- **Lip-reading is hard.** Out of the box, the right sentence is the top guess about a third of the time. Everything
+  else is built around that: your adapter, your vocabulary, three options to pick from, the co-pilot, Jev, Claude's
+  repair.
+- **Adapters don't fix every input.** Clips that are cut off or mouthed too fast stay hard (one tester saw no gain).
 - **Names and rare words** need to be in your vocabulary (or said in the call); even then a strong look-alike can
   win, and Claude's repair is the dependable fix.
 - **Numbers barely show on lips**; the co-pilot supplies them from your calendar and email.
@@ -342,12 +425,12 @@ python tools/check_setup.py --live   # also one tiny request each to Jev, Claude
 ## Repository
 
 ```
-client/            Electron + React app: widget, onboarding, calibration, SSH tunnel
-silentcalls/       Local Python service: captions, co-pilot, coach, decision (Jev + Claude), Cartesia voice
 server/lipread/    GPU lip-reading service: model, vocab bias, given-sentence scoring, HTTP + WebSocket
-server/lora/       Personal adapters: enrollment data, trainer, cross-validation
+server/lora/       Personal adapters: enrollment data, LoRA, trainer, cross-validation
 server/eval*.py    The evaluations behind every number in docs/RESULTS.md
 server/results/    Every run: summaries, per-clip CSVs, N-best lists
+client/            Electron + React app: widget, onboarding, calibration, SSH tunnel
+silentcalls/       Local Python service: captions, co-pilot, coach, decision (Jev + Claude), Cartesia voice
 tools/             Setup checker, co-pilot benchmark, WebSocket replay, Jev smoke test
 docs/              Architecture, protocol, results, setup guides
 tests/             Python tests (app tests in client/tests/)
