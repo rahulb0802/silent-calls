@@ -31,9 +31,16 @@ export function MeetingWidget({service:providedPort}:{service?:MeetingPort} = {}
   const [device, setDevice] = useState('');
   const [frame, setFrame] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [keyFeedback, setKeyFeedback] = useState('Enable the camera, then hold T here—or enable the global key for your meeting.');
   const container = useRef<HTMLElement>(null);
   const serviceBusy = service.phase === 'processing' || service.phase === 'queued' || service.phase === 'speaking';
-  const begin = () => { if (!serviceBusy) capture.begin(); };
+  const begin = () => {
+    if (serviceBusy) { setKeyFeedback(`${keyLabels[key]} detected. Wait for the previous phrase or cancel it first.`); return; }
+    if (!capture.cameraOn) { setKeyFeedback(`${keyLabels[key]} detected. Enable the camera before holding to capture.`); return; }
+    if (capture.phase === 'starting') { setKeyFeedback(`${keyLabels[key]} detected. The camera is warming up; release and hold again in a moment.`); return; }
+    setKeyFeedback(`${keyLabels[key]} detected. Hold while mouthing, then release to finish.`);
+    capture.begin();
+  };
   const beginRef = useRef(begin); beginRef.current = begin;
   useEffect(() => { setEditedText(service.candidates[0]?.text || ''); }, [service.candidates]);
   const releaseRef = useRef(capture.release); releaseRef.current = capture.release;
@@ -81,6 +88,8 @@ export function MeetingWidget({service:providedPort}:{service?:MeetingPort} = {}
   async function enableGlobal() {
     if (!window.desktop || !ready) return;
     setEnablingHook(true);
+    container.current?.focus();
+    setKeyFeedback(`Enabling ${keyLabels[key]} across apps…`);
     try { setHook(await window.desktop.startGlobalHold(key)); }
     catch { setHook({active:false,key,message:'Could not enable the global key. Restart Electron and retry.'}); }
     finally { setEnablingHook(false); }
@@ -92,10 +101,10 @@ export function MeetingWidget({service:providedPort}:{service?:MeetingPort} = {}
       if(service.phase==='choosing' && ['1','2','3'].includes(event.key)){const candidate=service.candidates[Number(event.key)-1];if(candidate){event.preventDefault();service.confirm(candidate);}return;}
       const matches = key === 'CtrlRight' ? event.code === 'ControlRight' : event.code === (key === 'T' ? 'KeyT' : key);
       if (key === 'T' && (event.metaKey || event.ctrlKey || event.altKey)) return;
-      if (matches && !hook.active) { event.preventDefault(); if (!event.repeat) beginRef.current(); }
+      if (matches) { event.preventDefault(); if (!event.repeat) beginRef.current(); }
     };
     const up = (event: KeyboardEvent) => {
-      if (!hook.active && (key === 'CtrlRight' ? event.code === 'ControlRight' : event.code === (key === 'T' ? 'KeyT' : key))) { event.preventDefault(); releaseRef.current(); }
+      if (key === 'CtrlRight' ? event.code === 'ControlRight' : event.code === (key === 'T' ? 'KeyT' : key)) { event.preventDefault(); releaseRef.current(); }
     };
     const blur = () => { if (!hook.active) releaseRef.current(); };
     window.addEventListener('keydown', down); window.addEventListener('keyup', up); window.addEventListener('blur', blur);
@@ -108,6 +117,8 @@ export function MeetingWidget({service:providedPort}:{service?:MeetingPort} = {}
     <header className="widget-header"><div className="widget-logo"><Waves size={21}/> silent calls<span>.</span></div><GripHorizontal size={19} className="drag-grip"/><button className="icon-button" aria-label="Close meeting widget" onClick={() => window.desktop ? window.desktop.closeWidget() : window.close()}><X size={17}/></button></header>
     <div className="widget-body"><div className="widget-status"><span className={`dot ${busy ? 'recording-dot' : ''}`}/>{capture.cameraOn ? 'Camera enabled' : 'Camera off'}<span className="demo-badge">{service.connected?'Service connected':'Local capture'}</span></div>
       <h1 aria-live="polite">{title}</h1>
+      <p className="capture-help" role="status">{keyFeedback}</p>
+      <p className="capture-help">{capture.cameraOn ? 'Camera on' : 'Camera off'} · {hook.active ? `${keyLabels[hook.key]} enabled across apps` : `${keyLabels[key]} works here only · enable global key for meetings`}</p>
       {!providedPort && <section className="gpu-connect" aria-label="GPU lip-reading connection"><div><strong>Lip-reading</strong><span className={`dot ${service.connected ? '' : 'amber'}`}/>{service.connected ? 'GPU connected' : 'Not connected'}</div><p role="status">{service.message}</p><div className="gpu-actions"><button className="hold-button" disabled={service.phase === 'queued' || service.phase === 'speaking' || busy} onClick={() => service.connected ? gpuPort.disconnect() : gpuPort.connect(loadSettings())}>{service.connected ? 'Disconnect GPU' : 'Connect lip-reading'}</button><button className="icon-text" onClick={() => window.desktop?.showMain('workspace')}>Connection settings <ArrowUpRight size={12}/></button></div><p className="capture-help">Connecting enables uploads while you hold the key. Keep the SSH tunnel open. Video is sent to the GPU for inference and stays in memory.</p></section>}
       <section className="meeting-results" aria-label="Lip-reading results">
         {service.phase==='processing' && <p className="capture-help" role="status">{service.upload.bufferedBytes > 0 ? `Uploading ${Math.ceil(service.upload.bufferedBytes/1024)} KB queued · ${service.upload.sentFrames} frames` : 'Waiting for the GPU to read your phrase… Venue Wi-Fi can take 10 seconds or longer.'}</p>}
@@ -130,7 +141,7 @@ export function MeetingWidget({service:providedPort}:{service?:MeetingPort} = {}
       {!modelBuffer && <label className="model-picker">Choose local MediaPipe model<input type="file" accept=".task" onChange={event=>{const file=event.target.files?.[0];if(file)void file.arrayBuffer().then(buffer=>{setModelBuffer(new Uint8Array(buffer));setModelError('');}).catch(()=>setModelError('Could not open the model file. Try again.'));}}/></label>}
       {modelError && <p className="capture-error" role="alert">{modelError}</p>}
       {capture.error && <p className="capture-error" role="alert">{capture.error}</p>}
-      {!capture.cameraOn ? <button className="hold-button" onClick={() => {setPlaying(false);void capture.enable(device || undefined);}}><Camera size={16}/> Enable camera</button> : <button className={`hold-button ${busy ? 'held' : ''}`} disabled={serviceBusy || (!ready && capture.phase !== 'capturing')} onPointerDown={event => { event.currentTarget.setPointerCapture(event.pointerId); beginRef.current(); }} onPointerUp={capture.release} onPointerCancel={capture.release} onBlur={() => {if (!hook.active) capture.release();}} onKeyDown={event => {if (['Space','Enter'].includes(event.code)) {event.preventDefault();if (!event.repeat) beginRef.current();}}} onKeyUp={event => {if (['Space','Enter'].includes(event.code)) {event.preventDefault();capture.release();}}}><span className="record-dot"/>{capture.phase === 'starting' ? 'Warming up the frame buffer…' : capture.phase === 'tail' ? 'Capturing 0.3s post-roll…' : capture.phase === 'capturing' ? 'Release to finish' : 'Hold to capture'}<kbd>{keyLabels[key]}</kbd></button>}
+      {!capture.cameraOn ? <button className="hold-button" onClick={() => {setPlaying(false);setKeyFeedback('Opening camera… Once the preview is live, hold the key or the capture button.');void capture.enable(device || undefined);}}><Camera size={16}/> Enable camera</button> : <button className={`hold-button ${busy ? 'held' : ''}`} disabled={serviceBusy || (!ready && capture.phase !== 'capturing')} onPointerDown={event => { event.currentTarget.setPointerCapture(event.pointerId); beginRef.current(); }} onPointerUp={capture.release} onPointerCancel={capture.release} onBlur={() => {if (!hook.active) capture.release();}} onKeyDown={event => {if (['Space','Enter'].includes(event.code)) {event.preventDefault();if (!event.repeat) beginRef.current();}}} onKeyUp={event => {if (['Space','Enter'].includes(event.code)) {event.preventDefault();capture.release();}}}><span className="record-dot"/>{capture.phase === 'starting' ? 'Warming up the frame buffer…' : capture.phase === 'tail' ? 'Capturing 0.3s post-roll…' : capture.phase === 'capturing' ? 'Release to finish' : 'Hold to capture'}<kbd>{keyLabels[key]}</kbd></button>}
       <div className="capture-settings"><label htmlFor="camera-device">Camera</label><select id="camera-device" value={device} disabled={capture.cameraOn} onChange={event => setDevice(event.target.value)}><option value="">System default</option>{devices.map((camera,index) => <option key={camera.deviceId || index} value={camera.deviceId}>{camera.label || `Camera ${index + 1}`}</option>)}</select><label htmlFor="hold-key">Hold key</label><select id="hold-key" value={key} disabled={hook.active || busy || hookPending} onChange={event => {const selected=event.target.value as HoldKey;setKey(selected);localStorage.setItem('silent-calls:hold-key:v2',selected);}}>{Object.entries(keyLabels).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></div>
       <div className="global-controls"><button className="icon-text" disabled={!window.desktop || (!hook.active && (!ready || hookPending))} onClick={() => hook.active ? void stop() : void enableGlobal()}>{hook.active ? <Pause size={14}/> : <Play size={14}/>} {hook.active ? 'Disable global key & camera' : enablingHook ? 'Enabling…' : 'Enable global key'}</button>{!hook.active && window.desktop && <button className="icon-text" onClick={() => window.desktop?.openKeyboardSettings()}>Permissions <ArrowUpRight size={12}/></button>}</div>
       <p className="capture-help" role="status">{window.desktop ? hook.message : 'Browser preview: the hold key works only while this tab is focused. Use Electron for global capture.'}</p>

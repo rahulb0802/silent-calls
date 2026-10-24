@@ -47,3 +47,7 @@ No tests, builds, typechecks, verification passes, live network requests, app la
 ## Letter hold key
 
 The default is now T, using native `UiohookKey.T` and renderer `KeyT`. Hold-key storage v2 starts with T instead of inheriting the old F8 default; other key choices remain available. Native T with Command/Control/Alt is ignored so normal shortcuts do not start captures. Typing in Silent Calls inputs does not start native capture. The global hook observes and does not suppress the letter in other apps; avoid a focused meeting chat field while holding T. No tests or verification pass were run for this change.
+
+### Hold-key recovery
+
+The focused widget now handles its own key-down/up even when the native hook reports active. Capture transitions are idempotent, so duplicate native/renderer events cannot start two utterances. Visible key feedback explains camera-off, warming-up and previous-request blocks. Global enable moves focus away from editable controls. This fallback only covers the focused widget; holding while Meet/Zoom is focused still requires native key permissions and Enable global key. No tests, app launches or verification passes were run.
