@@ -6,11 +6,16 @@
 
 import argparse
 import asyncio
+import base64
+import binascii
+import io
 import json
 import logging
+import wave
 from urllib.parse import urlparse
 
 import websockets
+import httpx
 from pydantic import BaseModel, ValidationError
 
 from .captions import CallCaptioner
@@ -70,8 +75,54 @@ def handler(pipeline: Pipeline):
                 raise ValueError(f"{key} must be nonempty text up to 5000 characters")
             return value
 
+        async def clone_personal_voice(msg):
+            try:
+                await create_personal_voice(msg)
+            except asyncio.CancelledError:
+                raise
+            except httpx.HTTPStatusError as error:
+                code = error.response.status_code
+                detail = ("Cartesia credentials need attention in the backend configuration." if code in {401, 403}
+                          else "Cartesia usage limit reached. Check the account or try again later." if code == 429
+                          else "Cartesia could not create this voice. Try a clearer recording or try again later.")
+                await ws.send(json.dumps({"type": "voice.clone.error", "message": detail}))
+            except httpx.RequestError:
+                await ws.send(json.dumps({"type": "voice.clone.error", "message": "Cartesia could not be reached. The request may have arrived; check your Cartesia voice library before creating another voice."}))
+            except (ValueError, RuntimeError) as error:
+                await ws.send(json.dumps({"type": "voice.clone.error", "message": str(error)}))
+            except Exception:
+                # Avoid exposing provider response bodies or voice samples in UI/logs.
+                log.error("Personal voice setup failed unexpectedly")
+                await ws.send(json.dumps({"type": "voice.clone.error", "message": "Voice setup failed. Reconnect to check its status before trying again."}))
+
+        async def create_personal_voice(msg):
+            if not pipeline.voice:
+                raise ValueError("Voice output is unavailable.")
+            name = text_field(msg, "name")
+            if len(name) > 80:
+                raise ValueError("Voice name must be 80 characters or fewer.")
+            encoded = msg.get("wav")
+            if not isinstance(encoded, str) or len(encoded) > 900_000:
+                raise ValueError("Voice sample must be a short WAV recording.")
+            try:
+                wav = base64.b64decode(encoded, validate=True)
+                with wave.open(io.BytesIO(wav), "rb") as sample:
+                    seconds = sample.getnframes() / sample.getframerate()
+                    valid = (sample.getnchannels() == 1 and sample.getsampwidth() == 2
+                             and sample.getframerate() == 16000 and 3 <= seconds <= 20)
+                    if valid:
+                        valid = len(sample.readframes(sample.getnframes())) == sample.getnframes() * 2
+            except (binascii.Error, EOFError, ValueError, wave.Error, ZeroDivisionError) as e:
+                raise ValueError("Could not read the voice sample WAV.") from e
+            if not valid:
+                raise ValueError("Record 3–20 seconds of mono, 16 kHz voice audio.")
+            await pipeline.voice.clone_from_sample(wav, name)
+            await ws.send(json.dumps({"type": "voice.ready", **pipeline.voice.profile}))
+
         clients.add(ws)
         try:
+            await ws.send(json.dumps({"type": "voice.status", **(pipeline.voice.profile if pipeline.voice else
+                                                                   {"personal": False, "name": "", "has_voice": False})}))
             async for raw in ws:
                 try:
                     if not isinstance(raw, str):
@@ -88,6 +139,8 @@ def handler(pipeline: Pipeline):
                         launch(pipeline.confirm(text_field(msg, "utterance_id"), text_field(msg, "text")))
                     elif kind == "say":
                         launch(pipeline.speak(text_field(msg, "text")))
+                    elif kind == "voice.clone":
+                        launch(clone_personal_voice(msg))
                     elif kind == "opener" and pipeline.voice:
                         launch(pipeline.voice.play_opener())
                     else:

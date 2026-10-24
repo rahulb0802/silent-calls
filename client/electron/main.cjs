@@ -78,6 +78,7 @@ app.whenReady().then(() => {
   ipcMain.handle('voice:connect', (event, port) => { localVoiceCaller(event); return voice.connect(port); });
   ipcMain.handle('voice:disconnect', event => { localVoiceCaller(event); return voice.disconnect(); });
   ipcMain.handle('voice:say', (event, text) => { localVoiceCaller(event); return voice.say(text); });
+  ipcMain.handle('voice:clone', (event, wav, name) => { localVoiceCaller(event); return voice.clone(wav, name); });
   ipcMain.handle('audio:help', (event, topic) => {
     localVoiceCaller(event);
     if (typeof topic !== 'string' || !Object.hasOwn(audioHelp, topic)) throw new Error('Unknown audio setup guide.');

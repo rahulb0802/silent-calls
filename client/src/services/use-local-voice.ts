@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 export type VoiceState = {
   revision: number;
   connection: 'disconnected' | 'connecting' | 'connected' | 'error';
-  phase: 'idle' | 'waiting' | 'uncertain';
+  phase: 'idle' | 'waiting' | 'cloning' | 'uncertain';
   port: number;
   endpoint: string;
   platform: string;
@@ -11,6 +11,9 @@ export type VoiceState = {
   lastSpoken: string;
   firstAudioMs: number | null;
   captions: { speaker: string; text: string }[];
+  personalVoiceReady: boolean;
+  voiceName: string;
+  hasVoice: boolean;
 };
 
 const initial: VoiceState = {
@@ -24,6 +27,9 @@ const initial: VoiceState = {
   lastSpoken: '',
   firstAudioMs: null,
   captions: [],
+  personalVoiceReady: false,
+  voiceName: '',
+  hasVoice: false,
 };
 
 export function useLocalVoice() {
