@@ -48,3 +48,53 @@ body:has(.meeting-widget){background:#1c2624;color:#ecf1e9}.meeting-widget{min-h
 .voice-reading-prompt blockquote{font-size:clamp(17px,1.65vw,21px);line-height:1.6;margin:0 0 14px;color:#253d36;text-wrap:pretty}
 
 .setup-routing-confirm{display:flex;align-items:flex-start;gap:10px;margin-top:18px;padding-top:18px;border-top:1px solid #cbd7ca;font-size:13px;line-height:1.7;color:#53675d}.setup-routing-confirm input{accent-color:#315e4d;flex-shrink:0;margin-top:5px}.global-controls{flex-wrap:wrap}
+
+/* Guided calibration: one sentence, one keyboard action, saved progress. */
+.setup-profile-label{font-size:13px;color:var(--text);margin-top:10px}
+.setup-profile-input{width:100%;max-width:400px;min-height:44px;padding:11px 12px;border:1px solid #9eafa3;border-radius:7px;background:#fff;color:#253d36;caret-color:#315e4d;font:inherit;font-size:14px}
+.setup-profile-input:focus-visible{outline:3px solid #88bfa4;outline-offset:3px}
+.guided-setup .calibration-step{grid-template-columns:minmax(0,1fr);max-width:1250px;width:100%}
+.guided-setup .calibration-step .copy-column{width:100%;padding-top:0}
+.guided-setup .calibration-step .visual-column{display:none}
+.guided-setup .calibration-step .lead{max-width:65ch}
+.guided-setup .calibration-step h1{font-size:clamp(32px,3.5vw,44px);white-space:normal}
+.calibration-flow{margin-top:30px;max-width:1100px;min-width:0;outline:none}
+.calibration-flow h2{font-size:clamp(23px,2.5vw,30px);font-weight:500;letter-spacing:-.025em;line-height:1.25;margin:0 0 16px;text-wrap:balance}
+.calibration-flow p{font-size:14px;line-height:1.75;color:#53675d;max-width:68ch}
+.calibration-flow .small{font-size:12px;line-height:1.75;margin-top:16px}
+.calibration-intro{max-width:800px}
+.calibration-goals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:26px 0 18px}
+.calibration-goals button{font:inherit;text-align:left;padding:18px 16px;min-height:86px;border:1px solid #9eafa3;border-radius:7px;color:#253d36;background:transparent;cursor:pointer}
+.calibration-goals strong{display:block;font-size:17px;font-weight:500;margin-bottom:7px}
+.calibration-goals span{font-size:12px;line-height:1.5;display:block;color:#53675d}
+.calibration-goals button[aria-pressed=true]{background:#e0e8d9;border-color:#315e4d}
+.calibration-goals button:hover{background:#e8ede3}
+.calibration-flow button:focus-visible{outline:3px solid #88bfa4;outline-offset:3px}
+.calibration-flow .consent{display:flex;align-items:flex-start;gap:12px;margin:24px 0;font-size:13px;line-height:1.8;color:#53675d;max-width:70ch}
+.calibration-flow .consent input{flex-shrink:0;margin-top:6px;accent-color:#315e4d}
+.calibration-recording{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:32px;align-items:start}
+.calibration-hidden{display:none}
+.calibration-camera{position:relative;aspect-ratio:16/9;background:#1c2624;border-radius:15px;overflow:hidden}
+.calibration-camera video{display:block;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+.calibration-camera .camera-tag{font-variant-numeric:tabular-nums;background:#1c2624;color:#ecf1e9}
+.calibration-prompt{min-width:0}
+.calibration-count{font-size:13px;color:#53675d;font-variant-numeric:tabular-nums;display:grid;gap:12px}
+.calibration-flow progress{display:block;width:100%;height:8px;accent-color:#315e4d;border:0;border-radius:8px;overflow:hidden;background:#dce3db}
+.calibration-flow progress::-webkit-progress-bar{background:#dce3db;border-radius:8px}
+.calibration-flow progress::-webkit-progress-value{background:#315e4d;border-radius:8px}
+.calibration-flow progress::-moz-progress-bar{background:#315e4d;border-radius:8px}
+.calibration-prompt blockquote{font-size:clamp(24px,2.7vw,34px);letter-spacing:-.025em;line-height:1.4;margin:26px 0 16px;color:#253d36;overflow-wrap:anywhere;text-wrap:pretty}
+.calibration-prompt>.button{margin-top:22px;min-height:46px;white-space:normal}
+.calibration-prompt>.text-button{display:flex;margin-top:16px;min-height:36px;line-height:1.6;text-align:left}
+.calibration-prompt .recording{background:#873b2e;color:#fff}
+.calibration-prompt .recording:hover:not(:disabled){background:#6f2e24}
+.calibration-wait{max-width:680px;padding:32px 0 44px}
+.calibration-wait>progress{margin:30px 0 18px;height:10px}
+.calibration-wait>svg{color:#315e4d;margin-bottom:18px}
+.calibration-flow .calibration-estimate{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;font-size:14px;font-variant-numeric:tabular-nums;color:#253d36}
+.calibration-estimate>span{font-size:12px;color:#53675d}
+.calibration-recovery{display:flex;flex-wrap:wrap;align-items:center;gap:18px;margin-top:24px}
+.calibration-recovery .text-button{min-height:40px;white-space:normal;text-align:left}
+.calibration-flow>.error{color:#9c3d30;margin-top:20px;font-size:13px;line-height:1.8;overflow-wrap:anywhere}
+@media(max-width:1000px){.calibration-recording{grid-template-columns:minmax(0,1fr);gap:24px}.calibration-camera{max-width:600px}.calibration-prompt{max-width:650px}.calibration-prompt blockquote{margin-top:20px}.calibration-goals{gap:8px}.calibration-goals button{padding:16px 12px}}
+@media(max-width:600px){.calibration-goals{grid-template-columns:1fr}.calibration-goals button{min-height:64px;display:flex;align-items:center;justify-content:space-between;gap:12px}.calibration-goals strong{margin:0}.calibration-goals span{text-align:right}.calibration-prompt>.button{width:100%;justify-content:center}.calibration-flow .calibration-estimate{display:grid;gap:6px}}
