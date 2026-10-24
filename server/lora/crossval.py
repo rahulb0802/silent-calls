@@ -23,6 +23,8 @@ COLS = ("top1_wer", "exact@1", "exact@5", "exact@10", "oracle_wer@10", "within1@
 def main() -> None:
     p = T.build_parser("python -m server.lora.crossval")
     p.add_argument("--users", nargs="+", required=True)
+    p.add_argument("--cross-user", action="store_true",
+                   help="control: also score each adapter on the other users' held-out clips")
     args = p.parse_args()
     logging.basicConfig(level=logging.WARNING, format="%(asctime)s %(name)s %(message)s")
     log.setLevel(logging.INFO)
@@ -32,6 +34,7 @@ def main() -> None:
     out: dict = {"config": {k: v for k, v in vars(args).items() if k not in ("user", "fold", "save", "tag")},
                  "users": {}}
     pooled: dict[str, list] = {}
+    cross: dict[str, list] = {}
     sentences = []
     for user in args.users:
         per: dict[str, list] = {}
@@ -42,6 +45,20 @@ def main() -> None:
             stages = {"before": r["before_rows"],
                       **{f"step {k}": v["rows"] for k, v in r["checkpoints"].items()},
                       "after": r["after_rows"]}
+            if args.cross_user:
+                # control: the same adapter on the OTHER users' clips of the same held-out sentences.
+                # If it helps them as much as its owner, it learned the task/setup, not the person.
+                key = T.lora.adapter_key(user)
+                for other in args.users:
+                    if other == user:
+                        continue
+                    _, test_o = T.split(T.load_feasibility(other), args.test_frac, args.seed, fold, args.folds)
+                    T.lora.set_active(avsr.model, None)
+                    _, rb = T.evaluate(avsr, test_o)
+                    T.lora.set_active(avsr.model, key)
+                    _, ra = T.evaluate(avsr, test_o)
+                    cross.setdefault("other user, base model", []).extend(rb)
+                    cross.setdefault("other user, this user's adapter", []).extend(ra)
             for name, rows in stages.items():
                 per.setdefault(name, []).extend(rows)
                 pooled.setdefault(name, []).extend(rows)
@@ -50,6 +67,8 @@ def main() -> None:
                                   "after": a_["top1"], "before_rank": b["exact_rank"], "after_rank": a_["exact_rank"]})
         out["users"][user] = {k: summarize(v) for k, v in per.items()}
     out["pooled"] = {k: summarize(v) for k, v in pooled.items()}
+    if cross:
+        out["pooled"].update({k: summarize(v) for k, v in cross.items()})
     out["sentences"] = sentences
 
     d = RESULTS_DIR / tag

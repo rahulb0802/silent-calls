@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Enrollment Recorder</title>
+<!-- Fallback enrollment UI (until the desktop app's main window has it): records each prompt, uploads it to
+     POST /enroll/{user}/clip, then trains the adapter and shows before/after. Open in Chrome. -->
+<style>
+  :root { --bg:#111; --fg:#eee; --muted:#999; --accent:#4cc38a; --warn:#e5a50a; --bad:#e5484d; --panel:#1c1c1c; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.4 system-ui, sans-serif; }
+  main { max-width:1000px; margin:0 auto; padding:16px; }
+  h1 { font-size:20px; margin:0 0 12px; }
+  .row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+  input, button { font:inherit; padding:8px 12px; border-radius:6px; border:1px solid #444; background:var(--panel); color:var(--fg); }
+  button.primary { background:var(--accent); color:#000; border:none; font-weight:600; }
+  button:disabled { opacity:.4; }
+  #stage { position:relative; width:100%; aspect-ratio:16/9; background:#000; margin:12px 0; border-radius:8px; overflow:hidden; }
+  video { width:100%; height:100%; object-fit:contain; transform:scaleX(-1); }
+  #guide { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; }
+  #prompt { font-size:34px; font-weight:600; text-align:center; min-height:1.5em; margin:8px 0; }
+  #status { text-align:center; color:var(--muted); min-height:1.4em; }
+  #status.rec { color:var(--bad); font-weight:700; }
+  .ok { color:var(--accent); } .badc { color:var(--bad); }
+  pre { background:var(--panel); padding:12px; border-radius:6px; white-space:pre-wrap; }
+  kbd { background:#333; padding:1px 6px; border-radius:4px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Enrollment: mouth each sentence silently</h1>
+  <div class="row">
+    <label>Server <input id="server" value="http://localhost:8000" size="28"></label>
+    <label>Your name <input id="who" placeholder="e.g. rahul" size="10"></label>
+    <button id="start" class="primary">Start camera</button>
+    <button id="train" disabled>Train my adapter</button>
+  </div>
+  <div id="stage"><video id="cam" autoplay muted playsinline></video><canvas id="guide"></canvas></div>
+  <div id="prompt"></div>
+  <div id="status">Press <kbd>Space</kbd> to start recording, <kbd>Space</kbd> again to stop. <kbd>S</kbd> skips.</div>
+  <div class="row" style="justify-content:center;margin-top:8px">
+    <button id="rec" class="primary" disabled>Record (Space)</button>
+    <button id="skip" disabled>Skip (S)</button>
+    <span id="progress" style="color:var(--muted)"></span>
+  </div>
+  <pre id="report" hidden></pre>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+let stream, recorder, chunks = [], sentences = [], done = new Set(), idx = 0, recording = false;
+const api = path => $("server").value.replace(/\/$/, "") + path;
+const who = () => $("who").value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "") || "anon";
+
+function next() {
+  while (idx < sentences.length && done.has(sentences[idx].id)) idx++;
+  const total = sentences.length;
+  $("progress").textContent = `${done.size}/${total} recorded`;
+  $("train").disabled = done.size < 8;
+  if (idx >= total) { $("prompt").textContent = "All done. Click \"Train my adapter\"."; $("rec").disabled = true; return; }
+  $("prompt").textContent = sentences[idx].sentence;
+}
+
+$("start").onclick = async () => {
+  sentences = await (await fetch(api("/enroll/sentences"))).json();
+  const prog = await (await fetch(api(`/enroll/${who()}`))).json();
+  prog.sentence_ids.forEach(id => done.add(id));
+  stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } }, audio: false });
+  $("cam").srcObject = stream;
+  $("rec").disabled = $("skip").disabled = false; $("start").disabled = true; $("who").disabled = true;
+  next(); requestAnimationFrame(drawGuide);
+};
+
+async function upload(blob, s) {
+  const fd = new FormData();
+  fd.append("sentence_id", s.id); fd.append("file", blob, `${s.id}.webm`);
+  $("status").textContent = "Uploading...";
+  const r = await (await fetch(api(`/enroll/${who()}/clip`), { method: "POST", body: fd })).json();
+  if (r.ok) { done.add(s.id); $("status").innerHTML = `<span class="ok">Saved</span> (${r.n_clips} clips)`; idx++; }
+  else $("status").innerHTML = `<span class="badc">Redo this one:</span> ${r.error || (r.quality.flags || []).join("; ") || "face not found"}`;
+  next();
+}
+
+function startRec() {
+  if (idx >= sentences.length) return;
+  const mime = ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"].find(m => MediaRecorder.isTypeSupported(m));
+  recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 6_000_000 });
+  chunks = []; const s = sentences[idx];
+  recorder.ondataavailable = e => e.data.size && chunks.push(e.data);
+  recorder.onstop = () => { $("status").className = ""; upload(new Blob(chunks, { type: "video/webm" }), s); };
+  recorder.start(); recording = true;
+  $("status").className = "rec"; $("status").textContent = "● RECORDING: mouth the sentence, then press Space";
+}
+function stopRec() { if (recorder && recording) { recording = false; recorder.stop(); } }
+$("rec").onclick = () => recording ? stopRec() : startRec();
+$("skip").onclick = () => { if (!recording) { idx = (idx + 1) % Math.max(1, sentences.length); next(); } };
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.code === "Space") { e.preventDefault(); $("rec").click(); }
+  if (e.key === "s" || e.key === "S") $("skip").click();
+});
+
+$("train").onclick = async () => {
+  $("train").disabled = true; $("report").hidden = false;
+  const r = await fetch(api(`/train/${who()}`), { method: "POST" });
+  $("report").textContent = JSON.stringify(await r.json());
+  const poll = setInterval(async () => {
+    const st = await (await fetch(api(`/train/${who()}/status`))).json();
+    $("report").textContent = `state: ${st.state}  step ${st.step ?? "-"}/${st.steps ?? "-"}  loss ${st.loss ?? "-"}`;
+    if (st.state === "done" || st.state === "failed") {
+      clearInterval(poll); $("train").disabled = false;
+      if (st.report) {
+        const p = x => `${Math.round(x * 100)}%`, rp = st.report;
+        $("report").textContent = `Held-out sentences (${rp.n_test}), trained on ${rp.n_train}:\n` +
+          `  word error rate   ${p(rp.before_wer)} -> ${p(rp.after_wer)}\n` +
+          `  exact in top 5    ${p(rp.before_top5)} -> ${p(rp.after_top5)}`;
+      } else $("report").textContent += `\n${st.error || ""}`;
+    }
+  }, 2000);
+};
+
+function drawGuide() {
+  const c = $("guide"); c.width = c.clientWidth; c.height = c.clientHeight;
+  const g = c.getContext("2d"); g.clearRect(0, 0, c.width, c.height);
+  g.strokeStyle = "rgba(76,195,138,.8)"; g.lineWidth = 3; g.setLineDash([10, 8]);
+  g.beginPath(); g.ellipse(c.width / 2, c.height * 0.48, c.height * 0.24, c.height * 0.34, 0, 0, 2 * Math.PI); g.stroke();
+  requestAnimationFrame(drawGuide);
+}
+</script>
+</body>
+</html>

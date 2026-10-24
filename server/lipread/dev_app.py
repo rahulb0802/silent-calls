@@ -15,6 +15,7 @@ import math
 import time
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 
 from .reader import LipReader
 from .routes import router
@@ -23,6 +24,8 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(message)s
 log = logging.getLogger("dev_app")
 app = FastAPI(title="silent calls lip-reader (dev)")
 app.include_router(router)
+# tools/record_enroll.html is opened from file://, so it needs CORS
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 reader: LipReader | None = None
 
 
