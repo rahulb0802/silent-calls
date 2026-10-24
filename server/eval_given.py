@@ -147,9 +147,6 @@ def main() -> None:
     print("\n".join(lines))
 
 
-if __name__ == "__main__":
-    main()
-
 
 def dump_scores(args) -> Path:
     """Per clip: the beam's top 10 and every sentence of the set scored against the video, so any given-list
@@ -211,3 +208,7 @@ def simulate(path: Path, distractors: int = 4, seed: int = 0, bonuses=(0, 2, 4, 
         m = {k: sum(v) / len(v) for k, v in acc.items()}
         lines.append(f"| {b} | {m['random']:.0%} | {m['hard']:.0%} | {m['absent_right']:.0%} | {m['absent_wrong']:.0%} |")
     return "\n".join(lines)
+
+
+if __name__ == "__main__":
+    main()
