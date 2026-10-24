@@ -1,0 +1,176 @@
+"""The lip-reading service the orchestrator calls (spec: docs/specs/lipread.md).
+
+    reader = LipReader()                         # loads the model, warms up the GPU (~10 s)
+    reader.on_frame("u7", jpeg)                  # per frame, as it arrives: decode + face detect now
+    result = await reader.finish("u7", "rahul")  # crop + model -> top 10, frees the frames
+    reader.cancel("u7")
+
+Face detection runs on a CPU thread pool while the user is still mouthing, so after release only the
+crop (~50 ms) and the model (~1 s on an A16) remain. The model runs on one GPU thread, so requests are
+serialized. Frames are only ever held in memory.
+"""
+
+import asyncio
+import logging
+import os
+import threading
+import time
+from concurrent.futures import Future, ThreadPoolExecutor
+from dataclasses import dataclass, field
+
+import numpy as np
+import torch
+
+from ..lora import lora
+from . import frames as fr
+from .model import DecodeConfig, decode, load
+from .paths import ADAPTER_DIR, MODEL_FPS
+
+log = logging.getLogger(__name__)
+
+MIN_FRAMES = 10  # 0.4 s; shorter than this is a mis-press
+MAX_FRAMES = 15 * MODEL_FPS  # frames past 15 s are ignored
+
+
+@dataclass
+class LipResult:
+    candidates: list[tuple[str, float]]  # (text, log-prob), sorted best-first, len <= 10, lowercase
+    crop_ms: int
+    lipread_ms: int
+    face_wait_ms: int = 0  # time after finish() spent waiting for face detection to catch up
+    n_tokens: list[int] = field(default_factory=list)  # per candidate, for length-normalized scores
+    adapter: str | None = None  # user whose LoRA adapter was used, if any
+    quality: dict = field(default_factory=dict)  # see frames.quality(); "flags" is human-readable
+    error: str | None = None  # "no_face" | "crop_failed" | "too_short"; candidates is then empty
+    timings_ms: dict = field(default_factory=dict)
+
+
+class _Utterance:
+    def __init__(self) -> None:
+        self.futures: list[Future] = []
+        self.t_first = time.perf_counter()
+
+
+class LipReader:
+    def __init__(self, device: str | None = None, cfg: DecodeConfig = DecodeConfig(),
+                 detect_workers: int = 3, warmup: bool = True) -> None:
+        t0 = time.perf_counter()
+        self.device = device or os.environ.get("LIPREAD_DEVICE") or ("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.cfg = cfg
+        self.avsr = load(cfg, self.device)
+        lora.inject(self.avsr.model)  # no adapter is active until a user's is loaded
+        self._adapters: dict[str, float] = {}  # adapter key -> mtime of the loaded file
+        self._utts: dict[str, _Utterance] = {}
+        self._local = threading.local()
+        self._cpu = ThreadPoolExecutor(max_workers=detect_workers, thread_name_prefix="face")
+        self._gpu = ThreadPoolExecutor(max_workers=1, thread_name_prefix="model")
+        if warmup:
+            self._gpu.submit(self._warmup).result()
+        self.load_s = time.perf_counter() - t0
+        log.info("lip-reader ready on %s in %.1fs (beam %d, lm %.2f, ctc %.2f)", self.device, self.load_s,
+                 cfg.beam, cfg.lm_weight, cfg.ctc_weight)
+
+    # ---- streaming API (orchestrator) ----
+
+    def on_frame(self, utt_id: str, jpeg: bytes) -> None:
+        utt = self._utts.setdefault(utt_id, _Utterance())
+        if len(utt.futures) < MAX_FRAMES:
+            utt.futures.append(self._cpu.submit(self._decode_detect, jpeg))
+
+    async def finish(self, utt_id: str, user_id: str | None = None, use_adapter: bool = True) -> LipResult:
+        utt = self._utts.pop(utt_id, None) or _Utterance()
+        t0 = time.perf_counter()
+        done = await asyncio.gather(*(asyncio.wrap_future(f) for f in utt.futures), return_exceptions=True)
+        pairs = [d for d in done if not isinstance(d, BaseException)]
+        face_wait_ms = (time.perf_counter() - t0) * 1000
+        loop = asyncio.get_running_loop()
+        frames = [p[0] for p in pairs]
+        landmarks = [p[1] for p in pairs]
+        res = await loop.run_in_executor(self._cpu, self._crop, frames, landmarks)
+        if isinstance(res, LipResult):
+            res.face_wait_ms = round(face_wait_ms)
+            return res
+        crop, q, crop_ms = res
+        out = await loop.run_in_executor(self._gpu, self._run_model, crop, user_id if use_adapter else None)
+        out.crop_ms, out.quality, out.face_wait_ms = round(crop_ms), q, round(face_wait_ms)
+        out.timings_ms.update(face_wait_ms=out.face_wait_ms, crop_ms=out.crop_ms)
+        return out
+
+    def cancel(self, utt_id: str) -> None:
+        utt = self._utts.pop(utt_id, None)
+        if utt:
+            for f in utt.futures:
+                f.cancel()
+
+    # ---- whole-clip API (eval, enrollment) ----
+
+    def read_frames(self, frames: list[np.ndarray], user_id: str | None = None) -> LipResult:
+        landmarks = self._cpu.submit(lambda: self._detector().detect_all(frames)).result()
+        res = self._crop(frames, landmarks, fallback=False)
+        if isinstance(res, LipResult):
+            return res
+        crop, q, crop_ms = res
+        out = self.read_crop(crop, user_id)
+        out.crop_ms, out.quality = round(crop_ms), q
+        out.timings_ms["crop_ms"] = out.crop_ms
+        return out
+
+    def read_crop(self, crop: np.ndarray, user_id: str | None = None) -> LipResult:
+        return self._gpu.submit(self._run_model, crop, user_id).result()
+
+    # ---- internals ----
+
+    def _detector(self) -> fr.FaceDetector:
+        d = getattr(self._local, "det", None)
+        if d is None:
+            d = self._local.det = fr.FaceDetector()
+        return d
+
+    def _decode_detect(self, jpeg: bytes) -> tuple[np.ndarray, fr.Landmarks]:
+        frame = fr.decode_jpeg(jpeg)
+        return frame, self._detector().full_range(frame)
+
+    def _crop(self, frames, landmarks, fallback: bool = True):
+        t0 = time.perf_counter()
+        if len(frames) < MIN_FRAMES:
+            return LipResult([], 0, 0, quality={"n_frames": len(frames)}, error="too_short")
+        if fallback and all(x is None for x in landmarks):  # same rule as the feasibility pipeline
+            det = self._detector()
+            landmarks = [det.short_range(f) for f in frames]
+        try:
+            crop = fr.crop_mouth(frames, landmarks)
+        except ValueError as e:
+            code = str(e).split(":")[0]
+            return LipResult([], round((time.perf_counter() - t0) * 1000), 0,
+                             quality=fr.quality(frames, landmarks, None), error=code)
+        return crop, fr.quality(frames, landmarks, crop), (time.perf_counter() - t0) * 1000
+
+    def _use_adapter(self, user_id: str | None) -> str | None:
+        """Activate user_id's adapter if one exists on disk (reloading it if retrained); else the base model."""
+        name = None
+        if user_id:
+            key = lora.adapter_key(user_id)
+            path = ADAPTER_DIR / key / "adapter.pt"
+            if path.exists():
+                mtime = path.stat().st_mtime
+                if self._adapters.get(key) != mtime:
+                    lora.load(self.avsr.model, key, path)
+                    self._adapters[key] = mtime
+                    log.info("loaded adapter for %s", key)
+                name = key
+        lora.set_active(self.avsr.model, name)
+        return name
+
+    def _run_model(self, crop: np.ndarray, user_id: str | None) -> LipResult:
+        t0 = time.perf_counter()
+        adapter = self._use_adapter(user_id)
+        nbest, t = decode(self.avsr, crop, self.cfg.nbest)
+        ms = (time.perf_counter() - t0) * 1000
+        return LipResult(candidates=[(c[0], c[1]) for c in nbest], crop_ms=0, lipread_ms=round(ms),
+                         n_tokens=[c[2] for c in nbest], adapter=adapter,
+                         timings_ms={"lipread_ms": round(ms), **{k: round(v) for k, v in t.items()}})
+
+    def _warmup(self) -> None:
+        crop = np.random.default_rng(0).integers(0, 255, (50, 96, 96), dtype=np.uint8)
+        lora.set_active(self.avsr.model, None)
+        decode(self.avsr, crop, 1)

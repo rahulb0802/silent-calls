@@ -55,3 +55,17 @@ S→C {"type":"audio.start","utt_id":"u7","text":"sounds good see you then","sam
 S→C <pcm> <pcm> ...
 S→C {"type":"audio.end","utt_id":"u7","timings":{"tts_first_byte_ms":210,"total_ms":1390}}
 ```
+
+## HTTP: enrollment and training (PROPOSED by Person 2, needs sign-off)
+Served by the GPU server (`server/lipread/routes.py`, mounted with `app.include_router`).
+
+| method + path | body | response |
+|---|---|---|
+| `GET /enroll/sentences` | | `[{id, sentence}]` (60 prompts, none overlap the 30 test sentences) |
+| `GET /enroll/{user_id}` | | `{n_clips, sentence_ids}` |
+| `POST /enroll/{user_id}/clip` | multipart: `sentence_id`, `file` (the MediaRecorder webm), optional `text` | `{ok, sentence_id, quality: {face_rate, mouth_motion, flags, ...}, n_clips}`. `ok: false` → ask the user to redo it. Only the 96×96 mouth crop is kept; the video is deleted. |
+| `POST /train/{user_id}?steps=300` | | `{job_id, state: "queued"}`; 409 if already training, 400 if under 8 clips |
+| `GET /train/{user_id}/status` | | `{state: queued\|loading\|evaluating\|training\|done\|failed, step, steps, loss, has_adapter, report?: {before_wer, after_wer, before_top5, after_top5, n_train, n_test}}` |
+| `GET /train/{user_id}/report` | | full report: per-sentence before/after, loss curve, and the feasibility-clip before/after if the user has them |
+
+The adapter is used automatically once it exists, for sessions with `use_adapter: true`.

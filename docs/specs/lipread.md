@@ -42,3 +42,35 @@ class LipResult:
 ## Done when
 `python -m server.eval --clips data/feasibility/` reproduces the feasibility table,
 and per-stage timings are printed.
+
+## Status (Person 2)
+Built in `server/lipread/` and `server/lora/`; results of every run are in `docs/RESULTS.md`.
+
+| file | what |
+|---|---|
+| `server/setup_gpu.sh` | one-time GPU box setup: Python 3.11 venv, AutoAVSR code + weights in `/opt/lr` |
+| `server/lipread/reader.py` | `LipReader` / `LipResult` as specified above (plus `n_tokens`, `quality`, `error`, `timings_ms`) |
+| `server/lipread/frames.py` | JPEG/video decode, MediaPipe face detection, mouth crop, input-quality flags |
+| `server/lipread/model.py` | model loading and N-best decoding |
+| `server/lipread/routes.py` | enrollment + training HTTP endpoints (see PROTOCOL.md, HTTP section) |
+| `server/lipread/dev_app.py` | stand-in WebSocket server (lip-reading half of the protocol) until the orchestrator exists |
+| `server/eval.py` | the eval: whole-clip path, live (streamed JPEG) path, decoder sweeps, `--dump-fit` for `fit_weights.py` |
+| `server/lora/` | LoRA wrapper, training data, trainer with before/after report |
+| `tools/ws_replay.py` | sends recorded clips to a server over the WebSocket in real time; measures end-to-end delay |
+
+Orchestrator integration:
+```python
+from server.lipread import LipReader
+reader = LipReader()                      # once at startup (loads + warms up, ~15 s)
+reader.on_frame(utt_id, jpeg)             # every binary frame
+res = await reader.finish(utt_id, user_id, use_adapter)   # on utterance.end
+if res.error: send error(code=res.error)  # "no_face" | "crop_failed" | "too_short"
+else: decision(res.candidates)            # [(text, log_prob)] best first
+reader.cancel(utt_id)                     # on utterance.cancel / disconnect
+```
+`res.timings_ms` has `crop_ms`, `lipread_ms` (= encode + beam), `face_wait_ms`.
+
+Notes for the other components:
+- The server env pins `numpy<2` (mediapipe 0.10.14 needs it); `silentcalls/` runs fine on it.
+- Frames must arrive at 25 fps (the model doesn't resample). Send ≤720p; 480p is enough (see RESULTS.md).
+- On a 2-GPU box, live inference uses `cuda:0` and LoRA training `cuda:1`, so training never slows a call.
