@@ -59,7 +59,7 @@ export class EnrollmentApi {
     return value;
   }
   async start(signal:AbortSignal):Promise<{job_id:string;state:string}> {
-    const value=await this.request(`${this.path('train')}?steps=300`,signal,{method:'POST'});
+    const value=await this.request(`${this.path('train')}?steps=100`,signal,{method:'POST'});
     if(typeof value.job_id!=='string' || typeof value.state!=='string')throw new Error('Training start was not acknowledged. Refresh server status before retrying.');
     return value;
   }
