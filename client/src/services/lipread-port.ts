@@ -2,6 +2,7 @@ import type {CaptureClip, Frame} from '../capture/buffer';
 import type {Decision} from '../desktop';
 import type {Candidate, MeetingEvent, MeetingPort, Route, UtteranceStart} from './meeting-port';
 import {vocabularyTerms} from './personal-library';
+import type {CopilotState} from './use-local-voice';
 import type {ServiceSettings} from './settings';
 import {WebmEncoder} from './webm-encoder';
 
@@ -31,6 +32,13 @@ export function names(settings: ServiceSettings, callNames: string[] = []): stri
   const seen = new Set<string>();
   return all.filter(name => { const key = name.trim().toLowerCase(); if (!key || seen.has(key)) return false; seen.add(key); return true; }).slice(0, 200);
 }
+const COPILOT_OFF = 'silent-calls:copilot-off';
+export function copilotOff(): boolean { try { return localStorage.getItem(COPILOT_OFF) === '1'; } catch { return false; } }
+export function setCopilotOff(off: boolean) {
+  try { if (off) localStorage.setItem(COPILOT_OFF, '1'); else localStorage.removeItem(COPILOT_OFF); } catch { /* per-device preference only */ }
+  window.dispatchEvent(new Event(COPILOT_OFF));
+}
+export const COPILOT_CHANGED = COPILOT_OFF;
 function tunnelPort(settings: ServiceSettings) {
   const port = Number(new URL(settings.websocketUrl || 'ws://127.0.0.1:8000/ws/session').port || 80);
   return Number.isInteger(port) ? port : 8000;
@@ -75,6 +83,7 @@ export class LipreadPort implements MeetingPort {
   private removeRepair: (() => void) | null = null;
   private removeNames: (() => void) | null = null;
   private callNames: string[] = [];
+  private copilot: CopilotState | null = null;
   private desired = false;
   private retries = 0;
   private active = '';
@@ -152,11 +161,15 @@ export class LipreadPort implements MeetingPort {
         return item && typeof item.text === 'string' && item.text.trim() && item.text.length <= 5000 && typeof item.lip_score === 'number' && Number.isFinite(item.lip_score)
           ? [{text:item.text, score:item.lip_score}] : [];
       });
+      const givenSet = new Set(Array.isArray(data.given) ? data.given.filter((g: unknown) => typeof g === 'string') : []);
       const candidates: Candidate[] = data.candidates.slice(0,10).flatMap((value: unknown, index: number) => {
         if (!value || typeof value !== 'object') return [];
         const item = value as {text?:unknown;lip_score?:unknown};
         if (typeof item.text !== 'string' || !item.text.trim() || item.text.length > 5000) return [];
-        return [{id:`${id}:${index}`,text:item.text,lipScore:typeof item.lip_score === 'number' && Number.isFinite(item.lip_score) ? item.lip_score : undefined}];
+        const reply = givenSet.has(item.text) ? this.copilot?.replies.find(r => normalize(r.text) === normalize(item.text as string)) : undefined;
+        // a co-pilot reply keeps its own wording (digits, punctuation) for display and speech
+        return [{id:`${id}:${index}`,text:reply?.text ?? item.text,lipScore:typeof item.lip_score === 'number' && Number.isFinite(item.lip_score) ? item.lip_score : undefined,
+          ...(givenSet.has(item.text) ? {source:'copilot' as const, facts:reply?.facts ?? []} : {})}];
       });
       this.clearResultTimers(); this.waiting = false;
       const timings: Record<string,number> = {};
@@ -182,12 +195,20 @@ export class LipreadPort implements MeetingPort {
     const vocab = names(this.settings, this.callNames);
     return vocab.length ? {vocab} : {};
   }
-  /** Follow the local service's list of names in this call. */
+  /** The co-pilot's prepared replies, scored by the lip-reader against this capture (unless turned off). */
+  private given(): {given?: string[]} {
+    if (copilotOff() || !this.copilot?.replies.length) return {};
+    return {given: this.copilot.replies.map(reply => reply.text).slice(0, 8)};
+  }
+  /** Follow the local service's list of names in this call and the co-pilot's prepared replies. */
   private watchNames() {
     this.removeNames?.(); this.removeNames = null;
     const desktop = window.desktop;
     if (!desktop?.onVoiceStatus) return;
-    const take = (state: {callNames?: string[]}) => { this.callNames = Array.isArray(state.callNames) ? state.callNames : []; };
+    const take = (state: {callNames?: string[]; copilot?: CopilotState | null}) => {
+      this.callNames = Array.isArray(state.callNames) ? state.callNames : [];
+      this.copilot = state.copilot ?? null;
+    };
     this.removeNames = desktop.onVoiceStatus(take);
     void desktop.getVoiceStatus().then(take).catch(() => undefined);
   }
@@ -270,7 +291,7 @@ export class LipreadPort implements MeetingPort {
         });
       } catch { this.webm = null; }
     }
-    this.socket.send(JSON.stringify({type:'utterance.start',utt_id:this.active,fps:start.targetFps,t_press_ms:Math.round(performance.timeOrigin+start.pressedAtMs),...(this.webm?{encoding:'webm'}:{}),...this.vocabulary()}));
+    this.socket.send(JSON.stringify({type:'utterance.start',utt_id:this.active,fps:start.targetFps,t_press_ms:Math.round(performance.timeOrigin+start.pressedAtMs),...(this.webm?{encoding:'webm'}:{}),...this.vocabulary(),...this.given()}));
   }
   frame(utteranceId: string, _sequence: number, frame: Frame) {
     if (!this.capturing || utteranceId !== this.active || this.socket?.readyState !== WebSocket.OPEN) return;

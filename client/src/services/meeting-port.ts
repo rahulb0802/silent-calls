@@ -1,5 +1,5 @@
 import type {CaptureClip,Frame} from '../capture/buffer';
-export type Candidate={id:string;text:string;lipScore?:number;prob?:number};
+export type Candidate={id:string;text:string;lipScore?:number;prob?:number;source?:'copilot';facts?:{source:string;detail:string}[]};
 export type Route='speak'|'choose'|'repeat';
 export type UtteranceStart={utteranceId:string;pressedAtMs:number;width:number;height:number;targetFps:number};
 export type MeetingEvent=

@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 
+export type CopilotFact = { source: 'calendar' | 'email' | 'vocabulary' | 'conversation'; detail: string };
+export type CopilotState = {
+  replies: { text: string; facts: CopilotFact[] }[];
+  forLine: string;
+  latencyMs: number | null;
+  steps: { tool: string; query: string; results: number }[];
+};
+
 export type VoiceState = {
   revision: number;
   connection: 'disconnected' | 'connecting' | 'connected' | 'error';
@@ -17,6 +25,7 @@ export type VoiceState = {
   repair?: { utteranceId: string; text: string } | null;
   liveCaption?: { speaker: string; text: string } | null;
   callNames?: string[];
+  copilot?: CopilotState | null;
 };
 
 const initial: VoiceState = {

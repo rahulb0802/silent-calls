@@ -51,3 +51,14 @@ test('names from the service are kept for the lip-reader',()=>{
   deliver({type:'names',names:['rahul','priya','',5]});
   assert.deepEqual(voice.snapshot().callNames,['rahul','priya']);
 });
+
+test('co-pilot replies are kept with their facts, and an empty list clears them',()=>{
+  const {voice,deliver}=connected();
+  deliver({type:'copilot',for_line:'When are you free?',latency_ms:2300,steps:[{tool:'calendar',query:'next 7 days',results:2}],
+    replies:[{text:"I'm free after 2.",facts:[{source:'calendar',detail:'Design review, Tue 1-2pm'},{source:'web',detail:'x'}]},{text:' ',facts:[]}]});
+  const c=voice.snapshot().copilot;
+  assert.deepEqual(c.replies,[{text:"I'm free after 2.",facts:[{source:'calendar',detail:'Design review, Tue 1-2pm'}]}]);
+  assert.equal(c.latencyMs,2300);assert.equal(c.steps[0].tool,'calendar');
+  deliver({type:'copilot',for_line:'',latency_ms:0,replies:[]});
+  assert.equal(voice.snapshot().copilot,null);
+});

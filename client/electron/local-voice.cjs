@@ -18,6 +18,23 @@ function parseDecision(message) {
   return { utteranceId: message.utterance_id, route: message.route, options, jev: options.some(option => option.jev), timings };
 }
 
+const FACT_SOURCES = new Set(['calendar', 'email', 'vocabulary', 'conversation']);
+
+/** A `copilot` message from the service, checked; null if malformed. */
+function parseCopilot(message) {
+  if (!Array.isArray(message.replies)) return null;
+  const str = (value, max) => (typeof value === 'string' ? value.slice(0, max) : '');
+  const replies = message.replies.slice(0, 6).flatMap(reply => {
+    if (!reply || typeof reply.text !== 'string' || !reply.text.trim()) return [];
+    const facts = Array.isArray(reply.facts) ? reply.facts.filter(f => f && FACT_SOURCES.has(f.source)).slice(0, 6)
+      .map(f => ({ source: f.source, detail: str(f.detail, 200) })) : [];
+    return [{ text: reply.text.trim().slice(0, 300), facts }];
+  });
+  const steps = Array.isArray(message.steps) ? message.steps.slice(0, 6).filter(s => s && typeof s.tool === 'string')
+    .map(s => ({ tool: str(s.tool, 20), query: str(s.query, 200), results: Number.isInteger(s.results) ? s.results : 0 })) : [];
+  return { replies, forLine: str(message.for_line, 500), latencyMs: Number.isFinite(message.latency_ms) ? message.latency_ms : null, steps };
+}
+
 class LocalVoice {
   constructor(onChange) {
     this.onChange = onChange;
@@ -42,13 +59,14 @@ class LocalVoice {
       personalVoiceReady: false,
       voiceName: '',
       hasVoice: false,
+      copilot: null, // {replies:[{text, facts:[{source, detail}]}], forLine, latencyMs, steps:[{tool, query, results}]}
       callNames: [], // names likely in this call (service's VOCAB + names heard), sent to the lip-reader too
       liveCaption: null, // {speaker, text}: the other person's line while they are still speaking
       repair: null, // {utteranceId, text}: Claude's suggestion for that utterance, offered, never spoken unasked
     };
   }
 
-  snapshot() { return { ...this.state, captions: this.state.captions.map(line => ({ ...line })), repair: this.state.repair && { ...this.state.repair }, liveCaption: this.state.liveCaption && { ...this.state.liveCaption }, callNames: [...this.state.callNames] }; }
+  snapshot() { return { ...this.state, captions: this.state.captions.map(line => ({ ...line })), repair: this.state.repair && { ...this.state.repair }, liveCaption: this.state.liveCaption && { ...this.state.liveCaption }, callNames: [...this.state.callNames], copilot: this.state.copilot && JSON.parse(JSON.stringify(this.state.copilot)) }; }
   update(patch) {
     this.state = { ...this.state, ...patch, revision: this.state.revision + 1 };
     this.onChange(this.snapshot());
@@ -91,7 +109,7 @@ class LocalVoice {
     try { socket = new WebSocket(endpoint); }
     catch { return this.update({ connection: 'error', phase: 'idle', message: 'Could not open a local connection. Start the Python voice service and retry.' }); }
     this.socket = socket;
-    this.update({ port, endpoint, connection: 'connecting', phase: 'idle', message: 'Connecting to the local voice service…', captions: [], liveCaption: null, callNames: [], personalVoiceReady: false, hasVoice: false, voiceName: '', lastSpoken: '' });
+    this.update({ port, endpoint, connection: 'connecting', phase: 'idle', message: 'Connecting to the local voice service…', captions: [], liveCaption: null, callNames: [], copilot: null, personalVoiceReady: false, hasVoice: false, voiceName: '', lastSpoken: '' });
     this.connectTimer = setTimeout(() => {
       if (this.socket !== socket) return;
       this.detach();
@@ -154,6 +172,10 @@ class LocalVoice {
       this.pendingText = null; clearTimeout(this.replyTimer); this.replyTimer = null;
       const firstAudioMs = typeof message.first_audio_ms === 'number' && Number.isFinite(message.first_audio_ms) && message.first_audio_ms >= 0 ? message.first_audio_ms : null;
       this.update({ phase: 'idle', lastSpoken: text, firstAudioMs, message: 'Service acknowledged the phrase. Confirm that the meeting receives audio.', captions: [...this.state.captions.slice(-2), { speaker: 'You', text }] });
+    }
+    if (message.type === 'copilot') {
+      const copilot = parseCopilot(message);
+      if (copilot) this.update({ copilot: copilot.replies.length ? copilot : null });
     }
     if (message.type === 'names' && Array.isArray(message.names)) {
       const callNames = message.names.filter(name => typeof name === 'string' && name.trim() && name.length <= 120).slice(0, 200);
@@ -243,4 +265,4 @@ class LocalVoice {
     });
   }
 }
-module.exports = { LocalVoice, parseDecision };
+module.exports = { LocalVoice, parseDecision, parseCopilot };
