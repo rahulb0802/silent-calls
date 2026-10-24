@@ -24,6 +24,11 @@ export interface DesktopAPI {
   connectVoice(port:number): Promise<VoiceState>;
   disconnectVoice(): Promise<VoiceState>;
   speakText(text:string): Promise<VoiceState>;
+  /** Dictation: type text into the focused app (clipboard + paste, clipboard restored). */
+  typeText(text:string): Promise<{ok:boolean}>;
+  /** Dictation: tell the local service what was typed, so later suggestions have it as context. */
+  noteDictated(text:string): Promise<void>;
+  setWidgetFocusable(focusable:boolean): Promise<void>;
   cloneVoice(wav:Uint8Array,name:string): Promise<VoiceState>;
   decide(input:DecisionInput): Promise<Decision|null>;
   reviewCall(vocab:string[]): Promise<VoiceState>;

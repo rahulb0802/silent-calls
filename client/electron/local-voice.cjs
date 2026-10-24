@@ -240,6 +240,11 @@ class LocalVoice {
     this.socket.send(JSON.stringify({ type: 'review', vocab: words }));
     return this.update({ review: { pending: true, summary: '', proposals: [], moments: 0, latencyMs: null } });
   }
+  /** Dictation: the text typed for the user, as context for Claude and Jev (nothing is spoken). */
+  dictated(input) {
+    if (typeof input !== 'string' || !input.trim() || input.length > 5000 || !this.socket || this.socket.readyState !== 1) return;
+    try { this.socket.send(JSON.stringify({ type: 'dictated', text: input.trim() })); } catch { /* context only */ }
+  }
   say(input) {
     if (typeof input !== 'string' || !input.trim() || input.trim().length > 5000) throw new Error('Enter between 1 and 5000 characters.');
     if (this.state.connection !== 'connected' || !this.socket || this.socket.readyState !== 1) throw new Error('Connect the local voice service first.');

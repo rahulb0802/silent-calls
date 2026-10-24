@@ -6,6 +6,7 @@ import {VoicePanel} from './components/voice-panel';
 import {CallCaptions} from './components/call-captions';
 import {CopilotPanel} from './components/copilot-panel';
 import {LearningPanel} from './components/learning-panel';
+import {DICTATION_CHANGED,dictationOn,setDictation} from './services/dictation';
 import {ReviewPanel} from './components/review-panel';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, Camera, CameraOff, GripHorizontal, MessageCircle, Mic, Minimize2, Settings2, Sparkles, Volume2, Waves, X } from 'lucide-react';
@@ -77,6 +78,14 @@ export function MeetingWidget({service:providedPort}:{service?:MeetingPort} = {}
   faceSample.current=sample=>{handsFree.onSample(sample);coach.onFace(sample);};
   callbacks.current={onStart:value=>{coach.onClipStart(nextTrigger.current);service.onStart(value);},onFrame:service.onFrame,onEnd:value=>{coach.onClipEnd(value);service.onEnd(value);},onCancel:()=>{coach.onClipCancel();service.cancel();},onVideoFrame:tracking.sample};
   // Picks and retries also tell the coach how the lip-reading went.
+  // Dictation: picks are typed into the app you're in instead of spoken. The companion then can't take
+  // focus (clicking it would move the cursor away), and a quick tap of the meeting key types the highlighted
+  // option (holding it still starts a new capture).
+  const [dictation,setDictationState]=useState(dictationOn);
+  useEffect(()=>{const sync=()=>setDictationState(dictationOn());window.addEventListener(DICTATION_CHANGED,sync);window.addEventListener('silent-calls:settings',sync);return()=>{window.removeEventListener(DICTATION_CHANGED,sync);window.removeEventListener('silent-calls:settings',sync);};},[]);
+  useEffect(()=>{void window.desktop?.setWidgetFocusable?.(!dictation);return()=>{void window.desktop?.setWidgetFocusable?.(true);};},[dictation]);
+  const tapTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
+  const tapRef=useRef({dictation:false,choosing:false,accept:()=>{}});
   const confirmPick=(candidate:Candidate,text?:string)=>{if(service.phase==='choosing')coach.recordPick(candidate,text);service.confirm(candidate,text);};
   const retry=()=>{if(service.phase==='choosing')coach.recordPick(null);service.cancel();};
   const [key, setKey] = useState<HoldKey>(() => {
@@ -108,7 +117,7 @@ export function MeetingWidget({service:providedPort}:{service?:MeetingPort} = {}
     if (event === 'start') { if (!serviceBusy) { nextTrigger.current='mouth'; capture.begin(); } return; }
     if (handsFreePhase === 'idle') {  // gestures over the suggested replies
       if (event === 'next' && replies.length) setReplyPick(index => (index + 1) % replies.length);
-      if (event === 'send' && replies[replyPick]) { setSpoken(replies[replyPick].text); void speak(replies[replyPick].text); setReplyPick(-1); }
+      if (event === 'send' && replies[replyPick]) { const text = replies[replyPick].text; setSpoken(text); void (dictation ? window.desktop?.typeText(`${text} `) : speak(text)); setReplyPick(-1); }
       else if (event === 'send' && handsFree.startBy === 'nod' && !serviceBusy) { nextTrigger.current='nod'; capture.begin(); }  // nod to start reading
       if (event === 'cancel') setReplyPick(-1);
       return;
@@ -132,9 +141,14 @@ export function MeetingWidget({service:providedPort}:{service?:MeetingPort} = {}
     const removeEvent = desktop.onGlobalHold(event => {
       if (event.type === 'down') {
         if (document.hasFocus() && document.activeElement?.closest('input,textarea,select,[contenteditable="true"]')) return;
+        const tap = tapRef.current;
+        if (tap.dictation && tap.choosing) { tapTimer.current = setTimeout(() => { tapTimer.current = null; beginRef.current(); }, 300); return; }
         beginRef.current();
       }
-      if (event.type === 'up') releaseRef.current();
+      if (event.type === 'up') {
+        if (tapTimer.current) { clearTimeout(tapTimer.current); tapTimer.current = null; tapRef.current.accept(); return; }  // a tap: type it
+        releaseRef.current();
+      }
       if (event.type === 'cancel') stopRef.current();
     });
     const removeStatus = desktop.onGlobalHoldStatus(setHook);
@@ -214,14 +228,19 @@ export function MeetingWidget({service:providedPort}:{service?:MeetingPort} = {}
   const title=service.phase==='processing'?'Finding your words…':service.phase==='queued' || service.phase==='speaking'?'Your voice, out loud.':service.phase==='choosing'?'Is this what you meant?':busy?'Your turn. We’re listening.':capture.cameraOn?'A thought to share?':'Stay in the conversation.';
   const clip=capture.clip;
   const pick=(candidate:Candidate,text?:string)=>{setSpoken(text||candidate.text);confirmPick(candidate,text);};
+  tapRef.current={dictation,choosing:service.phase==='choosing',accept:()=>{
+    const shown=service.candidates.slice(0,3),index=handsFree.enabled?highlight:0;
+    if(shown[index])pick(shown[index]);else if(service.repair && index===shown.length && service.candidates[0])pick(service.candidates[0],service.repair);
+  }};
   const pillPhase:PillPhase=!capture.cameraOn?startingSession?'starting':'off':busy?'capturing':service.phase==='processing'?'thinking':service.phase==='choosing'?'choosing':service.phase==='queued'||service.phase==='speaking'?'speaking':capture.phase==='starting'?'starting':'listening';
   const heard=voice.liveCaption||voice.captions.at(-1)||null;
   const pillHint=service.phase==='choosing'
-    ?handsFree.enabled?handsFree.mode==='head'?'Nod to say it · turn for the next · shake to cancel':'Raise your eyebrows to say it · close your eyes for the next':'Press 1–3 or click · mouth again to retry'
+    ?dictation?`${handsFree.enabled?handsFree.mode==='head'?'Nod to type it · turn for the next':'Raise your eyebrows to type it':'Click one'} · tap ${keyLabels[key]} to type the highlighted one`
+    :handsFree.enabled?handsFree.mode==='head'?'Nod to say it · turn for the next · shake to cancel':'Raise your eyebrows to say it · close your eyes for the next':'Press 1–3 or click · mouth again to retry'
     :handsFree.enabled?handsFree.startBy==='nod'?handsFree.mode==='head'?'Nod, mouth your reply, nod again':'Raise your brows, mouth your reply, raise them again':'Just start mouthing your reply':`Hold ${keyLabels[key]} and mouth your reply`;
   const pill=compact && <CompactPill phase={pillPhase} candidates={service.candidates} highlight={handsFree.enabled?highlight:0} onPick={candidate=>pick(candidate)}
     repair={service.repair} onRepair={()=>service.candidates[0] && pick(service.candidates[0],service.repair)}
-    lastLine={heard && {speaker:heard.speaker==='them'?'Them':heard.speaker==='me'?'You':heard.speaker,text:heard.text}} speaking={spoken} hint={pillHint}
+    lastLine={heard && {speaker:heard.speaker==='them'?'Them':heard.speaker==='me'?'You':heard.speaker,text:heard.text}} speaking={spoken} hint={pillHint} dictation={dictation} onDictation={setDictation}
     error={service.error || capture.error} cameraOn={capture.cameraOn}
     level={handsFree.enabled?handsFree.meter.level/Math.max(.01,handsFree.meter.threshold):tracking.level/100}
     replyPick={handsFree.enabled?replyPick:-1} replyHint={handsFree.enabled?handsFree.mode==='head'?'Turn your head to pick one, nod to say it':'Close your eyes a moment to pick one, raise your eyebrows to say it':''}
@@ -242,7 +261,7 @@ export function MeetingWidget({service:providedPort}:{service?:MeetingPort} = {}
       </section>
       <div className={tool==='type'?'companion-type':'consumer-hidden'}><VoicePanel/></div>
       {tool==='assist' && <section className="companion-assistant"><h1>A little help,<br/>right on time.</h1><p className="companion-instruction">Suggestions for the conversation. You choose what to say.</p><CopilotPanel pick={handsFree.enabled?replyPick:-1}/><details className="companion-details"><summary>After your call</summary><ReviewPanel/></details></section>}
-      {tool==='settings' && <section className="companion-preferences"><h1>Just how you like it.</h1><div className="capture-settings"><label htmlFor="camera-device">Camera</label><select id="camera-device" value={device} disabled={capture.cameraOn} onChange={event=>setDevice(event.target.value)}><option value="">System default</option>{devices.map((camera,index)=><option key={camera.deviceId || index} value={camera.deviceId}>{camera.label || `Camera ${index+1}`}</option>)}</select><label htmlFor="hold-key">Meeting key</label><select id="hold-key" value={key} disabled={hook.active || busy || hookPending} onChange={event=>{const selected=event.target.value as HoldKey;setKey(selected);localStorage.setItem('silent-calls:hold-key:v2',selected);}}>{Object.entries(keyLabels).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></div><button className="icon-text" disabled={!window.desktop || (!hook.active && (!ready || hookPending))} onClick={()=>hook.active?void stop():void enableGlobal()}>{hook.active?'Pause camera & meeting key':enablingHook?'Enabling…':'Enable meeting key'}</button>{(!hook.active || !hook.receivedKey) && window.desktop && <div className="companion-permissions"><p>Allow keyboard access to use your meeting key in other apps.</p><button className="icon-text" onClick={()=>window.desktop?.openKeyboardSettings('accessibility')}>Allow keyboard access<ArrowUpRight size={13}/></button><button className="icon-text" onClick={()=>window.desktop?.openKeyboardSettings('input-monitoring')}>Input monitoring<ArrowUpRight size={13}/></button></div>}<LearningPanel/><section className="hands-free" aria-label="Hands-free">
+      {tool==='settings' && <section className="companion-preferences"><h1>Just how you like it.</h1><div className="capture-settings"><label htmlFor="camera-device">Camera</label><select id="camera-device" value={device} disabled={capture.cameraOn} onChange={event=>setDevice(event.target.value)}><option value="">System default</option>{devices.map((camera,index)=><option key={camera.deviceId || index} value={camera.deviceId}>{camera.label || `Camera ${index+1}`}</option>)}</select><label htmlFor="hold-key">Meeting key</label><select id="hold-key" value={key} disabled={hook.active || busy || hookPending} onChange={event=>{const selected=event.target.value as HoldKey;setKey(selected);localStorage.setItem('silent-calls:hold-key:v2',selected);}}>{Object.entries(keyLabels).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></div><button className="icon-text" disabled={!window.desktop || (!hook.active && (!ready || hookPending))} onClick={()=>hook.active?void stop():void enableGlobal()}>{hook.active?'Pause camera & meeting key':enablingHook?'Enabling…':'Enable meeting key'}</button>{(!hook.active || !hook.receivedKey) && window.desktop && <div className="companion-permissions"><p>Allow keyboard access to use your meeting key in other apps.</p><button className="icon-text" onClick={()=>window.desktop?.openKeyboardSettings('accessibility')}>Allow keyboard access<ArrowUpRight size={13}/></button><button className="icon-text" onClick={()=>window.desktop?.openKeyboardSettings('input-monitoring')}>Input monitoring<ArrowUpRight size={13}/></button></div>}<section className="hands-free" aria-label="Dictation"><label className="hands-free-toggle"><input type="checkbox" checked={dictation} onChange={event=>setDictation(event.target.checked)}/> Dictation: type into the app I'm using instead of speaking</label><p className="capture-help">Click into a text box anywhere, then mouth your words. The phrase you pick is typed at the cursor (your clipboard is put back afterwards). Tap the meeting key to type the highlighted option.</p>{dictation && key==='T' && <p className="capture-error">With dictation, choose Right Ctrl or an F key as the meeting key: holding T would type t's into your document.</p>}</section><LearningPanel/><section className="hands-free" aria-label="Hands-free">
         <h2>Hands-free controls</h2><p className="capture-help">Nod to start and finish. Turn to choose, nod for yes, or shake for no. Hands-free is always ready when your camera is on.</p>
         {!modelBuffer && <p className="capture-help">Gesture tracking isn’t ready yet. Restart the app to finish downloading it. Buttons and typing are still available.</p>}
         {handsFree.enabled && <>

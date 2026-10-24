@@ -1,11 +1,13 @@
 import {useEffect, useRef, type ReactNode} from 'react';
-import {CalendarDays, ChevronDown, ChevronUp, Maximize2, Mic, Sparkles, Volume2} from 'lucide-react';
+import {CalendarDays, ChevronDown, ChevronUp, Keyboard, Maximize2, Mic, Sparkles, Volume2} from 'lucide-react';
 import type {Candidate, Route} from '../services/meeting-port';
 import {CopilotPanel} from './copilot-panel';
 
 export type PillPhase = 'off' | 'starting' | 'listening' | 'capturing' | 'thinking' | 'choosing' | 'speaking';
 type Props = {
   phase: PillPhase;
+  dictation: boolean;        // picks are typed into the focused app instead of spoken
+  onDictation: (on: boolean) => void;
   candidates: Candidate[];
   highlight: number;
   onPick: (candidate: Candidate) => void;
@@ -58,7 +60,7 @@ export function CompactPill(p: Props) {
     <div className="pill-bar">
       <div className="pill-thumb">{!p.cameraOn && <Mic size={16}/>}<span className="pill-dot"/></div>
       <div className="pill-status" aria-live="polite">
-        <strong>{STATUS[p.phase]}</strong>
+        <strong>{p.dictation && p.phase === 'speaking' ? 'Typing it' : p.dictation && p.phase === 'listening' ? 'Dictation: mouth what to type' : STATUS[p.phase]}</strong>
         {p.phase === 'listening' && <span className="pill-caption">{p.lastLine ? `${p.lastLine.speaker}: ${p.lastLine.text}` : p.hint}</span>}
         {p.phase === 'capturing' && <span className="pill-wave" aria-hidden="true">{[0, 1, 2, 3, 4, 5, 6].map(n => <i key={n} style={{animationDelay: `${n * 60}ms`}}/>)}</span>}
         {p.phase === 'speaking' && <span className="pill-caption">“{p.speaking}”</span>}
@@ -66,6 +68,7 @@ export function CompactPill(p: Props) {
       </div>
       {p.phase === 'listening' && <span className="pill-level" aria-hidden="true"><i style={{width: `${Math.min(100, p.level * 100)}%`}}/></span>}
       {p.phase === 'off' && <button className="pill-start" disabled={p.starting} onClick={p.onStart}>{p.starting ? 'Connecting…' : 'Start'}</button>}
+      <button className={`pill-icon ${p.dictation ? 'is-on' : ''}`} aria-label={p.dictation ? 'Dictation on: typing into your app' : 'Dictation off: speaking into the call'} aria-pressed={p.dictation} title={p.dictation ? 'Typing into your app (click to speak instead)' : 'Speaking into the call (click to type instead)'} onClick={() => p.onDictation(!p.dictation)}><Keyboard size={15}/></button>
       <button className="pill-icon" aria-label={p.showWork ? 'Hide details' : 'Show work'} aria-expanded={p.showWork} onClick={() => p.onShowWork(!p.showWork)}>{p.showWork ? <ChevronUp size={15}/> : <ChevronDown size={15}/>}</button>
       <button className="pill-icon" aria-label="Open the full companion" onClick={p.onExpand}><Maximize2 size={14}/></button>
     </div>

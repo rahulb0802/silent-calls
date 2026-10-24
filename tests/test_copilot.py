@@ -171,3 +171,14 @@ def test_names_from_calendar_email_and_claude_reach_the_lip_reader():
     names = asyncio.run(run())
     assert "sarvajith" in names and {"priya", "devansh"} <= set(names)
     assert [e for e in events if e.type == "names"][-1].names == names
+
+
+def test_dictated_text_is_context_but_not_spoken():
+    events = []
+
+    async def emit(e):
+        events.append(e)
+
+    p = Pipeline(Settings(), voice=None, emit=emit, use_jev=False, use_claude=False)
+    p.dictated("We finished the integrations.")
+    assert "User: We finished the integrations." in p.transcript.render() and not events

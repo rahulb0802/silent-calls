@@ -141,6 +141,8 @@ def handler(pipeline: Pipeline):
                     elif kind == "review":
                         vocab = msg.get("vocab") if isinstance(msg.get("vocab"), list) else []
                         launch(pipeline.review([w for w in vocab if isinstance(w, str)][:200]))
+                    elif kind == "dictated":
+                        pipeline.dictated(text_field(msg, "text"))
                     elif kind == "say":
                         launch(pipeline.speak(text_field(msg, "text")))
                     elif kind == "voice.clone":

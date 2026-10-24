@@ -135,6 +135,15 @@ class Pipeline:
         self._cancel_repair(utterance_id)
         await self.speak(text)
 
+    def dictated(self, text: str) -> None:
+        """Dictation: the user's text was typed, not spoken; keep it as context (and for the post-call review)."""
+        self.transcript.add("me", text)
+        self._call = (self._call + [("me", text)])[-200:]
+        shown = self._shown[1] if self._shown and time.monotonic() - self._shown[0] < 120 else []
+        if shown:
+            self._moments = (self._moments + [{"said": text, "options": shown, "repair": self._last_repair}])[-100:]
+        self._shown, self._last_repair = None, ""
+
     async def speak(self, text: str) -> None:
         self.transcript.add("me", text)
         self._call = (self._call + [("me", text)])[-200:]

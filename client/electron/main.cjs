@@ -1,4 +1,5 @@
-const { app, BrowserWindow, ipcMain, screen, session, systemPreferences, shell, powerMonitor, protocol, net } = require('electron');
+const { app, BrowserWindow, clipboard, ipcMain, screen, session, systemPreferences, shell, powerMonitor, protocol, net } = require('electron');
+const { fork } = require('node:child_process');
 const path = require('node:path');
 const {pathToFileURL}=require('node:url');
 protocol.registerSchemesAsPrivileged([{scheme:'silent',privileges:{standard:true,secure:true,supportFetchAPI:true,corsEnabled:true,stream:true}}]);
@@ -94,6 +95,29 @@ app.whenReady().then(() => {
     }
     openWidget();
   });
+  // Dictation: type the confirmed text into the focused app: put it on the clipboard, press paste, then put
+  // back what was on the clipboard before.
+  ipcMain.handle('dictation:type', async (event, text) => {
+    if (!widget || event.sender !== widget.webContents) throw new Error('Companion required.');
+    if (typeof text !== 'string' || !text.trim() || text.length > 5000) throw new Error('Nothing to type.');
+    const saved = { text: clipboard.readText(), html: clipboard.readHTML(), image: clipboard.readImage() };
+    clipboard.writeText(text);
+    const ok = await new Promise(resolve => {
+      const worker = fork(path.join(__dirname, 'type-worker.cjs'), [], { execPath: process.execPath, env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }, stdio: 'ignore' });
+      const timer = setTimeout(() => { worker.kill(); resolve(false); }, 5000);
+      worker.on('exit', code => { clearTimeout(timer); resolve(code === 0); });
+      worker.on('error', () => { clearTimeout(timer); resolve(false); });
+    });
+    setTimeout(() => {  // after the app has read the paste
+      if (clipboard.readText() !== text) return;  // something else was copied meanwhile: leave it
+      if (!saved.image.isEmpty()) clipboard.writeImage(saved.image);
+      else clipboard.write({ text: saved.text, html: saved.html });
+    }, 400);
+    if (!ok) throw new Error('Could not type into the app. On macOS, allow Accessibility for Silent Calls.');
+    return { ok: true };
+  });
+  // Dictation: clicking the companion mustn't take focus from the app being typed into.
+  ipcMain.handle('widget:focusable', (event, focusable) => { if (widget && event.sender === widget.webContents) widget.setFocusable(Boolean(focusable)); });
   ipcMain.handle('widget:close', event => { if (widget && event.sender === widget.webContents) widget.close(); });
   // Compact companion: a short strip at the top centre of the screen, just under the webcam, sized to its
   // content (height in px); null goes back to the full panel at the bottom right.
@@ -126,6 +150,7 @@ app.whenReady().then(() => {
   ipcMain.handle('voice:connect', (event, port) => { localVoiceCaller(event); return voice.connect(port); });
   ipcMain.handle('voice:disconnect', event => { localVoiceCaller(event); return voice.disconnect(); });
   ipcMain.handle('voice:say', (event, text) => { localVoiceCaller(event); return voice.say(text); });
+  ipcMain.handle('voice:dictated', (event, text) => { localVoiceCaller(event); return voice.dictated(text); });
   ipcMain.handle('voice:clone', (event, wav, name) => { localVoiceCaller(event); return voice.clone(wav, name); });
   ipcMain.handle('voice:decide', (event, input) => { localVoiceCaller(event); return voice.decide(input); });
   ipcMain.handle('voice:review', (event, vocab) => { localVoiceCaller(event); return voice.review(vocab); });

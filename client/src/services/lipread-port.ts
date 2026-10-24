@@ -3,6 +3,7 @@ import type {Decision} from '../desktop';
 import type {Candidate, MeetingEvent, MeetingPort, QualityData, Route, UtteranceStart} from './meeting-port';
 import {vocabularyTerms} from './personal-library';
 import {LEARNED, learningOn} from './learning';
+import {dictationOn} from './dictation';
 import type {CopilotState} from './use-local-voice';
 import type {ServiceSettings} from './settings';
 import {WebmEncoder} from './webm-encoder';
@@ -367,7 +368,24 @@ export class LipreadPort implements MeetingPort {
     }
     this.voicePending = true;
     const generation = ++this.voiceGeneration;
-    void this.speakConfirmed(utteranceId,text,generation);
+    if (dictationOn()) void this.typeConfirmed(utteranceId,text,generation);
+    else void this.speakConfirmed(utteranceId,text,generation);
+  }
+  /** Dictation: type the confirmed text where the cursor is (in whatever app has focus), with a space after. */
+  private async typeConfirmed(id: string, text: string, generation: number) {
+    const current = () => generation === this.voiceGeneration && !this.disposed;
+    try {
+      const desktop = window.desktop;
+      if (!desktop?.typeText) throw new Error('Use the Electron desktop app to type.');
+      await desktop.typeText(text.endsWith(' ') ? text : `${text} `);
+      void desktop.noteDictated?.(text).catch(() => undefined);
+      if (!current()) return;
+      this.voicePending = false; this.resetUtterance();
+      this.emit({type:'caption',speaker:'You',text}); this.emit({type:'speech.finished',utteranceId:id});
+    } catch (reason) {
+      this.voicePending = false;
+      if (current()) { this.resetUtterance(); this.emit({type:'error',utteranceId:id,message:reason instanceof Error ? reason.message : 'Could not type this phrase.'}); }
+    }
   }
   private async speakConfirmed(id: string, text: string, generation: number) {
     const current = () => generation === this.voiceGeneration && !this.disposed;

@@ -247,3 +247,4 @@ body:has(.meeting-widget){background:#1c2624;color:#ecf1e9}.meeting-widget{min-h
 .coach-debug td{padding:1px 6px 1px 0;font-variant-numeric:tabular-nums}
 .coach-debug tr.is-active td:first-child{font-weight:700}
 .coach-debug meter{width:90px}
+.pill-icon.is-on{background:#c9dda9;color:#253829}
