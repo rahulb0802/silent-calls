@@ -78,14 +78,15 @@ def cached_crop(reader: LipReader, key, path: str) -> tuple[np.ndarray | None, d
     return crop, q, err
 
 
-def client_face_crop(frames: list[np.ndarray], size: int, gray: bool, det: fr.FaceDetector) -> list[np.ndarray]:
+def client_face_crop(frames: list[np.ndarray], size: int, gray: bool, det: fr.FaceDetector,
+                     margin: float = 2.0) -> list[np.ndarray]:
     """What a bandwidth-saving client would send: a fixed square around the face (from MediaPipe's face box
-    on the first frames; ~2x the box, so the whole head fits), resized to size x size."""
+    on the first frames; `margin` x the box), resized to size x size."""
     boxes = [b for b in (fr.face_box(det, f) for f in frames[:10]) if b is not None]
     h, w = frames[0].shape[:2]
     if boxes:
         x0, y0, bw, bh = np.median(np.array(boxes), axis=0)
-        side = 2.0 * max(bw, bh)
+        side = margin * max(bw, bh)
         cx, cy = x0 + bw / 2, y0 + bh / 2
     else:
         side, cx, cy = min(h, w), w / 2, h / 2
@@ -103,11 +104,12 @@ def client_face_crop(frames: list[np.ndarray], size: int, gray: bool, det: fr.Fa
 
 
 async def stream_clip(reader: LipReader, path: str, height: int, quality: int, realtime: bool,
-                      user_id: str | None, face_crop: int = 0, gray: bool = False) -> tuple[LipResult, float]:
+                      user_id: str | None, face_crop: int = 0, gray: bool = False,
+                      margin: float = 2.0) -> tuple[LipResult, float]:
     """Replay a clip the way the desktop client sends it: 25 fps JPEG frames, then finish()."""
     frames = fr.read_video(path, max_height=height)
     if face_crop:
-        frames = client_face_crop(frames, face_crop, gray, reader._detector())
+        frames = client_face_crop(frames, face_crop, gray, reader._detector(), margin)
     jpegs = [fr.encode_jpeg(f, quality, gray=gray) for f in frames]
     utt = f"replay-{time.monotonic_ns()}"
     t_start = time.perf_counter()
@@ -139,7 +141,7 @@ def run(args, cfg: DecodeConfig, tag: str, reader: LipReader | None = None) -> d
         t0 = time.perf_counter()
         if args.mode == "stream":
             res, kb = asyncio.run(stream_clip(reader, path, args.height, args.quality, args.realtime, user,
-                                              args.face_crop, args.gray))
+                                              args.face_crop, args.gray, args.face_margin))
             kbs.append(kb)
         else:
             crop, q, err = cached_crop(reader, key, path)
@@ -242,6 +244,7 @@ def main() -> None:
     p.add_argument("--quality", type=int, default=80, help="stream mode: JPEG quality")
     p.add_argument("--realtime", action="store_true", help="stream mode: feed frames at 25 fps")
     p.add_argument("--face-crop", type=int, default=0, help="stream mode: send only an NxN square around the face")
+    p.add_argument("--face-margin", type=float, default=2.0, help="face crop side = margin x face box")
     p.add_argument("--gray", action="store_true", help="stream mode: grayscale JPEGs")
     p.add_argument("--beam", type=int, default=40)
     p.add_argument("--lm-weight", type=float, default=0.3)
@@ -272,7 +275,7 @@ def main() -> None:
         return
 
     cfg = DecodeConfig(beam=args.beam, lm_weight=args.lm_weight, ctc_weight=args.ctc_weight)
-    stream_tag = f"_{args.height}p_q{args.quality}" + (f"_face{args.face_crop}" if args.face_crop else "") \
+    stream_tag = f"_{args.height}p_q{args.quality}" + (f"_face{args.face_crop}m{args.face_margin}" if args.face_crop else "") \
         + ("_gray" if args.gray else "")
     tag = args.tag or (f"{args.mode}" + (stream_tag if args.mode == "stream" else "")
                        + ("_realtime" if args.realtime else "") + f"_beam{cfg.beam}" + ("_adapter" if args.adapter else ""))
