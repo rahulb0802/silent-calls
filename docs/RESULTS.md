@@ -307,6 +307,11 @@ vocabulary, the profile name, `.env` `VOCAB`, and names heard in the call captio
 misspells: "Sarvajith" came back as "Sarvahiv" / "Sarvahif"). Untested: a stronger bias (3-6) on recorded name
 sentences.
 
+**Stronger bias (3 and 4), same false-positive check** (102 clips, the 8 names on every clip): at 3, overall accuracy is
+unchanged (36% / 49% / 56%) but a name appears somewhere in the top 10 of 2 clips (never as the top guess). At 4 the run
+**ran out of GPU memory** partway (14.6 GB on GPU 1): a strong bias lets hypotheses that keep spelling names survive
+much longer in the beam. 2.0 stays the default; going higher needs a length guard first.
+
 ## 8. The call loop in the desktop app
 
 The app now sends each GPU result to the local decision service (Jev + Claude, `auto_speak` off: nothing is
@@ -372,3 +377,13 @@ and a live run): replies ready **2.3 s** after the other person's line, **2.9 s*
 (3.4 s on the first, cold call). Example: asked "What's the order number for the headphones you returned?", it searched
 the inbox, found the return email and offered "Sure, it's order number 112-4839201-7733105." with the email as the
 source. Live with a real Google account: 18 calendar events read, 4 replies with 6 calendar facts.
+
+## 10. Post-call coach (agent)
+
+`silentcalls/coach.py`: after a call, Claude Opus 5.5 (medium effort) reviews the conversation and, for each line
+the user spoke, the options shown vs what was finally said, and calls proposal tools (add a word, add a practice
+sentence); the user approves each in the widget. On a scripted 3-line call where "Priya" came out as "pray" and
+"Devansh" as "the bunch" (repaired by Claude), it proposed **Priya, Devansh, Figma** (a product name the other person
+used) and two practice sentences ("I will ask Devansh about the Figma file.", "Hi Priya, how are you?"), each with the
+quoted evidence, in **15.9 s**, and left the correctly read line alone. Approved words join the vocabulary (and so the
+decoder bias and the personal calibration sentences); approved practice sentences become calibration prompts.
