@@ -157,9 +157,13 @@ class Copilot:
         steps: list[CopilotStep] = []
         parts = [f"Now: {dt.datetime.now().astimezone():%A %Y-%m-%d %H:%M %Z}"]
         if self.data is not None:
-            events = await self.data.calendar()
-            steps.append(CopilotStep(tool="calendar", query="next 7 days", results=len(events)))
-            parts.append(f"The user's calendar (next 7 days):\n{calendar_text(events)}")
+            try:
+                events = await self.data.calendar()
+                steps.append(CopilotStep(tool="calendar", query="next 7 days", results=len(events)))
+                parts.append(f"The user's calendar (next 7 days):\n{calendar_text(events)}")
+            except Exception as e:  # Google unreachable: suggest replies without it rather than none
+                log.warning("copilot: calendar unavailable (%s)", type(e).__name__)
+                parts.append("(The user's calendar is unavailable right now.)")
         else:
             parts.append("(The user's calendar and email are not connected.)")
         if names:
