@@ -320,6 +320,7 @@ service against TypeSafe and Anthropic:
 | Claude's repair (offered as an extra option) | ~3 s after the candidates |
 | Live caption, word to screen (speaker → WASAPI loopback → Cartesia STT) | words appear ~0.5 s apart while speaking; the finished line ~0.1 s after the pause |
 | SSH tunnel opened by the app (cold) / reused | 757 ms / 78 ms |
+| Cartesia TTS, cloned voice, first audio (4 phrases) | **87-95 ms** (200 ms on the first, cold request) |
 
 Example ranking (`hi server jet yes i can` / `hi so very yes i can` / `hi sarvajith yes i can`, with "Sarvajith"
 as a likely name): Jev put **"hi sarvajith yes i can" first at 87%** although it was the lip-reader's third

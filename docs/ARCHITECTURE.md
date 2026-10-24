@@ -37,8 +37,8 @@ ELECTRON APP (laptop)                       VULTR GPU SERVER (A16)
 |--------------------------------|---------|----------|
 | Post-roll wait                 | 0.3 s   | fixed    |
 | Crop + lip-read (beam 40)      | 1.0 s   | 0.95 s   |
-| Jev rescoring                  | 0.2 s   | TODO     |
-| Cartesia first audio           | 0.2 s   | TODO     |
+| Jev rescoring                  | 0.2 s   | ~0.1 s (warm connection) |
+| Cartesia first audio           | 0.2 s   | ~0.09 s (0.2 s cold)     |
 | **Total (excl. post-roll)**    | ~1.5 s  |          |
 
 Note: the post-roll adds 0.3 s on top. Decide tonight whether the 1.5 s target
