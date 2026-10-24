@@ -87,3 +87,10 @@ a list of names / rare words to bias toward (`server/lipread/vocab.py`):
 
 Candidates may then include a name-swapped variant of a guess (listed in an extra `name_variants` field). Nothing
 else changes. `server/lipread/dev_app.py` already supports it.
+
+## PROPOSED by Person 2: `given` replies from the call co-pilot (needs sign-off)
+Optional `given: [str]` on `utterance.start` (at most 8): sentences the user may be about to mouth, prepared by the
+call co-pilot (`silentcalls/copilot.py`) from the conversation, calendar and email. The server scores each against
+the video and ranks it with its own guesses, with a prior bonus (docs/RESULTS.md, section 9). The `candidates`
+message gains `given: [str]`: which candidates are one of those sentences. Nothing else changes, and nothing is
+spoken without the user's pick. `server/lipread/dev_app.py` already supports it.
