@@ -42,11 +42,12 @@ class LocalVoice {
       personalVoiceReady: false,
       voiceName: '',
       hasVoice: false,
+      liveCaption: null, // {speaker, text}: the other person's line while they are still speaking
       repair: null, // {utteranceId, text}: Claude's suggestion for that utterance, offered, never spoken unasked
     };
   }
 
-  snapshot() { return { ...this.state, captions: this.state.captions.map(line => ({ ...line })), repair: this.state.repair && { ...this.state.repair } }; }
+  snapshot() { return { ...this.state, captions: this.state.captions.map(line => ({ ...line })), repair: this.state.repair && { ...this.state.repair }, liveCaption: this.state.liveCaption && { ...this.state.liveCaption } }; }
   update(patch) {
     this.state = { ...this.state, ...patch, revision: this.state.revision + 1 };
     this.onChange(this.snapshot());
@@ -89,7 +90,7 @@ class LocalVoice {
     try { socket = new WebSocket(endpoint); }
     catch { return this.update({ connection: 'error', phase: 'idle', message: 'Could not open a local connection. Start the Python voice service and retry.' }); }
     this.socket = socket;
-    this.update({ port, endpoint, connection: 'connecting', phase: 'idle', message: 'Connecting to the local voice service…', captions: [], personalVoiceReady: false, hasVoice: false, voiceName: '', lastSpoken: '' });
+    this.update({ port, endpoint, connection: 'connecting', phase: 'idle', message: 'Connecting to the local voice service…', captions: [], liveCaption: null, personalVoiceReady: false, hasVoice: false, voiceName: '', lastSpoken: '' });
     this.connectTimer = setTimeout(() => {
       if (this.socket !== socket) return;
       this.detach();
@@ -140,7 +141,12 @@ class LocalVoice {
       pending?.reject(new Error(detail));
     }
     if (message.type === 'caption' && ['them', 'me'].includes(message.speaker) && typeof message.text === 'string') {
-      this.update({ captions: [...this.state.captions.slice(-2), { speaker: message.speaker === 'them' ? 'Other person' : 'You', text: message.text.slice(0, 5000) }] });
+      const line = { speaker: message.speaker === 'them' ? 'Other person' : 'You', text: message.text.slice(0, 5000) };
+      if (message.final === false) {  // the line so far: shown live, replaced by the next update or the final line
+        if (!this.state.liveCaption || this.state.liveCaption.text !== line.text) this.update({ liveCaption: line });
+      } else {
+        this.update({ captions: [...this.state.captions.slice(-2), line], liveCaption: null });
+      }
     }
     if (message.type === 'spoken' && this.pendingText !== null && message.text === this.pendingText) {
       const text = this.pendingText;

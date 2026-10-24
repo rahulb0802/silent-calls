@@ -61,6 +61,7 @@ class CaptionEvent(BaseModel):
     type: Literal["caption"] = "caption"
     speaker: Literal["them", "me"]
     text: str
+    final: bool = True  # False: the line so far, still being spoken (display only; replaced by the next one)
 
 
 class SpokenEvent(BaseModel):

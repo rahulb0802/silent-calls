@@ -69,9 +69,11 @@ class Transcript:
 
 
 class CallCaptioner:
-    def __init__(self, settings: Settings, on_line: Callable[[str], Awaitable[None]]):
+    def __init__(self, settings: Settings, on_line: Callable[[str], Awaitable[None]],
+                 on_partial: Callable[[str], Awaitable[None]] | None = None):
         self.s = settings
         self.on_line = on_line
+        self.on_partial = on_partial  # the line so far, as Cartesia streams it, for live display
 
     async def run(self) -> None:
         """Capture and transcribe forever, reconnecting on errors."""
@@ -194,6 +196,8 @@ class CallCaptioner:
             kind = msg.get("type")
             if kind == "transcript" and msg.get("is_final"):
                 pending += msg.get("text", "")
+                if self.on_partial and pending.strip():
+                    await self.on_partial(pending.strip())
             elif kind == "flush_done":
                 if pending.strip():
                     await self.on_line(pending.strip())

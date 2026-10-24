@@ -15,6 +15,7 @@ export type VoiceState = {
   voiceName: string;
   hasVoice: boolean;
   repair?: { utteranceId: string; text: string } | null;
+  liveCaption?: { speaker: string; text: string } | null;
 };
 
 const initial: VoiceState = {

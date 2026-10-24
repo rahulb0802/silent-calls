@@ -34,3 +34,14 @@ test('decide resolves null when the service errors or is not connected',async()=
   const offline=new LocalVoice(()=>{});
   assert.equal(await offline.decide({utteranceId:'u3',candidates:[{text:'x',score:0}],vocab:[]}),null);
 });
+
+test('live captions update in place and give way to the finished line',()=>{
+  const {voice,deliver}=connected();
+  deliver({type:'caption',speaker:'them',text:'Hi, this',final:false});
+  deliver({type:'caption',speaker:'them',text:'Hi, this is Sarv',final:false});
+  assert.deepEqual(voice.snapshot().liveCaption,{speaker:'Other person',text:'Hi, this is Sarv'});
+  assert.deepEqual(voice.snapshot().captions,[]);
+  deliver({type:'caption',speaker:'them',text:'Hi, this is Sarvajith.'});
+  assert.equal(voice.snapshot().liveCaption,null);
+  assert.deepEqual(voice.snapshot().captions,[{speaker:'Other person',text:'Hi, this is Sarvajith.'}]);
+});

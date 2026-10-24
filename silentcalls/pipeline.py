@@ -47,6 +47,10 @@ class Pipeline:
         self.transcript.add("them", line)
         await self.emit(CaptionEvent(speaker="them", text=line))
 
+    async def on_caption_partial(self, text: str) -> None:
+        """The other person's line so far, for the live caption; only finished lines go to the transcript."""
+        await self.emit(CaptionEvent(speaker="them", text=text, final=False))
+
     async def handle(self, msg: CandidatesMessage) -> DecisionEvent:
         t0 = time.perf_counter()
         context = self.transcript.render()
