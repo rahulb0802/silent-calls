@@ -90,8 +90,19 @@ def decode_jpeg(jpeg: bytes) -> np.ndarray:
     return limit_height(cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB))
 
 
-def encode_jpeg(frame: np.ndarray, quality: int = 80) -> bytes:
-    ok, buf = cv2.imencode(".jpg", cv2.cvtColor(frame, cv2.COLOR_RGB2BGR), [cv2.IMWRITE_JPEG_QUALITY, quality])
+def face_box(det: FaceDetector, frame: np.ndarray) -> tuple[float, float, float, float] | None:
+    """Largest face's bounding box (x, y, w, h) in pixels, or None."""
+    res = det.full.process(frame)
+    if not res.detections:
+        return None
+    ih, iw = frame.shape[:2]
+    b = max((d.location_data.relative_bounding_box for d in res.detections), key=lambda b: b.width * b.height)
+    return b.xmin * iw, b.ymin * ih, b.width * iw, b.height * ih
+
+
+def encode_jpeg(frame: np.ndarray, quality: int = 80, gray: bool = False) -> bytes:
+    img = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY) if gray else cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+    ok, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, quality])
     assert ok
     return buf.tobytes()
 
