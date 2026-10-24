@@ -19,6 +19,8 @@ import json
 import os
 import re
 import statistics
+import subprocess
+import tempfile
 import time
 from pathlib import Path
 
@@ -103,6 +105,19 @@ def client_face_crop(frames: list[np.ndarray], size: int, gray: bool, det: fr.Fa
     return out
 
 
+def reencoded(path: str, height: int, bitrate: str) -> tuple[list[np.ndarray], float]:
+    """Re-encode a clip the way a MediaRecorder stream would arrive (VP8, realtime encoder, fixed bitrate,
+    `height`p) and decode it again. Returns (25 fps frames, KB/s on the wire)."""
+    with tempfile.TemporaryDirectory() as d:
+        out = os.path.join(d, "clip.webm")
+        subprocess.run([fr._ffmpeg(), "-loglevel", "error", "-i", path, "-an", "-vf", f"scale=-2:{height}",
+                        "-c:v", "libvpx", "-deadline", "realtime", "-cpu-used", "8", "-b:v", bitrate,
+                        "-maxrate", bitrate, "-bufsize", bitrate, out], check=True)
+        frames = fr.read_video(out)
+        kb = os.path.getsize(out) / 1024 / max(0.04, len(frames) / MODEL_FPS)
+    return frames, kb
+
+
 async def stream_clip(reader: LipReader, path: str, height: int, quality: int, realtime: bool,
                       user_id: str | None, face_crop: int = 0, gray: bool = False,
                       margin: float = 2.0) -> tuple[LipResult, float]:
@@ -143,6 +158,11 @@ def run(args, cfg: DecodeConfig, tag: str, reader: LipReader | None = None) -> d
             res, kb = asyncio.run(stream_clip(reader, path, args.height, args.quality, args.realtime, user,
                                               args.face_crop, args.gray, args.face_margin))
             kbs.append(kb)
+        elif args.mode == "video":
+            frames, kb = reencoded(path, args.height, args.bitrate)
+            kbs.append(kb)
+            res = reader.read_frames(frames, user)
+            res.timings_ms["finish_ms"] = round((time.perf_counter() - t0) * 1000)
         else:
             crop, q, err = cached_crop(reader, key, path)
             if crop is None:
@@ -176,6 +196,8 @@ def run(args, cfg: DecodeConfig, tag: str, reader: LipReader | None = None) -> d
         "stream": {"height": args.height, "jpeg_quality": args.quality, "realtime": args.realtime,
                    "face_crop": args.face_crop, "gray": args.gray,
                    "kb_per_s": round(statistics.mean(kbs)) if kbs else None} if args.mode == "stream" else None,
+        "video": {"height": args.height, "bitrate": args.bitrate,
+                  "kb_per_s": round(statistics.mean(kbs)) if kbs else None} if args.mode == "video" else None,
         "adapter": bool(args.adapter),
         "groups": {g: summarize(rs) for g, rs in sorted(groups.items(), key=lambda kv: (kv[0].startswith("ALL"), kv[0]))},
         "timings_median_ms": {k: statistics.median(v) for k in TIMING_KEYS
@@ -215,6 +237,9 @@ def render_md(s: dict) -> str:
         st = s["stream"]
         crop = f" face crop {st['face_crop']}px" if st.get("face_crop") else ""
         head += f" · {st['height']}p{crop} JPEG q{st['jpeg_quality']}{' gray' if st.get('gray') else ''} ({st['kb_per_s']} KB/s)" + (" realtime" if st["realtime"] else "")
+    if s.get("video"):
+        v = s["video"]
+        head += f" · VP8 {v['height']}p at {v['bitrate']}bps ({v['kb_per_s']} KB/s)"
     cols = ["clips", "top1_wer", "exact@1", "exact@3", "exact@5", "exact@10", "oracle_wer@5", "within1@5"]
     lines = [head, "", "| group | " + " | ".join(cols) + " |", "|" + "---|" * (len(cols) + 1)]
     for g, v in s["groups"].items():
@@ -239,7 +264,9 @@ def parse_sweep(items: list[str]) -> list[DecodeConfig]:
 def main() -> None:
     p = argparse.ArgumentParser(prog="python -m server.eval")
     p.add_argument("--clips", default=str(CLIPS_DIR))
-    p.add_argument("--mode", choices=["file", "stream"], default="file")
+    p.add_argument("--mode", choices=["file", "stream", "video"], default="file",
+                   help="video: re-encode to a VP8 stream at --bitrate/--height first (MediaRecorder upload)")
+    p.add_argument("--bitrate", default="500k", help="video mode: VP8 bitrate")
     p.add_argument("--height", type=int, default=720, help="stream mode: frame height sent by the client")
     p.add_argument("--quality", type=int, default=80, help="stream mode: JPEG quality")
     p.add_argument("--realtime", action="store_true", help="stream mode: feed frames at 25 fps")
@@ -277,7 +304,9 @@ def main() -> None:
     cfg = DecodeConfig(beam=args.beam, lm_weight=args.lm_weight, ctc_weight=args.ctc_weight)
     stream_tag = f"_{args.height}p_q{args.quality}" + (f"_face{args.face_crop}m{args.face_margin}" if args.face_crop else "") \
         + ("_gray" if args.gray else "")
-    tag = args.tag or (f"{args.mode}" + (stream_tag if args.mode == "stream" else "")
+    if args.mode == "video":
+        stream_tag = f"_vp8_{args.height}p_{args.bitrate}"
+    tag = args.tag or (f"{args.mode}" + (stream_tag if args.mode != "file" else "")
                        + ("_realtime" if args.realtime else "") + f"_beam{cfg.beam}" + ("_adapter" if args.adapter else ""))
     run(args, cfg, tag)
 
