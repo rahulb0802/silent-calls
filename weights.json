@@ -1,0 +1,6 @@
+{
+  "w_lip": 0.5,
+  "w_jev": 1.2,
+  "speak_threshold": 0.972,
+  "choose_threshold": 0.532
+}
