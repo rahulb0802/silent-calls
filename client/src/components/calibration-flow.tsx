@@ -1,14 +1,16 @@
 import {useEffect,useRef,useState} from 'react';
 import {Camera,Check,RefreshCw,Square,Video} from 'lucide-react';
 import {EnrollmentApi,EnrollmentHttpError,trainingRunning,type EnrollmentPrompt,type EnrollmentProgress,type TrainingStatus} from '../services/enrollment-api';
+import {rememberCalibration,savedCalibration} from '../services/setup-memory';
 import {saveSettings,type ServiceSettings} from '../services/settings';
 
 const MIN=30,MAX=60;
 type Screen='intro'|'connecting'|'record'|'saving'|'training'|'done';
 type Clip={prompt:EnrollmentPrompt;blob:Blob};
 export function CalibrationFlow({settings,onLockChange,onComplete}:{settings:ServiceSettings;onLockChange:(locked:boolean)=>void;onComplete?:()=>void}) {
-  const [screen,setScreen]=useState<Screen>('intro');
-  const [goal,setGoal]=useState(30),[consent,setConsent]=useState(false);
+  const [memory,setMemory]=useState(()=>savedCalibration(settings));
+  const [screen,setScreen]=useState<Screen>(()=>savedCalibration(settings)?'done':'intro');
+  const [goal,setGoal]=useState(()=>savedCalibration(settings)?.goal || 30),[consent,setConsent]=useState(false);
   const [accepted,setAccepted]=useState<string[]>([]);
   const [prompt,setPrompt]=useState<EnrollmentPrompt|null>(null),[recording,setRecording]=useState(false);
   const [seconds,setSeconds]=useState(0),[status,setStatus]=useState<TrainingStatus|null>(null);
@@ -26,6 +28,7 @@ export function CalibrationFlow({settings,onLockChange,onComplete}:{settings:Ser
   function clearRecordTimers(){if(recordTimer.current)clearTimeout(recordTimer.current);if(clock.current)clearInterval(clock.current);recordTimer.current=null;clock.current=null;}
   function stopCamera(){stream.current?.getTracks().forEach(track=>{track.onended=null;track.stop();});stream.current=null;if(video.current)video.current.srcObject=null;}
   function cleanup(){discard.current=true;clearRecordTimers();if(recorder.current?.state==='recording')recorder.current.stop();stopCamera();session.current?.abort();if(pollTimer.current)clearTimeout(pollTimer.current);pollTimer.current=null;}
+  useEffect(()=>{if(memory && done.current && !finished.current){finished.current=true;done.current();}},[]);
   useEffect(()=>{alive.current=true;return()=>{alive.current=false;cleanup();};},[]);
   useEffect(()=>{onLockChange(screen!=='intro' && screen!=='done');return()=>onLockChange(false);},[screen,onLockChange]);
   useEffect(()=>{if(screen!=='training')return;const timer=setInterval(()=>setElapsed(Math.max(0,(Date.now()-learnStarted.current)/1000)),1000);return()=>clearInterval(timer);},[screen]);
@@ -45,7 +48,9 @@ export function CalibrationFlow({settings,onLockChange,onComplete}:{settings:Ser
     video.current.srcObject=media;await video.current.play();
     media.getVideoTracks()[0].onended=()=>{discard.current=true;clearRecordTimers();if(recorder.current?.state==='recording')recorder.current.stop();setRecording(false);setError('Your camera disconnected. Pause setup, reconnect the camera and continue. Your saved sentences are safe.');};
   }
-  function complete(){if(finished.current)return;finished.current=true;busy.current=false;stopCamera();setScreen('done');setMessage('Your personal calibration is ready.');done.current?.();}
+  function complete(){if(finished.current)return;
+    try{rememberCalibration(settings,target.current,saved.current.length);setMemory(savedCalibration(settings));}catch{setMessage('Your training is saved on the server, but this computer could not remember setup. Allow app storage to remember it after reopening.');}
+    finished.current=true;busy.current=false;stopCamera();setScreen('done');setMessage('Your personal calibration is ready.');done.current?.();}
   function trainedForGoal(value:TrainingStatus){const report=value.report;return value.state==='done' && value.has_adapter===true && (report?.n_train || 0)+(report?.n_val || 0)+(report?.n_test || 0)>=target.current && saved.current.length>=target.current;}
   async function readStatus(){
     const next=await api.current!.status(session.current!.signal);
@@ -145,7 +150,7 @@ export function CalibrationFlow({settings,onLockChange,onComplete}:{settings:Ser
     {screen==='connecting' && <div className="calibration-wait" role="status"><h2>Getting your camera ready.</h2><progress aria-label="Preparing calibration"/><p>Finding your saved sentences and preparing your session.</p></div>}
     <div className={`calibration-recording ${screen==='record' || screen==='saving'?'':'calibration-hidden'}`}><div className="calibration-camera"><video ref={video} autoPlay muted playsInline aria-label="Your calibration camera"/>{recording && <span className="camera-tag"><span className="dot"/>Recording · {seconds}s</span>}</div><div className="calibration-prompt"><div className="calibration-count"><span>{Math.min(accepted.length,target.current)} of {target.current} saved</span><progress value={Math.min(accepted.length,target.current)} max={target.current} aria-label="Saved sentences"/></div><blockquote>{prompt?.sentence}</blockquote><p>Mouth the sentence naturally. Press Space once to start and again when you finish.</p><button className={`button ${recording?'recording':''}`} disabled={screen==='saving' || !!pending} onClick={()=>action.current()}>{recording?<Square size={16}/>:<Video size={17}/>} {screen==='saving'?'Saving your sentence…':recording?'Space · stop recording':'Space · start recording'}</button><button className="text-button" disabled={screen==='saving'} onClick={retake}><RefreshCw size={15}/>{recording?'Restart this sentence':'Record this sentence again'}</button>{pending && <button className="button setup-secondary" onClick={()=>void checkSaved()}>Check saved sentence</button>}<p className="small">Accepted sentences save and advance automatically. A recording stops at 14 seconds. No microphone audio is captured here.</p><button className="text-button" disabled={recording || screen==='saving'} onClick={pause}>Pause setup · keep saved sentences</button></div></div>
     {screen==='training' && <div className="calibration-wait" aria-live="polite"><h2>Making Silent Calls yours.</h2><p>{error?'Your calibration needs attention':phaseCopy}</p><progress value={progress} max={100} aria-label="Personal calibration progress"/><p className="calibration-estimate">{error?'Saved recordings are safe':remaining?`About ${remaining} min remaining · estimate`:'Allow about 5–15 minutes · initial estimate'}<span>{Math.floor(elapsed/60)}m {Math.floor(elapsed%60)}s elapsed</span></p><p className="small">Keep Silent Calls and your connection open. Timing varies with the shared training computer. We’ll continue when your calibration is ready.</p>{error && <div className="calibration-recovery"><button className="button" onClick={()=>void checkTraining()}>Check progress</button>{(status?.state==='failed' || status?.state==='none' || status?.state==='done') && <button className="text-button" onClick={()=>void train()}>Try personalizing again</button>}<button className="text-button" onClick={pause}>Leave for now · training may continue</button></div>}</div>}
-    {screen==='done' && <div className="calibration-wait"><Check size={30}/><h2>Your personal calibration is ready.</h2><p>Silent Calls will use this profile’s training for your next mouthed phrase.</p></div>}
+    {screen==='done' && <div className="calibration-wait"><Check size={30}/><h2>Your personal calibration is ready.</h2><p>Your calibration is saved for {settings.profileId}. Silent Calls uses it for your next mouthed phrase. You don’t need to record these sentences again.</p>{memory && <p className="small">{memory.accepted} accepted sentences · saved {new Date(memory.completedAt).toLocaleDateString()}</p>}<button className="text-button" onClick={()=>{finished.current=false;setScreen('intro');}}>Review or add practice sentences</button></div>}
     {message && screen!=='training' && <p className="small" role="status">{message}</p>}{error && <p className="error" role="alert">{error}</p>}
   </section>;
 }

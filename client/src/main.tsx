@@ -8,12 +8,19 @@ import './styles.css';
 import {PersonalLibrary} from './personal-library';
 import {AudioSetup} from './audio-setup';
 import {Workspace} from './workspace';
+import {loadSettings} from './services/settings';
+import {setupComplete} from './services/setup-memory';
 import { Onboarding } from './onboarding';
 import { MeetingWidget } from './widget';
 import { DemoMeetingWidget } from './demo-widget';
 function App(){
-  const [route,setRoute]=useState(location.hash);
-  useEffect(()=>{const update=()=>setRoute(location.hash);window.addEventListener('hashchange',update);return()=>window.removeEventListener('hashchange',update);},[]);
+  const defaultRoute=()=>setupComplete(loadSettings())?'#/workspace':'#/onboarding';
+  const [route,setRoute]=useState(()=>location.hash || defaultRoute());
+  useEffect(()=>{
+    const update=()=>setRoute(location.hash || defaultRoute());
+    window.addEventListener('hashchange',update);
+    return()=>window.removeEventListener('hashchange',update);
+  },[]);
   return route==='#/library'?<PersonalLibrary/>:route==='#/widget'?<MeetingWidget/>:route==='#/demo-widget'?<DemoMeetingWidget/>:route==='#/workspace'?<Workspace/>:route==='#/audio-setup'?<AudioSetup/>:<Onboarding/>;
 }
 createRoot(document.getElementById('root')!).render(<React.StrictMode><App/></React.StrictMode>);

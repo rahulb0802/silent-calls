@@ -167,3 +167,7 @@ The six-step setup adds a full-width calibration surface within the existing cre
 ## Direct voice setup continuation
 
 The required meeting test-phrase panel and its acknowledgement checkbox have been removed from onboarding at user request. Voice setup now continues once a configured or newly created voice is connected and idle. The earlier meeting-device selection step remains; the final summary describes that selection without claiming audible delivery. Voice creation uses one column without an empty test panel. Detailed audio setup still offers manual speech checks. No tests or previews were run.
+
+## Returning users
+
+Returning users land in the existing workspace. Calibration reuses its completion surface to show the saved profile, accepted count and date, with a quieter optional action to review or add sentences. Review setup remains available without discarding saved training. No new visual system or automatic camera/speech action is introduced.

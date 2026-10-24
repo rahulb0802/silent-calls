@@ -55,3 +55,7 @@ The current onboarding supersedes the earlier optional-camera/eight-clip flow: W
 ## Direct voice setup continuation
 
 The required meeting test-phrase panel and its acknowledgement checkbox have been removed from onboarding at user request. Voice setup now continues once a configured or newly created voice is connected and idle. The earlier meeting-device selection step remains; the final summary describes that selection without claiming audible delivery. Voice creation uses one column without an empty test panel. Detailed audio setup still offers manual speech checks. No tests or previews were run.
+
+## Remembered personal setup
+
+A completed onboarding session is remembered per profile and enrollment server. Subsequent launches land in the workspace, with an explicit action to open the meeting widget. Successful calibration stores a local completion receipt (count, goal and date), so the calibration view shows saved readiness rather than asking the user to record again. Accepted data and trained weights remain on the GPU. Reviewing setup preserves that training, and new profiles retain the full first-run flow. OS/device capture permissions remain explicit. No tests or runtime validation were run for this change.

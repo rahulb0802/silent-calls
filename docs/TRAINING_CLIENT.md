@@ -37,3 +37,9 @@ The app opens the port-8000 SSH tunnel itself (see client/README.md). Provider c
 Quit Electron completely with Cmd+Q and run npm run dev from client. Keep the local voice service available; the app opens the SSH tunnel. Walk through the six setup steps. Try Space start/stop, restart, pause/resume and one rejected recording; observe saved count, automatic training and automatic transition after completion. Connect the widget with the same profile and confirm Server details reports the personal adapter on a new phrase.
 
 No tests, builds, typechecks, app launches, live API requests or GPU training were run by the agent for this change, per user instruction. These manual steps are for the user.
+
+## Remembered setup and calibration
+
+Completed onboarding and a successful calibration receipt are now persisted locally, scoped to the saved profile and enrollment server origin. Returning users open Training & settings instead of repeating onboarding; Open meeting widget remains explicit. The calibration surface shows the saved sentence count and completion date, with an optional Review or add practice sentences action. Review setup is always accessible and does not erase enrollment or adapters. A remembered calibration also bypasses sentence recording during an intentional setup review. First-time profiles still start at Welcome.
+
+The receipt stores only counts, the chosen target and a timestamp; video/crops and adapter weights remain on the GPU under the same profile. This does not copy or back up server training data. Existing single-profile completion flags migrate once to the currently selected profile. Earlier GPU calibration without a local receipt is recovered by beginning calibration: the existing GET progress/status/report path recognizes a sufficient saved adapter and finishes without recording or retraining. Camera/key activation remains opt-in on every app session. No tests, app launches or live requests were run for this increment.
