@@ -1,0 +1,16 @@
+node_modules/
+dist/
+release/
+.DS_Store
+.env*
+!.env.example
+.impeccable/review/
+
+# Locally generated runtime files and recordings.
+public/vendor/
+public/models/
+captures/
+*.webm
+*.mp4
+silent-calls-*.json
+*.log
