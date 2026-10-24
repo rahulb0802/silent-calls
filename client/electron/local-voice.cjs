@@ -45,6 +45,7 @@ class LocalVoice {
     this.pendingClone = null;
     this.cloneUncertain = false;
     this.decisions = new Map(); // utterance id -> resolve(decision | null)
+    this.punctuations = new Map(); // request id -> resolve(text | null)
     this.state = {
       revision: 0,
       connection: 'disconnected',
@@ -94,6 +95,8 @@ class LocalVoice {
   settleDecisions() {
     for (const resolve of this.decisions.values()) resolve(null);
     this.decisions.clear();
+    for (const resolve of this.punctuations.values()) resolve(null);
+    this.punctuations.clear();
   }
   disconnect(message = 'Disconnected from voice service.') {
     const interrupted = this.pendingText !== null;
@@ -189,6 +192,10 @@ class LocalVoice {
       const callNames = message.names.filter(name => typeof name === 'string' && name.trim() && name.length <= 120).slice(0, 200);
       if (callNames.join('\n') !== this.state.callNames.join('\n')) this.update({ callNames });
     }
+    if (message.type === 'punctuated' && typeof message.request_id === 'string') {
+      const resolve = this.punctuations.get(message.request_id);
+      if (resolve) { this.punctuations.delete(message.request_id); resolve(typeof message.text === 'string' && message.text.trim() && message.text.length <= 6000 ? message.text.trim() : null); }
+    }
     if (message.type === 'decision') {
       const decision = parseDecision(message);
       const resolve = decision && this.decisions.get(decision.utteranceId);
@@ -239,6 +246,20 @@ class LocalVoice {
     const words = Array.isArray(vocab) ? vocab.filter(w => typeof w === 'string' && w.trim() && w.length <= 120).slice(0, 200) : [];
     this.socket.send(JSON.stringify({ type: 'review', vocab: words }));
     return this.update({ review: { pending: true, summary: '', proposals: [], moments: 0, latencyMs: null } });
+  }
+  /** Dictation: the picked words written out with capitals and punctuation (punctuate.py); null if not
+   * available within 3.5 s or if a word would change. */
+  punctuate(input) {
+    const text = input && typeof input.text === 'string' ? input.text.trim() : '';
+    if (!text || text.length > 5000 || this.state.connection !== 'connected' || !this.socket || this.socket.readyState !== 1) return Promise.resolve(null);
+    const names = Array.isArray(input.names) ? input.names.filter(n => typeof n === 'string' && n.trim() && n.length <= 60).slice(0, 60) : [];
+    const id = `p${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    return new Promise(resolve => {
+      const timer = setTimeout(() => { if (this.punctuations.delete(id)) resolve(null); }, 3500);
+      this.punctuations.set(id, value => { clearTimeout(timer); resolve(value); });
+      try { this.socket.send(JSON.stringify({ type: 'punctuate', request_id: id, text, names })); }
+      catch { this.punctuations.delete(id); clearTimeout(timer); resolve(null); }
+    });
   }
   /** Dictation: the text typed for the user, as context for Claude and Jev (nothing is spoken). */
   dictated(input) {

@@ -95,6 +95,7 @@ export class LipreadPort implements MeetingPort {
   private removeRepair: (() => void) | null = null;
   private removeNames: (() => void) | null = null;
   private callNames: string[] = [];
+  private written = new Map<string, Promise<string | null>>();  // dictation: punctuated text, started early
   private copilot: CopilotState | null = null;
   private desired = false;
   private retries = 0;
@@ -197,6 +198,12 @@ export class LipreadPort implements MeetingPort {
       void this.rank(id, candidates, scored).then(ranked => {
         if (this.active !== id || this.waiting || this.capturing) return;
         this.choices = ranked.candidates;
+        // dictation: start writing out the top option now, so a nod on it types without waiting
+        this.written.clear();
+        const top = ranked.candidates[0]?.text;
+        if (top && dictationOn() && window.desktop?.punctuate) {
+          this.written.set(top, window.desktop.punctuate({text: top, names: dictationNames([...vocabularyTerms(), this.settings.profileId.trim()], this.callNames)}));
+        }
         if (ranked.timings) Object.assign(timings, ranked.timings);
         this.emit({type:'candidates',utteranceId:id,candidates:ranked.candidates,confidence:ranked.confidence ?? confidence,timings,quality,qualityData,adapter,route:ranked.route,ranker:ranked.ranker});
         this.watchRepair(id);
@@ -377,8 +384,15 @@ export class LipreadPort implements MeetingPort {
     try {
       const desktop = window.desktop;
       if (!desktop?.typeText) throw new Error('Use the Electron desktop app to type.');
-      // written form (sentence case, "I", contractions, your names' spelling, punctuation), no rewording
-      const typed = formatDictation(text, dictationNames([...vocabularyTerms(), this.settings.profileId.trim()], this.callNames));
+      // written form, no rewording: Claude adds capitals, punctuation and sentence breaks (checked to keep every
+      // word), then the simple rules (names' spelling, "I", a final full stop) - or the rules alone if Claude's
+      // version isn't available or changed a word
+      const names = dictationNames([...vocabularyTerms(), this.settings.profileId.trim()], this.callNames);
+      const written = await (this.written.get(text) ?? desktop.punctuate?.({text, names}) ?? Promise.resolve(null)).catch(() => null);
+      this.written.clear();
+      const sameWords = (a: string, b: string) => a.toLowerCase().replace(/[^a-z0-9]/g, '') === b.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const typed = formatDictation(written && sameWords(written, text) ? written : text, names);
+      if (!current()) return;
       await desktop.typeText(`${typed} `);
       void desktop.noteDictated?.(typed).catch(() => undefined);
       if (!current()) return;

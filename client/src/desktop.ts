@@ -28,6 +28,8 @@ export interface DesktopAPI {
   typeText(text:string): Promise<{ok:boolean}>;
   /** Dictation: tell the local service what was typed, so later suggestions have it as context. */
   noteDictated(text:string): Promise<void>;
+  /** Dictation: the words written out (capitals, punctuation, sentence breaks; no word changed), or null. */
+  punctuate(input:{text:string;names:string[]}): Promise<string|null>;
   setWidgetFocusable(focusable:boolean): Promise<void>;
   cloneVoice(wav:Uint8Array,name:string): Promise<VoiceState>;
   decide(input:DecisionInput): Promise<Decision|null>;

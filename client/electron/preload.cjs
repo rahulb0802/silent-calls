@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('desktop', {
   speakText: text => ipcRenderer.invoke('voice:say', text),
   typeText: text => ipcRenderer.invoke('dictation:type', text),
   noteDictated: text => ipcRenderer.invoke('voice:dictated', text),
+  punctuate: input => ipcRenderer.invoke('voice:punctuate', input),
   setWidgetFocusable: focusable => ipcRenderer.invoke('widget:focusable', focusable),
   cloneVoice: (wav, name) => ipcRenderer.invoke('voice:clone', wav, name),
   decide: input => ipcRenderer.invoke('voice:decide', input),

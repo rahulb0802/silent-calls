@@ -67,6 +67,14 @@ class CaptionEvent(BaseModel):
     final: bool = True  # False: the line so far, still being spoken (display only; replaced by the next one)
 
 
+class PunctuatedEvent(BaseModel):
+    """Dictation: the text written out (punctuate.py), or None to use the app's simple rules."""
+
+    type: Literal["punctuated"] = "punctuated"
+    request_id: str
+    text: str | None
+
+
 class NamesEvent(BaseModel):
     """Names likely in this call (VOCAB + names heard so far), so the app can send them to the lip-reader too."""
 

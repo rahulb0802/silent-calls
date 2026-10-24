@@ -155,6 +155,7 @@ app.whenReady().then(() => {
   ipcMain.handle('voice:disconnect', event => { localVoiceCaller(event); return voice.disconnect(); });
   ipcMain.handle('voice:say', (event, text) => { localVoiceCaller(event); return voice.say(text); });
   ipcMain.handle('voice:dictated', (event, text) => { localVoiceCaller(event); return voice.dictated(text); });
+  ipcMain.handle('voice:punctuate', (event, input) => { localVoiceCaller(event); return voice.punctuate(input); });
   ipcMain.handle('voice:clone', (event, wav, name) => { localVoiceCaller(event); return voice.clone(wav, name); });
   ipcMain.handle('voice:decide', (event, input) => { localVoiceCaller(event); return voice.decide(input); });
   ipcMain.handle('voice:review', (event, vocab) => { localVoiceCaller(event); return voice.review(vocab); });

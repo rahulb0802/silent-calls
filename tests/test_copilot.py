@@ -182,3 +182,20 @@ def test_dictated_text_is_context_but_not_spoken():
     p = Pipeline(Settings(), voice=None, emit=emit, use_jev=False, use_claude=False)
     p.dictated("We finished the integrations.")
     assert "User: We finished the integrations." in p.transcript.render() and not events
+
+
+def test_punctuation_is_used_only_when_every_word_is_kept():
+    from silentcalls.punctuate import Punctuator
+
+    class Fake:
+        def __init__(self, out):
+            self.messages = NS(create=self.create)
+            self.out = out
+
+        async def create(self, **req):
+            return NS(stop_reason="end_turn", content=[NS(type="text", text=json.dumps({"text": self.out}))])
+
+    text = "hi my name is rahul can you send me the claude file"
+    good = asyncio.run(Punctuator(Fake("Hi, my name is Rahul. Can you send me the Claude file?")).punctuate(text))
+    reworded = asyncio.run(Punctuator(Fake("Hi, I'm Rahul. Could you send me the Claude file?")).punctuate(text))
+    assert good == "Hi, my name is Rahul. Can you send me the Claude file?" and reworded is None

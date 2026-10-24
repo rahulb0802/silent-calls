@@ -21,6 +21,7 @@ from pydantic import BaseModel, ValidationError
 
 from .captions import CallCaptioner
 from .coach import Coach
+from .punctuate import Punctuator
 from .copilot import Copilot
 from .google_data import GoogleData
 from .config import settings
@@ -141,6 +142,10 @@ def handler(pipeline: Pipeline):
                     elif kind == "review":
                         vocab = msg.get("vocab") if isinstance(msg.get("vocab"), list) else []
                         launch(pipeline.review([w for w in vocab if isinstance(w, str)][:200]))
+                    elif kind == "punctuate":
+                        names = msg.get("names") if isinstance(msg.get("names"), list) else []
+                        launch(pipeline.punctuate(text_field(msg, "request_id")[:100], text_field(msg, "text"),
+                                                  [n for n in names if isinstance(n, str)][:60]))
                     elif kind == "dictated":
                         pipeline.dictated(text_field(msg, "text"))
                     elif kind == "say":
@@ -182,8 +187,9 @@ async def main() -> None:
         log.info("copilot: on (%s)", "calendar + email" if copilot.data else "no Google account connected")
         asyncio.create_task(copilot.warm())
     coach = Coach(settings) if not args.no_claude and os.getenv("ANTHROPIC_API_KEY") else None
+    punctuator = Punctuator() if not args.no_claude and os.getenv("ANTHROPIC_API_KEY") else None
     pipeline = Pipeline(settings, voice, broadcast, use_jev=not args.no_jev, use_claude=not args.no_claude,
-                        copilot=copilot, coach=coach)
+                        copilot=copilot, coach=coach, punctuator=punctuator)
     if pipeline.jev:
         pipeline.jev.start()
     asyncio.create_task(pipeline.load_people())

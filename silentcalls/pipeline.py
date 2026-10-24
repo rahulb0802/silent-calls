@@ -14,8 +14,8 @@ from server.lipread.vocab import clean, names_from_text  # pure Python, no GPU d
 from .captions import Transcript
 from .config import Settings, Weights
 from .decision import Jev, Repairer, route, score_with_jev, top_k
-from .protocol import (CandidatesMessage, CaptionEvent, DecisionEvent, NamesEvent, RepairEvent, ReviewEvent,
-                       SpokenEvent)
+from .protocol import (CandidatesMessage, CaptionEvent, DecisionEvent, NamesEvent, PunctuatedEvent, RepairEvent,
+                       ReviewEvent, SpokenEvent)
 from .voice import VoiceOutput
 
 log = logging.getLogger(__name__)
@@ -25,7 +25,7 @@ Emit = Callable[[BaseModel], Awaitable[None]]
 
 class Pipeline:
     def __init__(self, s: Settings, voice: VoiceOutput | None, emit: Emit,
-                 use_jev: bool = True, use_claude: bool = True, copilot=None, coach=None):
+                 use_jev: bool = True, use_claude: bool = True, copilot=None, coach=None, punctuator=None):
         self.s = s
         self.w = Weights.load()
         self.voice = voice
@@ -40,6 +40,8 @@ class Pipeline:
             copilot.on_names = self.add_names
         self.copilot = copilot  # Copilot, or None
         self.coach = coach  # Coach, or None
+        self.punctuator = punctuator  # Punctuator (dictation), or None
+        self._dictated: list[str] = []  # what was typed by dictation, as context for where sentences break
         # this call, in memory only, for the post-call review: every line, and for each line the user spoke,
         # the options they were shown
         self._call: list[tuple[str, str]] = []
@@ -135,8 +137,19 @@ class Pipeline:
         self._cancel_repair(utterance_id)
         await self.speak(text)
 
+    async def punctuate(self, request_id: str, text: str, names: list[str]) -> None:
+        """Dictation: write the picked words out with capitals and punctuation (words unchanged), or None."""
+        out = None
+        if self.punctuator:
+            try:
+                out = await asyncio.wait_for(self.punctuator.punctuate(text, names, " ".join(self._dictated[-3:])), 3.0)
+            except Exception as e:  # timeout, API: the app uses its simple rules
+                log.info("punctuate: %s", type(e).__name__)
+        await self.emit(PunctuatedEvent(request_id=request_id, text=out))
+
     def dictated(self, text: str) -> None:
         """Dictation: the user's text was typed, not spoken; keep it as context (and for the post-call review)."""
+        self._dictated = (self._dictated + [text])[-10:]
         self.transcript.add("me", text)
         self._call = (self._call + [("me", text)])[-200:]
         shown = self._shown[1] if self._shown and time.monotonic() - self._shown[0] < 120 else []
