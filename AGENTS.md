@@ -31,6 +31,12 @@ working demo, not production quality.
 - When something can't be finished, leave a `TODO(hackathon):` comment and keep
   the core loop working.
 
+## Git workflow
+- Claude may commit, push, and merge directly to `main` in this repo. No pull requests needed.
+- Work on a short-lived feature branch, then merge it into `main` and push.
+- Before merging: `git fetch` and rebase onto `origin/main` so teammates' work isn't overwritten.
+- Never force-push to `main` and never rewrite its history.
+
 ## Repo layout
 - `silentcalls/` — components 7–9 (captions, decision layer, voice output), already
   built. Moves into `server/` once the orchestrator exists; see docs/specs/decision-voice.md.
