@@ -45,3 +45,9 @@ test('live captions update in place and give way to the finished line',()=>{
   assert.equal(voice.snapshot().liveCaption,null);
   assert.deepEqual(voice.snapshot().captions,[{speaker:'Other person',text:'Hi, this is Sarvajith.'}]);
 });
+
+test('names from the service are kept for the lip-reader',()=>{
+  const {voice,deliver}=connected();
+  deliver({type:'names',names:['rahul','priya','',5]});
+  assert.deepEqual(voice.snapshot().callNames,['rahul','priya']);
+});

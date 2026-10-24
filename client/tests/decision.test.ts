@@ -31,3 +31,10 @@ test('an option the lip list lacks gets its own id; duplicates are dropped', () 
   assert.equal(out.candidates[0].id, 'u1:d0');
   assert.equal(out.route, 'repeat');
 });
+
+test('names: profile and call names, deduplicated, no duplicates of saved terms', async () => {
+  const {names} = await import('../src/services/lipread-port');
+  const settings = {websocketUrl: '', apiUrl: '', profileId: 'Rahul'};
+  assert.deepEqual(names(settings, ['priya', 'rahul', 'Nilesh']), ['Rahul', 'priya', 'Nilesh']);
+  assert.deepEqual(names({...settings, profileId: 'user-123'}, []), []);
+});

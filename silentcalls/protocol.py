@@ -11,7 +11,7 @@ Desktop app <-> this process (ws://127.0.0.1:8765, see app.py):
   in:  {"type": "confirm", "utterance_id", "text"}   user picked an option -> speak it
   in:  {"type": "say", "text"}                   speak arbitrary text (typed fallback)
   in:  {"type": "opener"}                        play the "speech assistant" opener
-  out: DecisionEvent, RepairEvent, CaptionEvent, SpokenEvent
+  out: DecisionEvent, RepairEvent, CaptionEvent, SpokenEvent, NamesEvent (on connect and when a new name is heard)
 """
 
 from typing import Literal
@@ -62,6 +62,13 @@ class CaptionEvent(BaseModel):
     speaker: Literal["them", "me"]
     text: str
     final: bool = True  # False: the line so far, still being spoken (display only; replaced by the next one)
+
+
+class NamesEvent(BaseModel):
+    """Names likely in this call (VOCAB + names heard so far), so the app can send them to the lip-reader too."""
+
+    type: Literal["names"] = "names"
+    names: list[str]
 
 
 class SpokenEvent(BaseModel):

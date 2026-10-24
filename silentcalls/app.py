@@ -21,7 +21,7 @@ from pydantic import BaseModel, ValidationError
 from .captions import CallCaptioner
 from .config import settings
 from .pipeline import Pipeline
-from .protocol import CandidatesMessage
+from .protocol import CandidatesMessage, NamesEvent
 from .voice import VoiceOutput, clone_error_message
 
 log = logging.getLogger("silentcalls")
@@ -119,6 +119,7 @@ def handler(pipeline: Pipeline):
         try:
             await ws.send(json.dumps({"type": "voice.status", **(pipeline.voice.profile if pipeline.voice else
                                                                    {"personal": False, "name": "", "has_voice": False})}))
+            await ws.send(NamesEvent(names=pipeline.call_names()).model_dump_json())
             async for raw in ws:
                 try:
                     if not isinstance(raw, str):

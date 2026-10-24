@@ -128,3 +128,22 @@ def test_captions_loopback_choice():
 
     assert CallCaptioner(Settings(call_audio_device="loopback"), None)._use_loopback()
     assert CallCaptioner(Settings(call_audio_device="loopback:Realtek"), None)._use_loopback()
+
+
+def test_pipeline_remembers_names_heard_and_announces_them():
+    events = []
+
+    async def emit(e):
+        events.append(e)
+
+    async def run():
+        p = Pipeline(Settings(vocab="Rahul", context_lines=1), voice=None, emit=emit, use_jev=False, use_claude=False)
+        await p.on_caption("Hey, it's Priya from the design team.")
+        await p.on_caption("Anyway, how was the demo?")  # Priya's line has left the 1-line transcript
+        await p.on_caption("Anyway, how was the demo?")
+        return p
+
+    p = asyncio.run(run())
+    names = [e.names for e in events if e.type == "names"]
+    assert names == [["rahul", "priya"]]  # announced once, when Priya was first heard
+    assert p.call_names() == ["rahul", "priya"] and "priya" in p.names(p.transcript.render())

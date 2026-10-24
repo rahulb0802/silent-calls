@@ -14,7 +14,7 @@ from server.lipread.vocab import clean, names_from_text  # pure Python, no GPU d
 from .captions import Transcript
 from .config import Settings, Weights
 from .decision import Jev, Repairer, route, score_with_jev, top_k
-from .protocol import CandidatesMessage, CaptionEvent, DecisionEvent, RepairEvent, SpokenEvent
+from .protocol import CandidatesMessage, CaptionEvent, DecisionEvent, NamesEvent, RepairEvent, SpokenEvent
 from .voice import VoiceOutput
 
 log = logging.getLogger(__name__)
@@ -33,6 +33,7 @@ class Pipeline:
         self.jev = Jev(s) if use_jev and s.jev_api_key else None
         self.repairer = Repairer(s) if use_claude and os.getenv("ANTHROPIC_API_KEY") else None
         self._repairs: dict[str, asyncio.Task] = {}
+        self._heard: list[str] = []  # names heard in this call, kept after their lines leave the transcript
 
     async def close(self) -> None:
         tasks = list(self._repairs.values())
@@ -46,6 +47,10 @@ class Pipeline:
     async def on_caption(self, line: str) -> None:
         self.transcript.add("them", line)
         await self.emit(CaptionEvent(speaker="them", text=line))
+        new = [n for n in names_from_text(line) if n not in self._heard]
+        if new:
+            self._heard = (self._heard + new)[-50:]
+            await self.emit(NamesEvent(names=self.call_names()))
 
     async def on_caption_partial(self, text: str) -> None:
         """The other person's line so far, for the live caption; only finished lines go to the transcript."""
@@ -97,10 +102,14 @@ class Pipeline:
         first_ms = await self.voice.say(text) if self.voice else 0.0
         await self.emit(SpokenEvent(text=text, first_audio_ms=round(first_ms)))
 
+    def call_names(self) -> list[str]:
+        """The user's names (VOCAB) plus every name heard in this call so far."""
+        return clean(self.s.vocab.split(",") + self._heard)
+
     def names(self, context: str) -> list[str]:
-        """The user's names (VOCAB) plus names heard in the conversation (speaker labels stripped)."""
+        """call_names() plus names in the current context (speaker labels stripped)."""
         heard = names_from_text(re.sub(r"(?m)^[^:\n]+:\s*", "", context))
-        return clean(self.s.vocab.split(",") + heard)
+        return clean(self.call_names() + heard)
 
     async def _repair(self, utterance_id: str, context: str, cands, names: list[str] | None = None) -> None:
         t0 = time.perf_counter()

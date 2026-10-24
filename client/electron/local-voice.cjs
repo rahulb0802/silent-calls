@@ -42,12 +42,13 @@ class LocalVoice {
       personalVoiceReady: false,
       voiceName: '',
       hasVoice: false,
+      callNames: [], // names likely in this call (service's VOCAB + names heard), sent to the lip-reader too
       liveCaption: null, // {speaker, text}: the other person's line while they are still speaking
       repair: null, // {utteranceId, text}: Claude's suggestion for that utterance, offered, never spoken unasked
     };
   }
 
-  snapshot() { return { ...this.state, captions: this.state.captions.map(line => ({ ...line })), repair: this.state.repair && { ...this.state.repair }, liveCaption: this.state.liveCaption && { ...this.state.liveCaption } }; }
+  snapshot() { return { ...this.state, captions: this.state.captions.map(line => ({ ...line })), repair: this.state.repair && { ...this.state.repair }, liveCaption: this.state.liveCaption && { ...this.state.liveCaption }, callNames: [...this.state.callNames] }; }
   update(patch) {
     this.state = { ...this.state, ...patch, revision: this.state.revision + 1 };
     this.onChange(this.snapshot());
@@ -90,7 +91,7 @@ class LocalVoice {
     try { socket = new WebSocket(endpoint); }
     catch { return this.update({ connection: 'error', phase: 'idle', message: 'Could not open a local connection. Start the Python voice service and retry.' }); }
     this.socket = socket;
-    this.update({ port, endpoint, connection: 'connecting', phase: 'idle', message: 'Connecting to the local voice service…', captions: [], liveCaption: null, personalVoiceReady: false, hasVoice: false, voiceName: '', lastSpoken: '' });
+    this.update({ port, endpoint, connection: 'connecting', phase: 'idle', message: 'Connecting to the local voice service…', captions: [], liveCaption: null, callNames: [], personalVoiceReady: false, hasVoice: false, voiceName: '', lastSpoken: '' });
     this.connectTimer = setTimeout(() => {
       if (this.socket !== socket) return;
       this.detach();
@@ -153,6 +154,10 @@ class LocalVoice {
       this.pendingText = null; clearTimeout(this.replyTimer); this.replyTimer = null;
       const firstAudioMs = typeof message.first_audio_ms === 'number' && Number.isFinite(message.first_audio_ms) && message.first_audio_ms >= 0 ? message.first_audio_ms : null;
       this.update({ phase: 'idle', lastSpoken: text, firstAudioMs, message: 'Service acknowledged the phrase. Confirm that the meeting receives audio.', captions: [...this.state.captions.slice(-2), { speaker: 'You', text }] });
+    }
+    if (message.type === 'names' && Array.isArray(message.names)) {
+      const callNames = message.names.filter(name => typeof name === 'string' && name.trim() && name.length <= 120).slice(0, 200);
+      if (callNames.join('\n') !== this.state.callNames.join('\n')) this.update({ callNames });
     }
     if (message.type === 'decision') {
       const decision = parseDecision(message);

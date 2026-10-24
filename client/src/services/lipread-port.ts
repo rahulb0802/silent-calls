@@ -22,16 +22,14 @@ function jpegBytes(frame: Frame): Uint8Array {
   for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
   return bytes;
 }
-/** Names to bias toward: your saved vocabulary plus your profile name (usually your own name, the one you
- * are likeliest to say), sent with each utterance so the lip-reader can spell them (PROTOCOL.md, vocab). */
-function names(settings: ServiceSettings): string[] {
+/** Names to bias toward, sent with each utterance so the lip-reader can spell them (PROTOCOL.md, vocab): your
+ * saved vocabulary, your profile name (usually your own name), and the call's names from the local service
+ * (its VOCAB plus names heard in the captions). */
+export function names(settings: ServiceSettings, callNames: string[] = []): string[] {
   const profile = settings.profileId.trim();
-  const terms = vocabularyTerms();
-  return /^[\p{L}' -]{2,40}$/u.test(profile) && !terms.some(term => term.toLowerCase() === profile.toLowerCase()) ? [...terms, profile] : terms;
-}
-function vocabulary(settings: ServiceSettings): {vocab?: string[]} {
-  const vocab = names(settings);
-  return vocab.length ? {vocab} : {};
+  const all = [...vocabularyTerms(), ...(/^[\p{L}' -]{2,40}$/u.test(profile) ? [profile] : []), ...callNames];
+  const seen = new Set<string>();
+  return all.filter(name => { const key = name.trim().toLowerCase(); if (!key || seen.has(key)) return false; seen.add(key); return true; }).slice(0, 200);
 }
 function endpoint(settings: ServiceSettings) {
   const url = new URL(settings.websocketUrl || 'ws://127.0.0.1:8000/ws/session');
@@ -71,6 +69,8 @@ export class LipreadPort implements MeetingPort {
   private progressTimer: ReturnType<typeof setInterval> | null = null;
   private removeVoice: (() => void) | null = null;
   private removeRepair: (() => void) | null = null;
+  private removeNames: (() => void) | null = null;
+  private callNames: string[] = [];
   private desired = false;
   private retries = 0;
   private active = '';
@@ -102,7 +102,7 @@ export class LipreadPort implements MeetingPort {
     this.disconnect(); this.disposed = false; this.settings = settings;
     try { endpoint(settings); }
     catch (reason) { this.emit({type:'error', message: reason instanceof Error ? reason.message : 'Invalid lip-reading endpoint.'}); return; }
-    this.desired = true; this.retries = 0; this.open();
+    this.desired = true; this.retries = 0; this.watchNames(); this.open();
   }
   private open() {
     if (!this.desired || this.disposed) return;
@@ -162,12 +162,25 @@ export class LipreadPort implements MeetingPort {
     socket.onerror = () => { if (this.socket === socket) this.lost(); };
     socket.onclose = () => { if (this.socket === socket) this.lost(); };
   }
+  private vocabulary(): {vocab?: string[]} {
+    const vocab = names(this.settings, this.callNames);
+    return vocab.length ? {vocab} : {};
+  }
+  /** Follow the local service's list of names in this call. */
+  private watchNames() {
+    this.removeNames?.(); this.removeNames = null;
+    const desktop = window.desktop;
+    if (!desktop?.onVoiceStatus) return;
+    const take = (state: {callNames?: string[]}) => { this.callNames = Array.isArray(state.callNames) ? state.callNames : []; };
+    this.removeNames = desktop.onVoiceStatus(take);
+    void desktop.getVoiceStatus().then(take).catch(() => undefined);
+  }
   /** Jev reranking through the local decision service, with the call captions and your vocabulary as context. */
   private async rank(id: string, candidates: Candidate[], scored: {text:string;score:number}[]) {
     const desktop = window.desktop;
     let decision: Decision | null = null;
     if (desktop?.decide && scored.length) {
-      try { decision = await desktop.decide({utteranceId:id, candidates:scored, vocab:names(this.settings)}); }
+      try { decision = await desktop.decide({utteranceId:id, candidates:scored, vocab:names(this.settings, this.callNames)}); }
       catch { decision = null; }
     }
     const ranked = rankByDecision(id, candidates, decision);
@@ -218,6 +231,7 @@ export class LipreadPort implements MeetingPort {
   }
   disconnect() {
     this.desired = false; this.disposed = true;
+    this.removeNames?.(); this.removeNames = null;
     if (this.retry) clearTimeout(this.retry); this.retry = null;
     this.voiceGeneration++; this.removeVoice?.(); this.removeVoice = null; this.voicePending = false;
     this.resetUtterance(); this.closeSocket();
@@ -240,7 +254,7 @@ export class LipreadPort implements MeetingPort {
         });
       } catch { this.webm = null; }
     }
-    this.socket.send(JSON.stringify({type:'utterance.start',utt_id:this.active,fps:start.targetFps,t_press_ms:Math.round(performance.timeOrigin+start.pressedAtMs),...(this.webm?{encoding:'webm'}:{}),...vocabulary(this.settings)}));
+    this.socket.send(JSON.stringify({type:'utterance.start',utt_id:this.active,fps:start.targetFps,t_press_ms:Math.round(performance.timeOrigin+start.pressedAtMs),...(this.webm?{encoding:'webm'}:{}),...this.vocabulary()}));
   }
   frame(utteranceId: string, _sequence: number, frame: Frame) {
     if (!this.capturing || utteranceId !== this.active || this.socket?.readyState !== WebSocket.OPEN) return;
