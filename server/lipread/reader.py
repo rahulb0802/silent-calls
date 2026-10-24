@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import torch
 
+from ..lora import data as lora_data
 from ..lora import lora
 from . import frames as fr
 from . import vocab as vb
@@ -40,6 +41,9 @@ def clean_given(given: list[str] | None) -> list[str]:
 
 MIN_FRAMES = 10  # 0.4 s; shorter than this is a mis-press
 MAX_FRAMES = 15 * MODEL_FPS  # frames past 15 s are ignored
+
+
+KEEP_S, KEEP_N = 180, 20  # recent crops held in memory for corrections
 
 
 @dataclass
@@ -118,6 +122,7 @@ class LipReader:
             res.face_wait_ms = round(face_wait_ms)
             return res
         crop, q, crop_ms = res
+        self._keep(utt_id, crop)
         out = await loop.run_in_executor(self._gpu, self._run_model, crop, user_id if use_adapter else None,
                                          self.vocab_for(user_id, vocab), clean_given(given))
         out.crop_ms, out.quality, out.face_wait_ms = round(crop_ms), q, round(face_wait_ms)
@@ -146,6 +151,23 @@ class LipReader:
         out.crop_ms, out.quality = round(crop_ms), q
         out.timings_ms["crop_ms"] = out.crop_ms
         return out
+
+    def _keep(self, utt_id: str, crop: np.ndarray) -> None:
+        """Hold the last few crops in memory for a couple of minutes, in case the user corrects the phrase and
+        has opted in to learning from corrections (save_correction). Never written to disk otherwise."""
+        now = time.monotonic()
+        self._recent = {k: v for k, v in getattr(self, "_recent", {}).items() if now - v[0] < KEEP_S}
+        self._recent[utt_id] = (now, crop)
+        while len(self._recent) > KEEP_N:
+            self._recent.pop(next(iter(self._recent)))
+
+    def save_correction(self, user_id: str, utt_id: str, text: str) -> int | None:
+        """Save a corrected phrase for this user's next training; None if the crop is gone or the text odd."""
+        kept = getattr(self, "_recent", {}).pop(utt_id, None)
+        text = normalize_text(text)
+        if kept is None or not text or len(text.split()) > 25:
+            return None
+        return lora_data.save_correction(lora.adapter_key(user_id), utt_id, text, kept[1])
 
     def read_crop(self, crop: np.ndarray, user_id: str | None = None, vocab: list[str] | None = None,
                   given: list[str] | None = None) -> LipResult:

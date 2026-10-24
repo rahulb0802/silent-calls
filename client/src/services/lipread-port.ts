@@ -2,6 +2,7 @@ import type {CaptureClip, Frame} from '../capture/buffer';
 import type {Decision} from '../desktop';
 import type {Candidate, MeetingEvent, MeetingPort, Route, UtteranceStart} from './meeting-port';
 import {vocabularyTerms} from './personal-library';
+import {LEARNED, learningOn} from './learning';
 import type {CopilotState} from './use-local-voice';
 import type {ServiceSettings} from './settings';
 import {WebmEncoder} from './webm-encoder';
@@ -150,6 +151,7 @@ export class LipreadPort implements MeetingPort {
       try { data = JSON.parse(event.data); } catch { return; }
       if (!data || typeof data !== 'object') return;
       const id = typeof data.utt_id === 'string' ? data.utt_id : this.active;
+      if (data.type === 'learned' && Number.isInteger(data.n_corrections)) { window.dispatchEvent(new CustomEvent(LEARNED, {detail: data.n_corrections})); return; }
       if (data.type === 'error') {
         if (id !== this.active || !this.active) return;
         const message = friendlyErrors[data.code] || (typeof data.message === 'string' ? data.message.slice(0,1000) : 'The GPU could not read this capture. Please try again.');
@@ -347,6 +349,11 @@ export class LipreadPort implements MeetingPort {
     const candidate = this.choices.find(item => item.id === candidateId);
     const text = (editedText ?? candidate?.text ?? '').trim();
     if (!text || text.length > 5000) { this.emit({type:'error',utteranceId,message:'Choose a candidate or enter a phrase up to 5000 characters.'}); return; }
+    // a correction (not the top guess as it was) teaches your personal model, if you've opted in
+    const top = this.choices[0]?.text.trim().toLowerCase();
+    if (learningOn() && text.toLowerCase() !== top && this.socket?.readyState === WebSocket.OPEN) {
+      try { this.socket.send(JSON.stringify({type:'utterance.confirm', utt_id:utteranceId, text:text.slice(0, 300), learn:true})); } catch { /* best effort */ }
+    }
     this.voicePending = true;
     const generation = ++this.voiceGeneration;
     void this.speakConfirmed(utteranceId,text,generation);
