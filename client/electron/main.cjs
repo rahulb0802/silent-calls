@@ -123,6 +123,9 @@ app.whenReady().then(() => {
   powerMonitor.on('suspend', () => hold.stop('Global capture disabled because the computer went to sleep. Enable the camera and key again.'));
   powerMonitor.on('lock-screen', () => hold.stop('Global capture disabled because the screen was locked. Enable the camera and key again.'));
   createMain();
+  // Warm up in the background so Start is quick: the local voice service takes ~6 s to start (Python
+  // imports), the SSH tunnel to the GPU a second or two.
+  setTimeout(() => { setup.connect().catch(() => {}); tunnel.ensure().catch(() => {}); }, 300);
   app.on('activate', () => { if (!mainWindow || mainWindow.isDestroyed()) createMain(); });
 });
 app.on('window-all-closed', () => { voice.disconnect(); if (process.platform !== 'darwin') app.quit(); });

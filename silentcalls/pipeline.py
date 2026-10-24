@@ -67,8 +67,11 @@ class Pipeline:
             await self.emit(NamesEvent(names=self.call_names()))
 
     async def on_caption_partial(self, text: str) -> None:
-        """The other person's line so far, for the live caption; only finished lines go to the transcript."""
+        """The other person's line so far, for the live caption; only finished lines go to the transcript.
+        The co-pilot starts on it once it pauses (copilot.on_partial)."""
         await self.emit(CaptionEvent(speaker="them", text=text, final=False))
+        if self.copilot:
+            self.copilot.on_partial(text, self.transcript.render(also=("them", text)), self.call_names())
 
     async def handle(self, msg: CandidatesMessage) -> DecisionEvent:
         t0 = time.perf_counter()

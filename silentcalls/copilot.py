@@ -18,6 +18,7 @@ import time
 from collections.abc import Awaitable, Callable
 
 import anthropic
+import httpx
 
 from .config import Settings
 from .protocol import CopilotEvent, CopilotFact, CopilotReply, CopilotStep
@@ -26,6 +27,10 @@ log = logging.getLogger(__name__)
 
 MAX_REPLIES = 3
 MAX_ROUNDS = 3  # model turns: at most two rounds of mail searches, then the answer
+# Start on the other person's line before it is final: once the live caption has been unchanged this long
+# (they paused), prepare replies for it. The final line usually matches, so its replies are already on the
+# way; if it differs, start again.
+SPECULATE_AFTER_S = 0.35
 # Replies must be ready before the user finishes mouthing, so ask for fast output (Opus 5.5 fast mode).
 FAST, FAST_BETA = {"speed": "fast"}, ["fast-mode-2026-02-01"]
 
@@ -90,6 +95,10 @@ REPLIES_SCHEMA = {
 }
 
 
+def _norm(text: str) -> str:
+    return " ".join("".join(c for c in text.lower() if c.isalnum() or c.isspace()).split())
+
+
 def calendar_text(events: list[dict]) -> str:
     if not events:
         return "(nothing on the calendar in the next 7 days)"
@@ -104,20 +113,54 @@ class Copilot:
         self.s = s
         self.emit = emit
         self.data = data  # GoogleData, or anything with async calendar() / search_mail(query); None = no Google
-        self.client = client or anthropic.AsyncAnthropic()
+        # keep the connection to the API open between lines (a new TLS handshake costs ~0.2-0.3 s)
+        self.client = client or anthropic.AsyncAnthropic(
+            http_client=anthropic.DefaultAsyncHttpxClient(limits=httpx.Limits(keepalive_expiry=300)))
         self._task: asyncio.Task | None = None
+        self._task_line = ""  # the line the current task prepares replies for
+        self._speculate: asyncio.TimerHandle | None = None
         self._fast = True
         self.last: CopilotEvent | None = None
 
+    def on_partial(self, text: str, context: str, names: list[str]) -> None:
+        """The other person's line so far (context includes it): start on it once it stops changing."""
+        if self._speculate:
+            self._speculate.cancel()
+        if _norm(text) != _norm(self._task_line):
+            self._speculate = asyncio.get_running_loop().call_later(SPECULATE_AFTER_S, self._start, text, context, names)
+
     def on_line(self, line: str, context: str, names: list[str]) -> None:
+        if self._speculate:
+            self._speculate.cancel()
+            self._speculate = None
+        if _norm(line) == _norm(self._task_line) and self._task and (not self._task.done() or (
+                self.last and self.last.for_line == self._task_line)):
+            return  # already preparing (or prepared) replies for exactly this line
+        self._start(line, context, names)
+
+    def _start(self, line: str, context: str, names: list[str]) -> None:
+        self._speculate = None
         if self._task and not self._task.done():
             self._task.cancel()
+        self._task_line = line
         self._task = asyncio.create_task(self._run(line, context, names))
+
+    async def warm(self) -> None:
+        """At startup: fetch the calendar and open the API connection, so the first line isn't slower."""
+        try:
+            await asyncio.gather(*([self.data.calendar()] if self.data is not None else []),
+                                 self.client.models.list(limit=1), return_exceptions=True)
+        except Exception:  # warming is best effort
+            pass
 
     async def clear(self) -> None:
         """The user spoke: the prepared replies are used up."""
+        if self._speculate:
+            self._speculate.cancel()
+            self._speculate = None
         if self._task and not self._task.done():
             self._task.cancel()
+        self._task_line = ""
         self.last = CopilotEvent(replies=[], for_line="", latency_ms=0)
         await self.emit(self.last)
 

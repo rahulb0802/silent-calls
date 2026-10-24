@@ -24,12 +24,23 @@ const names = (events: [number, HandsFreeEvent][]) => events.map(([, e]) => e);
 test('mouthing starts a capture, stillness ends it', () => {
   const events = run([
     {ms: 2000, phase: 'idle'},
-    {ms: 400, phase: 'idle', at: mouthing},
+    {ms: 700, phase: 'idle', at: mouthing},
     {ms: 1500, phase: 'capturing', at: mouthing},
     {ms: 1200, phase: 'capturing'},
   ]);
   assert.deepEqual(names(events), ['start', 'stop']);
-  assert.ok(events[1][0] - 3900 >= 550 && events[1][0] - 3900 <= 1000, `stop ${events[1][0]}`);
+  assert.ok(events[1][0] - 4200 >= 800 && events[1][0] - 4200 <= 1300, `stop ${events[1][0]}`);
+});
+
+test('pauses between words do not end a capture', () => {
+  const gappy = (t: number) => ({mouth: (t % 700) < 450 ? 4 : 0.3});  // 0.45 s of words, 0.25 s pauses
+  const events = run([{ms: 2000, phase: 'idle'}, {ms: 700, phase: 'idle', at: mouthing}, {ms: 3000, phase: 'capturing', at: gappy}, {ms: 1500, phase: 'capturing'}]);
+  assert.deepEqual(names(events), ['start', 'stop']);
+  assert.ok(events[1][0] >= 5700, `stopped mid-sentence at ${events[1][0]}`);
+});
+
+test('scattered twitches (about a third of the time) do not start a capture', () => {
+  assert.deepEqual(names(run([{ms: 2000, phase: 'idle'}, {ms: 3000, phase: 'idle', at: t => ({mouth: (t % 600) < 200 ? 4 : 0.3})}])), []);
 });
 
 test('a short mouth movement (a smile, "mm-hm") does not start a capture', () => {
@@ -88,7 +99,7 @@ test('options left alone are cancelled after 30 s', () => {
 });
 
 test('losing the face ends a hands-free capture', () => {
-  const events = run([{ms: 2000, phase: 'idle'}, {ms: 400, phase: 'idle', at: mouthing}, {ms: 300, phase: 'capturing', at: mouthing}, {ms: 200, phase: 'capturing', at: {face: false}}]);
+  const events = run([{ms: 2000, phase: 'idle'}, {ms: 700, phase: 'idle', at: mouthing}, {ms: 300, phase: 'capturing', at: mouthing}, {ms: 200, phase: 'capturing', at: {face: false}}]);
   assert.deepEqual(names(events), ['start', 'stop']);
 });
 

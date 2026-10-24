@@ -89,3 +89,49 @@ def test_copilot_still_answers_when_the_calendar_fails():
     cp = Copilot(Settings(), emit=None, data=Down(), client=client)
     replies, steps = asyncio.run(cp.prepare("Other person: are you free?", []))
     assert replies and steps == [] and "unavailable" in client.requests[1]["messages"][0]["content"]
+
+
+def test_copilot_starts_on_the_paused_partial_and_keeps_it_when_the_final_line_matches(monkeypatch):
+    import silentcalls.copilot as cp_mod
+    monkeypatch.setattr(cp_mod, "SPECULATE_AFTER_S", 0.01)
+    events = []
+
+    async def emit(e):
+        events.append(e)
+
+    async def run():
+        client = FakeClient()
+        cp = Copilot(Settings(), emit=emit, data=FakeData(), client=client)
+        cp.on_partial("What's the order", "Other person: What's the order", [])
+        cp.on_partial("What's the order number?", "Other person: What's the order number?", [])
+        await asyncio.sleep(0.05)  # paused: replies are being prepared for the line so far
+        assert cp._task is not None
+        cp.on_line("What's the order number", "Other person: What's the order number", [])  # same words
+        await cp._task
+        first = len(client.requests)
+        cp.on_line("Never mind, what's your address?", "Other person: Never mind, what's your address?", [])
+        await cp._task
+        return first, len(client.requests)
+
+    first, total = asyncio.run(run())
+    assert first == 2  # one speculative run (search + answer), not restarted by the matching final line
+    assert total == 3  # a different final line starts again (FakeClient answers straight away after its first call)
+    assert [e.for_line for e in events] == ["What's the order number?", "Never mind, what's your address?"]
+
+
+def test_pipeline_passes_the_line_so_far_to_the_copilot():
+    seen = []
+
+    class Spy:
+        def on_partial(self, text, context, names):
+            seen.append((text, context))
+
+    async def run():
+        async def emit(e):
+            pass
+        p = Pipeline(Settings(), voice=None, emit=emit, use_jev=False, use_claude=False, copilot=Spy())
+        p.transcript.add("me", "Hi")
+        await p.on_caption_partial("Are you free")
+
+    asyncio.run(run())
+    assert seen == [("Are you free", "User: Hi\nOther person: Are you free")]

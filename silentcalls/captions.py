@@ -61,11 +61,13 @@ class Transcript:
         if text:
             self._lines.append((speaker, text))
 
-    def render(self) -> str:
-        if not self._lines:
+    def render(self, also: tuple[str, str] | None = None) -> str:
+        """The lines so far; `also`: one more (speaker, text) at the end, e.g. a line still being spoken."""
+        lines = [*self._lines, also] if also else list(self._lines)
+        if not lines:
             return "(no conversation yet)"
         names = {"them": "Other person", "me": "User"}
-        return "\n".join(f"{names.get(s, s)}: {t}" for s, t in self._lines)
+        return "\n".join(f"{names.get(s, s)}: {t}" for s, t in lines)
 
 
 class CallCaptioner:

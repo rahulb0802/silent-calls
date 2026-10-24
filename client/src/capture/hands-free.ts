@@ -20,9 +20,12 @@ export type HandsFreeConfig = {
 };
 
 // Mouthing
-const ON_MS = 350;          // movement this long starts a capture (the capture keeps 0.5 s from before it)
-const OFF_MS = 600;         // stillness this long ends it
-const RESTART_MS = 600;     // mouthing this long while options are shown discards them and reads again
+// Decisions look at a window of recent samples, not single readings: mouthing has short gaps between
+// words, and a single twitch shouldn't count.
+const START_WIN = 600, START_FRAC = 0.75;  // most of the last 0.6 s mouthing starts a capture (it keeps 0.5 s from before)
+const STOP_WIN = 900, STOP_FRAC = 0.15;    // almost no mouthing for 0.9 s ends it
+const MIN_CAPTURE_MS = 900;                // never end a capture sooner than this
+const RESTART_WIN = 700;                   // mouthing this long while options are shown discards them and reads again
 const MIN_ON = 1.2;         // floor for the adaptive start threshold
 const NOISE_GAIN = 3;       // adaptive threshold: this many times the resting noise
 const STILL_HEAD = 45;      // deg/s: faster head motion is a gesture, not mouthing
@@ -44,7 +47,8 @@ export class HandsFree {
   private last?: FaceSample;
   private headSpeed = 0;
   private baseYaw?: number; private basePitch?: number; private baseBrows?: number;
-  private onSince = 0; private activeAt = 0; private started = 0;  // when this started a capture (0: it didn't)
+  private started = 0;  // when this started a capture (0: it didn't)
+  private recent: {t: number; on: boolean; off: boolean}[] = [];  // on: mouthing (and facing, head still); off: any movement
   private out: null | {axis: 'yaw' | 'pitch'; since: number; side: number; flips: number} = null;
   private quietUntil = 0;
   private browSince = 0; private blinkSince = 0;
@@ -60,11 +64,11 @@ export class HandsFree {
     const events: HandsFreeEvent[] = [];
     const dt = this.last ? Math.max(1, s.t - this.last.t) : 66;
     if (phase !== this.phase) {
-      if (phase === 'choosing') { this.choosingSince = s.t; this.onSince = 0; this.out = null; this.quietUntil = s.t + REFRACTORY_MS; }
+      if (phase === 'choosing') { this.choosingSince = s.t; this.recent = []; this.out = null; this.quietUntil = s.t + REFRACTORY_MS; }
       if (phase === 'choosing' || phase === 'busy') this.started = 0;
       this.phase = phase;
     }
-    if (!s.face) { this.last = undefined; this.onSince = 0; this.out = null; if (this.started && phase === 'capturing') { this.started = 0; events.push('stop'); } return events; }
+    if (!s.face) { this.last = undefined; this.recent = []; this.out = null; if (this.started && phase === 'capturing') { this.started = 0; events.push('stop'); } return events; }
     if (this.last) {
       const speed = Math.hypot(s.yaw - this.last.yaw, s.pitch - this.last.pitch) * 1000 / dt;
       this.headSpeed = 0.6 * this.headSpeed + 0.4 * speed;
@@ -81,26 +85,31 @@ export class HandsFree {
     if (phase !== 'choosing' && this.browSince === 0 && this.blinkSince === 0) this.baseBrows += 0.05 * (s.brows - this.baseBrows);
     const facing = Math.abs(dyaw) < FACING && Math.abs(dpitch) < FACING;
     const on = this.threshold, off = on / 2;
-    if (this.mouth >= off) this.activeAt = s.t;
+    this.recent.push({t: s.t, on: this.mouth >= on && still && facing, off: this.mouth >= off});
+    while (this.recent.length && this.recent[0].t < s.t - STOP_WIN) this.recent.shift();
 
     if (phase === 'idle') {
       if (this.mouth < on) this.noise += 0.02 * (Math.min(this.mouth, on) - this.noise);
-      const ok = this.mouth >= on && still && facing && !otherTalking;
-      if (ok) { this.onSince ||= s.t; if (s.t - this.onSince >= ON_MS) { this.onSince = 0; this.started = s.t; events.push('start'); } }
-      else if (this.mouth < off || !still || !facing) this.onSince = 0;
+      if (!otherTalking && this.share(s.t, START_WIN, 'on') >= START_FRAC) { this.recent = []; this.started = s.t; events.push('start'); }
       if (this.started && s.t - this.started > 1000) this.started = 0;  // the capture never began
     } else if (phase === 'capturing') {
       // only end captures this started: a held key ends its own
-      if (this.started && s.t - this.activeAt >= OFF_MS) { this.started = 0; events.push('stop'); }
+      if (this.started && s.t - this.started >= MIN_CAPTURE_MS && this.share(s.t, STOP_WIN, 'off') <= STOP_FRAC) { this.started = 0; events.push('stop'); }
     } else if (phase === 'choosing') {
-      const ok = this.mouth >= on && still && facing && s.t >= this.quietUntil;
-      if (ok) { this.onSince ||= s.t; if (s.t - this.onSince >= RESTART_MS) { this.onSince = 0; this.started = s.t; events.push('restart'); return events; } }
-      else if (this.mouth < off || !still) this.onSince = 0;
+      if (s.t >= this.quietUntil && this.share(s.t, RESTART_WIN, 'on') >= START_FRAC) { this.recent = []; this.started = s.t; events.push('restart'); return events; }
       const gesture = this.config.mode === 'head' ? this.head(s.t, dyaw, dpitch) : this.face(s);
       if (gesture && s.t >= this.quietUntil) { events.push(gesture); this.quietUntil = s.t + REFRACTORY_MS; this.choosingSince = s.t; }
       else if (s.t - this.choosingSince > CHOOSE_TIMEOUT_MS) { events.push('cancel'); this.choosingSince = s.t; }
-    } else this.onSince = 0;
+    }
     return events;
+  }
+
+  /** Share of the last `win` ms of samples that were mouthing ('on') or moving at all ('off'); -1 until the
+   * window is mostly covered (right after a start or a lost face). */
+  private share(t: number, win: number, key: 'on' | 'off'): number {
+    const xs = this.recent.filter(x => x.t > t - win);
+    if (!xs.length || xs[0].t > t - win * 0.8) return key === 'on' ? -1 : 1;
+    return xs.filter(x => x[key]).length / xs.length;
   }
 
   /** A nod (down and back) sends, a turn (one side and back) moves to the next option, a shake (both sides) cancels. */

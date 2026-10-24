@@ -178,6 +178,7 @@ async def main() -> None:
     if not args.no_copilot and not args.no_claude and os.getenv("ANTHROPIC_API_KEY"):
         copilot = Copilot(settings, broadcast, GoogleData.connect())
         log.info("copilot: on (%s)", "calendar + email" if copilot.data else "no Google account connected")
+        asyncio.create_task(copilot.warm())
     coach = Coach(settings) if not args.no_claude and os.getenv("ANTHROPIC_API_KEY") else None
     pipeline = Pipeline(settings, voice, broadcast, use_jev=not args.no_jev, use_claude=not args.no_claude,
                         copilot=copilot, coach=coach)
