@@ -97,3 +97,7 @@ Keep the working port-8000 SSH tunnel open. In the widget click **Connect lip-re
 ## Personal vocabulary and saved phrases
 
 Open **Vocabulary & saved phrases** in the widget or Training & settings. Add your own words, optional alternate readings and exact phrases; nothing is prefilled. Entries save locally across restarts, and the widget updates when you save. Corrections fill the phrase editor for review; saved phrase buttons speak on click. Restart Electron after updating for the new main-window route. See [personal library](../docs/PERSONAL_LIBRARY.md) for persistence and behavior. No tests or push performed for this increment.
+
+## Enroll and train on the GPU
+
+Training & settings now connects to Rahul’s HTTP endpoints through the same SSH tunnel. Load the actual prompts and existing progress, record/review a sentence, explicitly consent and upload it. After at least8 accepted clips, start training and follow the server’s status. WER and top-five before/after results plus per-sentence reports come from the GPU. Stop waiting does not cancel the job; Refresh status resumes it. Use the same profile in the widget to load its trained adapter. See [training flow](../docs/TRAINING_CLIENT.md). No training runs or tests were performed by the agent.

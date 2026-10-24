@@ -38,3 +38,7 @@ The widget can explicitly connect to the SSH-tunneled lip-reading service on loo
 ## Personal vocabulary and phrases
 
 Users can maintain a locally persistent personal library, initially empty. Explicit alternate readings produce reviewable spelling corrections for top-three GPU candidates; terms can also be inserted into the editable phrase. This is not model training or server vocabulary biasing. Saved phrases speak their exact text only on explicit click through the existing local service. No provider credentials, automatic utterances, seeded personal names or new backend protocol fields are introduced. The library is shared between app windows at the same origin and survives restarts until app data is cleared.
+
+## Live training increment
+
+User-authorized integration now uses the existing GPU enrollment and training HTTP endpoints, preserving the server contract. Eight accepted clips unlock explicit training; progress can be resumed across page/app visits, since data and the job live on the GPU. Recording does not upload, upload requires consent, and unuploaded video stays in memory. Actual held-out WER, top-five match and per-sentence results are displayed without inventing accuracy or guaranteed improvement. Backend identity/authentication and GPU process scheduling remain server responsibilities.

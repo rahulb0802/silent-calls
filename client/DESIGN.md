@@ -150,3 +150,7 @@ The live widget leads with an explicit GPU connection action, followed by pendin
 ## Personal library
 
 Vocabulary & saved phrases opens a dedicated cream/forest main-window route with two labeled forms and editable lists. Both start empty. Compact dark saved-phrase buttons appear directly in the meeting widget; matching vocabulary corrections are visually separate from original GPU candidates and only populate the editor until explicitly spoken. Library edits persist locally and update across windows. Native inputs, readable wrapping, labeled edit/delete controls, focus rings and visible storage errors preserve the existing interaction patterns. No preview or verification pass was performed, per user instruction.
+
+## Live enrollment and training
+
+Training & settings now leads with the enrollment workflow, with optional connection settings above and a fixed-profile session during capture/upload. Camera and clip review sit beside consent, authoritative accepted-count, training stages and results. Prompts come from the GPU; the server chooses held-out splits. WER is explicitly lower-is-better and may exceed100%, top-five match is higher-is-better. Progress uses real steps only during training and an indeterminate state while loading/evaluating. Local clips are reviewed before explicit upload and server quality rejection leads to a retake. Existing cream/forest typography and control styling is preserved. No visual or runtime verification was performed per user preference.
