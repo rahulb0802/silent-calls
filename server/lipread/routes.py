@@ -7,7 +7,7 @@ GET  /enroll/sentences             -> [{id, sentence}]
 GET  /enroll/{user_id}             -> {n_clips, sentence_ids}
 POST /enroll/{user_id}/clip        multipart: sentence_id, file (webm/mp4 from MediaRecorder), [text]
                                    -> {ok, sentence_id, quality, n_clips}; stores the mouth crop only
-POST /train/{user_id}              -> {job_id, state}  (409 if already training)
+POST /train/{user_id}?steps=100     -> {job_id, state}  (409 if already training)
 GET  /train/{user_id}/status       -> {state: queued|loading|evaluating|training|done|failed, step, steps,
                                        loss, report: {before_wer, after_wer, before_top5, after_top5, n_train, n_test}}
 GET  /train/{user_id}/report       -> full report.json (per-sentence before/after, loss curve)
@@ -73,7 +73,7 @@ def enroll_clip(user_id: str, sentence_id: str = Form(...), file: UploadFile = F
 
 
 @router.post("/train/{user_id}")
-def start_training(user_id: str, steps: int = 300, test_feasibility: bool = True) -> dict:
+def start_training(user_id: str, steps: int = 100, test_feasibility: bool = True) -> dict:
     key = adapter_key(user_id)
     job = _jobs.get(key)
     if job and job.poll() is None:

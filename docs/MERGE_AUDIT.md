@@ -16,6 +16,9 @@ Audited sources: frontend `a8c5d62`, nilesh `d883697`, and existing main `a000f8
 ## Blocking integration gaps (not represented as complete)
 
 1. There is no real GPU lip-reading service or enrollment API in either branch.
+   **Update (Person 2):** now in `server/lipread/` (LipReader, enrollment + training HTTP endpoints) and
+   `server/lora/`, running on the Vultr box; `server/lipread/dev_app.py` serves the lip-reading half of
+   PROTOCOL.md until the orchestrator exists. See docs/specs/lipread.md and docs/RESULTS.md.
 2. The frontend `MeetingPort`/`EnrollmentPort` interfaces are not bound to a transport. The existing interim Python service is not the draft GPU orchestrator, so merging files does not make frames flow into lip-reading.
 3. The existing service's `decision`, `confirm`, `say`, `spoken`, `them/me`, `utterance_id` messages differ from the draft's `candidates`, `pick`, `quick_phrase`, `audio.*`, `remote/self`, `utt_id` messages. `docs/PROTOCOL.md` and `silentcalls/protocol.py` were kept unchanged. Agree the adapter mapping with the team before wiring it.
 4. The live widget currently requires explicit candidate confirmation. The draft supports high-confidence auto-speech, a repeat route and optional Claude repair; these need a protocol-approved frontend adapter/UI extension.

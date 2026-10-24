@@ -1,0 +1,1002 @@
+{
+  "config": {
+    "source": "feasibility",
+    "device": "cuda:1",
+    "r": 16,
+    "alpha": 32,
+    "dropout": 0.05,
+    "targets": "attn",
+    "steps": 100,
+    "lr": 0.001,
+    "batch": 8,
+    "eval_every": 25,
+    "test_frac": 0.2,
+    "folds": 5,
+    "eval_steps": "50",
+    "beam": 40,
+    "seed": 0,
+    "test_feasibility": false,
+    "users": [
+      "rahul",
+      "nilesh",
+      "sarvajith"
+    ],
+    "cross_user": true
+  },
+  "users": {
+    "rahul": {
+      "before": {
+        "clips": 30,
+        "top1_wer": 0.3829,
+        "exact@1": 0.3667,
+        "exact@3": 0.4333,
+        "exact@5": 0.5333,
+        "exact@10": 0.6,
+        "oracle_wer@5": 0.28,
+        "oracle_wer@10": 0.24,
+        "within1@5": 0.6333
+      },
+      "step 50": {
+        "clips": 30,
+        "top1_wer": 0.2343,
+        "exact@1": 0.5,
+        "exact@3": 0.6,
+        "exact@5": 0.6,
+        "exact@10": 0.7,
+        "oracle_wer@5": 0.1371,
+        "oracle_wer@10": 0.0971,
+        "within1@5": 0.7667
+      },
+      "after": {
+        "clips": 30,
+        "top1_wer": 0.2114,
+        "exact@1": 0.4667,
+        "exact@3": 0.5667,
+        "exact@5": 0.6333,
+        "exact@10": 0.7,
+        "oracle_wer@5": 0.1086,
+        "oracle_wer@10": 0.08,
+        "within1@5": 0.8333
+      }
+    },
+    "nilesh": {
+      "before": {
+        "clips": 30,
+        "top1_wer": 0.5886,
+        "exact@1": 0.1333,
+        "exact@3": 0.2333,
+        "exact@5": 0.2333,
+        "exact@10": 0.2333,
+        "oracle_wer@5": 0.44,
+        "oracle_wer@10": 0.4114,
+        "within1@5": 0.4333
+      },
+      "step 50": {
+        "clips": 30,
+        "top1_wer": 0.5257,
+        "exact@1": 0.2,
+        "exact@3": 0.2667,
+        "exact@5": 0.2667,
+        "exact@10": 0.3,
+        "oracle_wer@5": 0.44,
+        "oracle_wer@10": 0.4171,
+        "within1@5": 0.4667
+      },
+      "after": {
+        "clips": 30,
+        "top1_wer": 0.5829,
+        "exact@1": 0.1,
+        "exact@3": 0.2,
+        "exact@5": 0.2333,
+        "exact@10": 0.2333,
+        "oracle_wer@5": 0.4457,
+        "oracle_wer@10": 0.4057,
+        "within1@5": 0.4333
+      }
+    },
+    "sarvajith": {
+      "before": {
+        "clips": 30,
+        "top1_wer": 0.1486,
+        "exact@1": 0.5667,
+        "exact@3": 0.6333,
+        "exact@5": 0.7,
+        "exact@10": 0.8333,
+        "oracle_wer@5": 0.0971,
+        "oracle_wer@10": 0.0686,
+        "within1@5": 0.8667
+      },
+      "step 50": {
+        "clips": 30,
+        "top1_wer": 0.1486,
+        "exact@1": 0.6333,
+        "exact@3": 0.8,
+        "exact@5": 0.8,
+        "exact@10": 0.8667,
+        "oracle_wer@5": 0.0686,
+        "oracle_wer@10": 0.0514,
+        "within1@5": 0.9333
+      },
+      "after": {
+        "clips": 30,
+        "top1_wer": 0.1257,
+        "exact@1": 0.6333,
+        "exact@3": 0.8,
+        "exact@5": 0.8,
+        "exact@10": 0.8667,
+        "oracle_wer@5": 0.0686,
+        "oracle_wer@10": 0.0571,
+        "within1@5": 0.9333
+      }
+    }
+  },
+  "pooled": {
+    "before": {
+      "clips": 90,
+      "top1_wer": 0.3733,
+      "exact@1": 0.3556,
+      "exact@3": 0.4333,
+      "exact@5": 0.4889,
+      "exact@10": 0.5556,
+      "oracle_wer@5": 0.2724,
+      "oracle_wer@10": 0.24,
+      "within1@5": 0.6444
+    },
+    "step 50": {
+      "clips": 90,
+      "top1_wer": 0.3029,
+      "exact@1": 0.4444,
+      "exact@3": 0.5556,
+      "exact@5": 0.5556,
+      "exact@10": 0.6222,
+      "oracle_wer@5": 0.2152,
+      "oracle_wer@10": 0.1886,
+      "within1@5": 0.7222
+    },
+    "after": {
+      "clips": 90,
+      "top1_wer": 0.3067,
+      "exact@1": 0.4,
+      "exact@3": 0.5222,
+      "exact@5": 0.5556,
+      "exact@10": 0.6,
+      "oracle_wer@5": 0.2076,
+      "oracle_wer@10": 0.181,
+      "within1@5": 0.7333
+    },
+    "other user, base model": {
+      "clips": 180,
+      "top1_wer": 0.3733,
+      "exact@1": 0.3556,
+      "exact@3": 0.4333,
+      "exact@5": 0.4889,
+      "exact@10": 0.5556,
+      "oracle_wer@5": 0.2724,
+      "oracle_wer@10": 0.24,
+      "within1@5": 0.6444
+    },
+    "other user, this user's adapter": {
+      "clips": 180,
+      "top1_wer": 0.3743,
+      "exact@1": 0.35,
+      "exact@3": 0.45,
+      "exact@5": 0.4944,
+      "exact@10": 0.5611,
+      "oracle_wer@5": 0.2724,
+      "oracle_wer@10": 0.2371,
+      "within1@5": 0.65
+    }
+  },
+  "sentences": [
+    {
+      "user": "rahul",
+      "fold": 0,
+      "ref": "hey can you hear me okay",
+      "before": "hey can you hear me o k",
+      "after": "hey can you hear me ok",
+      "before_rank": 1,
+      "after_rank": 1
+    },
+    {
+      "user": "rahul",
+      "fold": 0,
+      "ref": "no I haven't heard back yet",
+      "before": "no i haven't heard back yet",
+      "after": "no i haven't heard my name",
+      "before_rank": 1,
+      "after_rank": 7
+    },
+    {
+      "user": "rahul",
+      "fold": 0,
+      "ref": "I'll be there in ten minutes",
+      "before": "i'll be there in ten minutes",
+      "after": "i'll be there in ten minutes",
+      "before_rank": 1,
+      "after_rank": 1
+    },
+    {
+      "user": "rahul",
+      "fold": 0,
+      "ref": "what time does it start",
+      "before": "what time is this going",
+      "after": "what time does it start",
+      "before_rank": 5,
+      "after_rank": 1
+    },
+    {
+      "user": "rahul",
+      "fold": 0,
+      "ref": "can you speak a little louder",
+      "before": "can you speak a little louder",
+      "after": "can you speak a little louder",
+      "before_rank": 1,
+      "after_rank": 1
+    },
+    {
+      "user": "rahul",
+      "fold": 0,
+      "ref": "I'm running a little late",
+      "before": "i'm running a little late",
+      "after": "i'm running a little late",
+      "before_rank": 1,
+      "after_rank": 1
+    },
+    {
+      "user": "rahul",
+      "fold": 1,
+      "ref": "let's meet tomorrow morning",
+      "before": "let's meet tomorrow morning",
+      "after": "let's meet tomorrow morning",
+      "before_rank": 1,
+      "after_rank": 1
+    },
+    {
+      "user": "rahul",
+      "fold": 1,
+      "ref": "can you send me the link",
+      "before": "and do something like",
+      "after": "can you send me the link",
+      "before_rank": "",
+      "after_rank": 1
+    },
+    {
+      "user": "rahul",
+      "fold": 1,
+      "ref": "I'm not feeling very well today",
+      "before": "i'm not feeling very well to day",
+      "after": "i'm not feeling very well today",
+      "before_rank": 1,
+      "after_rank": 1
+    },
+    {
+      "user": "rahul",
+      "fold": 1,
+      "ref": "I'll pick up the groceries on the way home",
+      "before": "i'll make up groceries on the way home",
+      "after": "i'll make up groceries on the way home",
+      "before_rank": 5,
+      "after_rank": 5
+    },
+    {
+      "user": "rahul",
+      "fold": 1,
+      "ref": "leave the package at the front door",
+      "before": "if they buy each other very short",
+      "after": "leave the package in the front door",
+      "before_rank": "",
+      "after_rank": ""
+    },
+    {
+      "user": "rahul",
+      "fold": 1,
+      "ref": "okay bye see you later",
+      "before": "hurt him i see you later",
+      "after": "okay i see you later",
+      "before_rank": "",
+      "after_rank": ""
+    },
+    {
+      "user": "rahul",
+      "fold": 2,
+      "ref": "yes that works for me",
+      "before": "it's not one for me",
+      "after": "is that one for me",
+      "before_rank": "",
+      "after_rank": ""
+    },
+    {
+      "user": "rahul",
+      "fold": 2,
+      "ref": "sure go ahead",
+      "before": "sure go ahead",
+      "after": "sure ok",
+      "before_rank": 1,
+      "after_rank": 2
+    },
+    {
+      "user": "rahul",
+      "fold": 2,
+      "ref": "can we move it to three thirty",
+      "before": "and we move into three thirty",
+      "after": "and we move into three thirty",
+      "before_rank": "",
+      "after_rank": ""
+    },
+    {
+      "user": "rahul",
+      "fold": 2,
+      "ref": "I just finished my homework",
+      "before": "i try to finish my homework",
+      "after": "i just finished my homework",
+      "before_rank": 2,
+      "after_rank": 1
+    },
+    {
+      "user": "rahul",
+      "fold": 2,
+      "ref": "the doctor said I need to rest",
+      "before": "and understand i need to rest",
+      "after": "the doctor said i need to rest",
+      "before_rank": 8,
+      "after_rank": 1
+    },
+    {
+      "user": "rahul",
+      "fold": 2,
+      "ref": "I don't think that's a good plan",
+      "before": "i know that that's a grand plan",
+      "after": "i know that that's a great play",
+      "before_rank": "",
+      "after_rank": ""
+    },
+    {
+      "user": "rahul",
+      "fold": 3,
+      "ref": "it was about forty dollars",
+      "before": "it was about forty dollars",
+      "after": "it was about forty dollars",
+      "before_rank": 1,
+      "after_rank": 1
+    },
+    {
+      "user": "rahul",
+      "fold": 3,
+      "ref": "where should I park",
+      "before": "where should i party",
+      "after": "where should i party",
+      "before_rank": 10,
+      "after_rank": 5
+    },
+    {
+      "user": "rahul",
+      "fold": 3,
+      "ref": "please call me back later",
+      "before": "he taught me my leader",
+      "after": "he taught me my little",
+      "before_rank": "",
+      "after_rank": 2
+    },
+    {
+      "user": "rahul",
+      "fold": 3,
+      "ref": "could you say that again",
+      "before": "could you say that again",
+      "after": "could you say that again",
+      "before_rank": 1,
+      "after_rank": 1
+    },
+    {
+      "user": "rahul",
+      "fold": 3,
+      "ref": "that sounds like a great idea",
+      "before": "it sounds like a great idea",
+      "after": "it sounds like a great idea",
+      "before_rank": 2,
+      "after_rank": 2
+    },
+    {
+      "user": "rahul",
+      "fold": 3,
+      "ref": "thanks so much talk to you soon",
+      "before": "so much on tuesday",
+      "after": "thanks so much",
+      "before_rank": "",
+      "after_rank": ""
+    },
+    {
+      "user": "rahul",
+      "fold": 4,
+      "ref": "hi sorry I'm in the library right now",
+      "before": "sorry i'm in the library right now",
+      "after": "i'm in the library right now",
+      "before_rank": 5,
+      "after_rank": 8
+    },
+    {
+      "user": "rahul",
+      "fold": 4,
+      "ref": "my number is the same as before",
+      "before": "i got a pretty good example before i",
+      "after": "my number is the same as before",
+      "before_rank": "",
+      "after_rank": 1
+    },
+    {
+      "user": "rahul",
+      "fold": 4,
+      "ref": "did you get my email",
+      "before": "can you get my email",
+      "after": "can you get my email",
+      "before_rank": "",
+      "after_rank": ""
+    },
+    {
+      "user": "rahul",
+      "fold": 4,
+      "ref": "how did the interview go",
+      "before": "how can i feel at home",
+      "after": "how can you know",
+      "before_rank": "",
+      "after_rank": ""
+    },
+    {
+      "user": "rahul",
+      "fold": 4,
+      "ref": "I really like the new design",
+      "before": "i really like the new design",
+      "after": "i really like the new design",
+      "before_rank": 1,
+      "after_rank": 1
+    },
+    {
+      "user": "rahul",
+      "fold": 4,
+      "ref": "we need to book the tickets tonight",
+      "before": "we need to more than a chance to die",
+      "after": "we need to book this yesterday",
+      "before_rank": "",
+      "after_rank": ""
+    },
+    {
+      "user": "nilesh",
+      "fold": 0,
+      "ref": "hey can you hear me okay",
+      "before": "and then you're going to be ok",
+      "after": "you're going to be ok",
+      "before_rank": "",
+      "after_rank": ""
+    },
+    {
+      "user": "nilesh",
+      "fold": 0,
+      "ref": "no I haven't heard back yet",
+      "before": "no i haven't come in yet",
+      "after": "no i haven't heard my name",
+      "before_rank": "",
+      "after_rank": ""
+    },
+    {
+      "user": "nilesh",
+      "fold": 0,
+      "ref": "I'll be there in ten minutes",
+      "before": "i'll be there in ten minutes",
+      "after": "i'll be there in ten minutes",
+      "before_rank": 1,
+      "after_rank": 1
+    },
+    {
+      "user": "nilesh",
+      "fold": 0,
+      "ref": "what time does it start",
+      "before": "ridiculously tall",
+      "after": "what that does is",
+      "before_rank": "",
+      "after_rank": ""
+    },
+    {
+      "user": "nilesh",
+      "fold": 0,
+      "ref": "can you speak a little louder",
+      "before": "on monday",
+      "after": "you might get down",
+      "before_rank": "",
+      "after_rank": ""
+    },
+    {
+      "user": "nilesh",
+      "fold": 0,
+      "ref": "I'm running a little late",
+      "before": "i'm going to look at it",
+      "after": "i'm going to look at that",
+      "before_rank": "",
+      "after_rank": ""
+    },
+    {
+      "user": "nilesh",
+      "fold": 1,
+      "ref": "let's meet tomorrow morning",
+      "before": "tomorrow morning",
+      "after": "tomorrow morning",
+      "before_rank": "",
+      "after_rank": ""
+    },
+    {
+      "user": "nilesh",
+      "fold": 1,
+      "ref": "can you send me the link",
+      "before": "or something like",
+      "after": "or something like that",
+      "before_rank": "",
+      "after_rank": ""
+    },
+    {
+      "user": "nilesh",
+      "fold": 1,
+      "ref": "I'm not feeling very well today",
+      "before": "i'm not feeling very well today",
+      "after": "i'm not feeling very well today",
+      "before_rank": 1,
+      "after_rank": 1
+    },
+    {
+      "user": "nilesh",
+      "fold": 1,
+      "ref": "I'll pick up the groceries on the way home",
+      "before": "call me up don't stop me",
+      "after": "don't stop in the rain",
+      "before_rank": "",
+      "after_rank": ""
+    },
+    {
+      "user": "nilesh",
+      "fold": 1,
+      "ref": "leave the package at the front door",
+      "before": "leave the bags at the front door",
+      "after": "leave the bag inside the front door",
+      "before_rank": "",
+      "after_rank": ""
+    },
+    {
+      "user": "nilesh",
+      "fold": 1,
+      "ref": "okay bye see you later",
+      "before": "let me ask you again",
+      "after": "okay my screen",
+      "before_rank": "",
+      "after_rank": ""
+    },
+    {
+      "user": "nilesh",
+      "fold": 2,
+      "ref": "yes that works for me",
+      "before": "that's how it works for me",
+      "after": "that's how it works for me",
+      "before_rank": "",
+      "after_rank": 3
+    },
+    {
+      "user": "nilesh",
+      "fold": 2,
+      "ref": "sure go ahead",
+      "before": "did you know that",
+      "after": "did you know that",
+      "before_rank": "",
+      "after_rank": ""
+    },
+    {
+      "user": "nilesh",
+      "fold": 2,
+      "ref": "can we move it to three thirty",
+      "before": "removing the green card",
+      "after": "removing the green card",
+      "before_rank": "",
+      "after_rank": ""
+    },
+    {
+      "user": "nilesh",
+      "fold": 2,
+      "ref": "I just finished my homework",
+      "before": "i also finished my week",
+      "after": "i just finished my week",
+      "before_rank": "",
+      "after_rank": ""
+    },
+    {
+      "user": "nilesh",
+      "fold": 2,
+      "ref": "the doctor said I need to rest",
+      "before": "doctor said i can do this",
+      "after": "not just any crazy",
+      "before_rank": "",
+      "after_rank": ""
+    },
+    {
+      "user": "nilesh",
+      "fold": 2,
+      "ref": "I don't think that's a good plan",
+      "before": "that's a good plan",
+      "after": "that's a good plan",
+      "before_rank": 2,
+      "after_rank": 5
+    },
+    {
+      "user": "nilesh",
+      "fold": 3,
+      "ref": "it was about forty dollars",
+      "before": "it was about forty dollars",
+      "after": "and once i made a forty dollars",
+      "before_rank": 1,
+      "after_rank": ""
+    },
+    {
+      "user": "nilesh",
+      "fold": 3,
+      "ref": "where should I park",
+      "before": "question number",
+      "after": "where should i be",
+      "before_rank": "",
+      "after_rank": ""
+    },
+    {
+      "user": "nilesh",
+      "fold": 3,
+      "ref": "please call me back later",
+      "before": "it's coming back here",
+      "after": "i'll be back later",
+      "before_rank": "",
+      "after_rank": ""
+    },
+    {
+      "user": "nilesh",
+      "fold": 3,
+      "ref": "could you say that again",
+      "before": "you say that again",
+      "after": "you say that again",
+      "before_rank": "",
+      "after_rank": ""
+    },
+    {
+      "user": "nilesh",
+      "fold": 3,
+      "ref": "that sounds like a great idea",
+      "before": "it sounds like a great idea",
+      "after": "that sounds like a great idea",
+      "before_rank": 2,
+      "after_rank": 1
+    },
+    {
+      "user": "nilesh",
+      "fold": 3,
+      "ref": "thanks so much talk to you soon",
+      "before": "so i'm going to start",
+      "after": "so please talk a little soon",
+      "before_rank": "",
+      "after_rank": ""
+    },
+    {
+      "user": "nilesh",
+      "fold": 4,
+      "ref": "hi sorry I'm in the library right now",
+      "before": "it's already come in the library right now",
+      "after": "i'm in the library right now",
+      "before_rank": "",
+      "after_rank": ""
+    },
+    {
+      "user": "nilesh",
+      "fold": 4,
+      "ref": "my number is the same as before",
+      "before": "my number is the same as before",
+      "after": "bottom braces i passed before",
+      "before_rank": 1,
+      "after_rank": 3
+    },
+    {
+      "user": "nilesh",
+      "fold": 4,
+      "ref": "did you get my email",
+      "before": "you get my email",
+      "after": "you get my email",
+      "before_rank": 3,
+      "after_rank": 3
+    },
+    {
+      "user": "nilesh",
+      "fold": 4,
+      "ref": "how did the interview go",
+      "before": "i'm going to let everyone know",
+      "after": "how did that ever go",
+      "before_rank": "",
+      "after_rank": ""
+    },
+    {
+      "user": "nilesh",
+      "fold": 4,
+      "ref": "I really like the new design",
+      "before": "i really like to use",
+      "after": "i really like",
+      "before_rank": "",
+      "after_rank": ""
+    },
+    {
+      "user": "nilesh",
+      "fold": 4,
+      "ref": "we need to book the tickets tonight",
+      "before": "another building is that",
+      "after": "but i don't",
+      "before_rank": "",
+      "after_rank": ""
+    },
+    {
+      "user": "sarvajith",
+      "fold": 0,
+      "ref": "hey can you hear me okay",
+      "before": "hey can you hear me ok",
+      "after": "hey can you hear me going",
+      "before_rank": 1,
+      "after_rank": 2
+    },
+    {
+      "user": "sarvajith",
+      "fold": 0,
+      "ref": "no I haven't heard back yet",
+      "before": "no i haven't heard back yet",
+      "after": "no i haven't heard back yet",
+      "before_rank": 1,
+      "after_rank": 1
+    },
+    {
+      "user": "sarvajith",
+      "fold": 0,
+      "ref": "I'll be there in ten minutes",
+      "before": "i'll be there in ten minutes",
+      "after": "i'll be there in ten minutes",
+      "before_rank": 1,
+      "after_rank": 1
+    },
+    {
+      "user": "sarvajith",
+      "fold": 0,
+      "ref": "what time does it start",
+      "before": "what time does it start",
+      "after": "what time does it start",
+      "before_rank": 1,
+      "after_rank": 1
+    },
+    {
+      "user": "sarvajith",
+      "fold": 0,
+      "ref": "can you speak a little louder",
+      "before": "can you speak a little louder",
+      "after": "can you speak a little louder",
+      "before_rank": 1,
+      "after_rank": 1
+    },
+    {
+      "user": "sarvajith",
+      "fold": 0,
+      "ref": "I'm running a little late",
+      "before": "i'm running a little late",
+      "after": "i'm running a little late",
+      "before_rank": 1,
+      "after_rank": 1
+    },
+    {
+      "user": "sarvajith",
+      "fold": 1,
+      "ref": "let's meet tomorrow morning",
+      "before": "let's meet tomorrow morning",
+      "after": "let's meet tomorrow morning",
+      "before_rank": 1,
+      "after_rank": 1
+    },
+    {
+      "user": "sarvajith",
+      "fold": 1,
+      "ref": "can you send me the link",
+      "before": "can you tell me that like",
+      "after": "can you send me the letter",
+      "before_rank": "",
+      "after_rank": 2
+    },
+    {
+      "user": "sarvajith",
+      "fold": 1,
+      "ref": "I'm not feeling very well today",
+      "before": "i'm not feeling very well to day",
+      "after": "i'm not feeling very well to day",
+      "before_rank": 1,
+      "after_rank": 1
+    },
+    {
+      "user": "sarvajith",
+      "fold": 1,
+      "ref": "I'll pick up the groceries on the way home",
+      "before": "i'll pick up the groceries on my way home",
+      "after": "i'll pick up the groceries on my way home",
+      "before_rank": 10,
+      "after_rank": 8
+    },
+    {
+      "user": "sarvajith",
+      "fold": 1,
+      "ref": "leave the package at the front door",
+      "before": "leave the package on the front door",
+      "after": "leave the package on the front door",
+      "before_rank": 4,
+      "after_rank": 2
+    },
+    {
+      "user": "sarvajith",
+      "fold": 1,
+      "ref": "okay bye see you later",
+      "before": "okay buy see you later",
+      "after": "okay buy see you later",
+      "before_rank": "",
+      "after_rank": 7
+    },
+    {
+      "user": "sarvajith",
+      "fold": 2,
+      "ref": "yes that works for me",
+      "before": "yes that was me",
+      "after": "yes that was me",
+      "before_rank": 3,
+      "after_rank": 2
+    },
+    {
+      "user": "sarvajith",
+      "fold": 2,
+      "ref": "sure go ahead",
+      "before": "go ahead",
+      "after": "sure go ahead",
+      "before_rank": 8,
+      "after_rank": 1
+    },
+    {
+      "user": "sarvajith",
+      "fold": 2,
+      "ref": "can we move it to three thirty",
+      "before": "can we move it to thirty",
+      "after": "can we move into three thirty",
+      "before_rank": 4,
+      "after_rank": 3
+    },
+    {
+      "user": "sarvajith",
+      "fold": 2,
+      "ref": "I just finished my homework",
+      "before": "i just finished my homework",
+      "after": "i just finished my homework",
+      "before_rank": 1,
+      "after_rank": 1
+    },
+    {
+      "user": "sarvajith",
+      "fold": 2,
+      "ref": "the doctor said I need to rest",
+      "before": "the doctor said i need rest",
+      "after": "the doctor said i need to rest",
+      "before_rank": 10,
+      "after_rank": 1
+    },
+    {
+      "user": "sarvajith",
+      "fold": 2,
+      "ref": "I don't think that's a good plan",
+      "before": "i don't think that's a good plan",
+      "after": "i don't think that's a good plan",
+      "before_rank": 1,
+      "after_rank": 1
+    },
+    {
+      "user": "sarvajith",
+      "fold": 3,
+      "ref": "it was about forty dollars",
+      "before": "it was about forty dollars",
+      "after": "it was about forty dollars",
+      "before_rank": 1,
+      "after_rank": 1
+    },
+    {
+      "user": "sarvajith",
+      "fold": 3,
+      "ref": "where should I park",
+      "before": "why don't you get married",
+      "after": "why don't you get married",
+      "before_rank": 7,
+      "after_rank": ""
+    },
+    {
+      "user": "sarvajith",
+      "fold": 3,
+      "ref": "please call me back later",
+      "before": "please call me back later",
+      "after": "please call me back later",
+      "before_rank": 1,
+      "after_rank": 1
+    },
+    {
+      "user": "sarvajith",
+      "fold": 3,
+      "ref": "could you say that again",
+      "before": "you say that again",
+      "after": "could you say that again",
+      "before_rank": 2,
+      "after_rank": 1
+    },
+    {
+      "user": "sarvajith",
+      "fold": 3,
+      "ref": "that sounds like a great idea",
+      "before": "that sounds like a great idea",
+      "after": "that sounds like a great idea",
+      "before_rank": 1,
+      "after_rank": 1
+    },
+    {
+      "user": "sarvajith",
+      "fold": 3,
+      "ref": "thanks so much talk to you soon",
+      "before": "thanks so much doctor",
+      "after": "thanks so much",
+      "before_rank": "",
+      "after_rank": ""
+    },
+    {
+      "user": "sarvajith",
+      "fold": 4,
+      "ref": "hi sorry I'm in the library right now",
+      "before": "i started out by the library right now",
+      "after": "i started i'm at the library right now",
+      "before_rank": "",
+      "after_rank": ""
+    },
+    {
+      "user": "sarvajith",
+      "fold": 4,
+      "ref": "my number is the same as before",
+      "before": "my number is the same as before",
+      "after": "my number is the same as before",
+      "before_rank": 1,
+      "after_rank": 1
+    },
+    {
+      "user": "sarvajith",
+      "fold": 4,
+      "ref": "did you get my email",
+      "before": "did you get my email",
+      "after": "did you get my email",
+      "before_rank": 1,
+      "after_rank": 1
+    },
+    {
+      "user": "sarvajith",
+      "fold": 4,
+      "ref": "how did the interview go",
+      "before": "how did the interview go",
+      "after": "how did the interview go",
+      "before_rank": 1,
+      "after_rank": 1
+    },
+    {
+      "user": "sarvajith",
+      "fold": 4,
+      "ref": "I really like the new design",
+      "before": "i really like the new design",
+      "after": "i really like the new design",
+      "before_rank": 1,
+      "after_rank": 1
+    },
+    {
+      "user": "sarvajith",
+      "fold": 4,
+      "ref": "we need to book the tickets tonight",
+      "before": "we need to book the tickets to day",
+      "after": "we need to book the tickets to day",
+      "before_rank": "",
+      "after_rank": ""
+    }
+  ]
+}

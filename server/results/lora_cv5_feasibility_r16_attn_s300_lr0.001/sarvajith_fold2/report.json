@@ -1,0 +1,2462 @@
+{
+  "user": "sarvajith",
+  "source": "feasibility",
+  "n_train": 24,
+  "n_val": 0,
+  "n_test": 6,
+  "test_sentences": [
+    "03",
+    "05",
+    "07",
+    "20",
+    "22",
+    "24"
+  ],
+  "before_wer": 0.1471,
+  "after_wer": 0.0,
+  "before_top5": 0.6667,
+  "after_top5": 1,
+  "before": {
+    "clips": 6,
+    "top1_wer": 0.1471,
+    "exact@1": 0.3333,
+    "exact@3": 0.6667,
+    "exact@5": 0.6667,
+    "exact@10": 0.8333,
+    "oracle_wer@5": 0.0588,
+    "oracle_wer@10": 0.0294,
+    "within1@5": 1
+  },
+  "after": {
+    "clips": 6,
+    "top1_wer": 0.0,
+    "exact@1": 1,
+    "exact@3": 1,
+    "exact@5": 1,
+    "exact@10": 1,
+    "oracle_wer@5": 0.0,
+    "oracle_wer@10": 0.0,
+    "within1@5": 1
+  },
+  "feasibility_before": null,
+  "feasibility_after": null,
+  "per_clip": [
+    {
+      "key": "03",
+      "ref": "yes that works for me",
+      "before": "yes that was me",
+      "after": "yes that works for me",
+      "before_rank": 3,
+      "after_rank": 1
+    },
+    {
+      "key": "05",
+      "ref": "sure go ahead",
+      "before": "go ahead",
+      "after": "sure go ahead",
+      "before_rank": "",
+      "after_rank": 1
+    },
+    {
+      "key": "07",
+      "ref": "can we move it to three thirty",
+      "before": "can we move it to thirty",
+      "after": "can we move it to three thirty",
+      "before_rank": 3,
+      "after_rank": 1
+    },
+    {
+      "key": "20",
+      "ref": "I just finished my homework",
+      "before": "i just finished my homework",
+      "after": "i just finished my homework",
+      "before_rank": 1,
+      "after_rank": 1
+    },
+    {
+      "key": "22",
+      "ref": "the doctor said I need to rest",
+      "before": "the doctor said i need rest",
+      "after": "the doctor said i need to rest",
+      "before_rank": 10,
+      "after_rank": 1
+    },
+    {
+      "key": "24",
+      "ref": "I don't think that's a good plan",
+      "before": "i don't think that's a good plan",
+      "after": "i don't think that's a good plan",
+      "before_rank": 1,
+      "after_rank": 1
+    }
+  ],
+  "config": {
+    "user": "sarvajith",
+    "r": 16,
+    "alpha": 32.0,
+    "targets": [
+      "linear_q",
+      "linear_k",
+      "linear_v",
+      "linear_out"
+    ],
+    "source": "feasibility",
+    "best_step": 300,
+    "created": 1792818097.7954147,
+    "steps": 300,
+    "lr": 0.001,
+    "batch": 8,
+    "dropout": 0.05,
+    "trainable_params": 1179648,
+    "token_coverage": 1.0
+  },
+  "train_seconds": 76.1,
+  "seconds_per_step": 0.254,
+  "total_seconds": 88.2,
+  "device": "cuda:1",
+  "gpu_mem_peak_gb": 2.78,
+  "curve": [
+    {
+      "step": 1,
+      "loss": 10.0756,
+      "ctc": 14.441,
+      "att": 9.5906
+    },
+    {
+      "step": 2,
+      "loss": 14.4297,
+      "ctc": 19.9124,
+      "att": 13.8205
+    },
+    {
+      "step": 3,
+      "loss": 12.117,
+      "ctc": 12.4495,
+      "att": 12.0801
+    },
+    {
+      "step": 4,
+      "loss": 16.0506,
+      "ctc": 17.7745,
+      "att": 15.8591
+    },
+    {
+      "step": 5,
+      "loss": 8.5382,
+      "ctc": 12.5521,
+      "att": 8.0922
+    },
+    {
+      "step": 6,
+      "loss": 5.313,
+      "ctc": 9.9074,
+      "att": 4.8026
+    },
+    {
+      "step": 7,
+      "loss": 12.509,
+      "ctc": 17.6239,
+      "att": 11.9406
+    },
+    {
+      "step": 8,
+      "loss": 11.8597,
+      "ctc": 16.6658,
+      "att": 11.3257
+    },
+    {
+      "step": 9,
+      "loss": 13.9204,
+      "ctc": 15.0316,
+      "att": 13.797
+    },
+    {
+      "step": 10,
+      "loss": 8.7331,
+      "ctc": 10.5854,
+      "att": 8.5273
+    },
+    {
+      "step": 11,
+      "loss": 12.7333,
+      "ctc": 17.2406,
+      "att": 12.2324
+    },
+    {
+      "step": 12,
+      "loss": 11.9525,
+      "ctc": 15.2958,
+      "att": 11.581
+    },
+    {
+      "step": 13,
+      "loss": 12.0299,
+      "ctc": 22.532,
+      "att": 10.863
+    },
+    {
+      "step": 14,
+      "loss": 17.3613,
+      "ctc": 19.6966,
+      "att": 17.1018
+    },
+    {
+      "step": 15,
+      "loss": 6.7948,
+      "ctc": 10.6103,
+      "att": 6.3709
+    },
+    {
+      "step": 16,
+      "loss": 12.7442,
+      "ctc": 15.8806,
+      "att": 12.3957
+    },
+    {
+      "step": 17,
+      "loss": 11.2925,
+      "ctc": 17.9406,
+      "att": 10.5538
+    },
+    {
+      "step": 18,
+      "loss": 10.8745,
+      "ctc": 15.6947,
+      "att": 10.3389
+    },
+    {
+      "step": 19,
+      "loss": 8.2778,
+      "ctc": 9.9175,
+      "att": 8.0956
+    },
+    {
+      "step": 20,
+      "loss": 11.3041,
+      "ctc": 13.4406,
+      "att": 11.0667
+    },
+    {
+      "step": 21,
+      "loss": 10.2068,
+      "ctc": 18.9427,
+      "att": 9.2361
+    },
+    {
+      "step": 22,
+      "loss": 10.9823,
+      "ctc": 13.5891,
+      "att": 10.6927
+    },
+    {
+      "step": 23,
+      "loss": 6.7809,
+      "ctc": 14.2646,
+      "att": 5.9494
+    },
+    {
+      "step": 24,
+      "loss": 11.9405,
+      "ctc": 17.3977,
+      "att": 11.3342
+    },
+    {
+      "step": 25,
+      "loss": 9.2431,
+      "ctc": 11.4478,
+      "att": 8.9981
+    },
+    {
+      "step": 26,
+      "loss": 6.241,
+      "ctc": 11.176,
+      "att": 5.6927
+    },
+    {
+      "step": 27,
+      "loss": 9.6824,
+      "ctc": 15.1952,
+      "att": 9.0698
+    },
+    {
+      "step": 28,
+      "loss": 5.6731,
+      "ctc": 8.7552,
+      "att": 5.3307
+    },
+    {
+      "step": 29,
+      "loss": 7.1454,
+      "ctc": 12.0244,
+      "att": 6.6032
+    },
+    {
+      "step": 30,
+      "loss": 7.4579,
+      "ctc": 12.4391,
+      "att": 6.9044
+    },
+    {
+      "step": 31,
+      "loss": 7.9336,
+      "ctc": 14.3951,
+      "att": 7.2157
+    },
+    {
+      "step": 32,
+      "loss": 6.3695,
+      "ctc": 11.5977,
+      "att": 5.7886
+    },
+    {
+      "step": 33,
+      "loss": 8.3287,
+      "ctc": 12.5459,
+      "att": 7.8601
+    },
+    {
+      "step": 34,
+      "loss": 4.8293,
+      "ctc": 8.6801,
+      "att": 4.4014
+    },
+    {
+      "step": 35,
+      "loss": 6.5194,
+      "ctc": 10.1233,
+      "att": 6.119
+    },
+    {
+      "step": 36,
+      "loss": 6.7461,
+      "ctc": 12.7506,
+      "att": 6.0789
+    },
+    {
+      "step": 37,
+      "loss": 6.211,
+      "ctc": 9.59,
+      "att": 5.8355
+    },
+    {
+      "step": 38,
+      "loss": 2.7274,
+      "ctc": 4.4472,
+      "att": 2.5363
+    },
+    {
+      "step": 39,
+      "loss": 5.7305,
+      "ctc": 11.9275,
+      "att": 5.0419
+    },
+    {
+      "step": 40,
+      "loss": 5.0753,
+      "ctc": 10.8726,
+      "att": 4.4312
+    },
+    {
+      "step": 41,
+      "loss": 4.6078,
+      "ctc": 8.1208,
+      "att": 4.2175
+    },
+    {
+      "step": 42,
+      "loss": 3.4918,
+      "ctc": 5.0543,
+      "att": 3.3182
+    },
+    {
+      "step": 43,
+      "loss": 4.0969,
+      "ctc": 6.4539,
+      "att": 3.8351
+    },
+    {
+      "step": 44,
+      "loss": 6.0707,
+      "ctc": 14.0678,
+      "att": 5.1821
+    },
+    {
+      "step": 45,
+      "loss": 3.4125,
+      "ctc": 6.5192,
+      "att": 3.0673
+    },
+    {
+      "step": 46,
+      "loss": 3.9264,
+      "ctc": 8.4701,
+      "att": 3.4215
+    },
+    {
+      "step": 47,
+      "loss": 7.3757,
+      "ctc": 10.6846,
+      "att": 7.008
+    },
+    {
+      "step": 48,
+      "loss": 5.3876,
+      "ctc": 9.6963,
+      "att": 4.9088
+    },
+    {
+      "step": 49,
+      "loss": 1.9262,
+      "ctc": 4.3162,
+      "att": 1.6606
+    },
+    {
+      "step": 50,
+      "loss": 4.1471,
+      "ctc": 6.6591,
+      "att": 3.868
+    },
+    {
+      "step": 51,
+      "loss": 3.139,
+      "ctc": 5.4087,
+      "att": 2.8868
+    },
+    {
+      "step": 52,
+      "loss": 5.2868,
+      "ctc": 12.0212,
+      "att": 4.5386
+    },
+    {
+      "step": 53,
+      "loss": 2.276,
+      "ctc": 3.6584,
+      "att": 2.1224
+    },
+    {
+      "step": 54,
+      "loss": 5.1495,
+      "ctc": 7.0036,
+      "att": 4.9435
+    },
+    {
+      "step": 55,
+      "loss": 3.4542,
+      "ctc": 6.2879,
+      "att": 3.1393
+    },
+    {
+      "step": 56,
+      "loss": 1.9373,
+      "ctc": 3.1602,
+      "att": 1.8015
+    },
+    {
+      "step": 57,
+      "loss": 5.2175,
+      "ctc": 9.168,
+      "att": 4.7786
+    },
+    {
+      "step": 58,
+      "loss": 4.2281,
+      "ctc": 6.0211,
+      "att": 4.0289
+    },
+    {
+      "step": 59,
+      "loss": 4.9076,
+      "ctc": 10.9727,
+      "att": 4.2337
+    },
+    {
+      "step": 60,
+      "loss": 1.8959,
+      "ctc": 4.3972,
+      "att": 1.618
+    },
+    {
+      "step": 61,
+      "loss": 2.6881,
+      "ctc": 5.339,
+      "att": 2.3936
+    },
+    {
+      "step": 62,
+      "loss": 5.1698,
+      "ctc": 9.9195,
+      "att": 4.6421
+    },
+    {
+      "step": 63,
+      "loss": 2.4424,
+      "ctc": 3.6425,
+      "att": 2.3091
+    },
+    {
+      "step": 64,
+      "loss": 3.2938,
+      "ctc": 6.0271,
+      "att": 2.9901
+    },
+    {
+      "step": 65,
+      "loss": 2.6557,
+      "ctc": 6.8986,
+      "att": 2.1842
+    },
+    {
+      "step": 66,
+      "loss": 3.0238,
+      "ctc": 6.0869,
+      "att": 2.6834
+    },
+    {
+      "step": 67,
+      "loss": 3.381,
+      "ctc": 5.0167,
+      "att": 3.1992
+    },
+    {
+      "step": 68,
+      "loss": 2.1201,
+      "ctc": 4.3351,
+      "att": 1.874
+    },
+    {
+      "step": 69,
+      "loss": 3.6861,
+      "ctc": 8.7167,
+      "att": 3.1272
+    },
+    {
+      "step": 70,
+      "loss": 2.4853,
+      "ctc": 3.9683,
+      "att": 2.3205
+    },
+    {
+      "step": 71,
+      "loss": 1.7122,
+      "ctc": 3.0391,
+      "att": 1.5648
+    },
+    {
+      "step": 72,
+      "loss": 3.8467,
+      "ctc": 5.1736,
+      "att": 3.6993
+    },
+    {
+      "step": 73,
+      "loss": 3.0972,
+      "ctc": 5.0026,
+      "att": 2.8854
+    },
+    {
+      "step": 74,
+      "loss": 3.4522,
+      "ctc": 6.4092,
+      "att": 3.1237
+    },
+    {
+      "step": 75,
+      "loss": 2.4489,
+      "ctc": 5.654,
+      "att": 2.0928
+    },
+    {
+      "step": 76,
+      "loss": 2.3755,
+      "ctc": 6.1526,
+      "att": 1.9558
+    },
+    {
+      "step": 77,
+      "loss": 3.041,
+      "ctc": 6.016,
+      "att": 2.7105
+    },
+    {
+      "step": 78,
+      "loss": 1.8153,
+      "ctc": 4.673,
+      "att": 1.4978
+    },
+    {
+      "step": 79,
+      "loss": 2.1247,
+      "ctc": 4.8293,
+      "att": 1.8242
+    },
+    {
+      "step": 80,
+      "loss": 3.6246,
+      "ctc": 7.7193,
+      "att": 3.1696
+    },
+    {
+      "step": 81,
+      "loss": 3.5434,
+      "ctc": 5.8052,
+      "att": 3.292
+    },
+    {
+      "step": 82,
+      "loss": 3.5124,
+      "ctc": 6.4608,
+      "att": 3.1849
+    },
+    {
+      "step": 83,
+      "loss": 1.8987,
+      "ctc": 3.3304,
+      "att": 1.7397
+    },
+    {
+      "step": 84,
+      "loss": 1.3246,
+      "ctc": 2.948,
+      "att": 1.1443
+    },
+    {
+      "step": 85,
+      "loss": 2.2497,
+      "ctc": 3.9188,
+      "att": 2.0643
+    },
+    {
+      "step": 86,
+      "loss": 2.7978,
+      "ctc": 5.5443,
+      "att": 2.4927
+    },
+    {
+      "step": 87,
+      "loss": 2.3336,
+      "ctc": 5.771,
+      "att": 1.9517
+    },
+    {
+      "step": 88,
+      "loss": 2.0529,
+      "ctc": 3.659,
+      "att": 1.8744
+    },
+    {
+      "step": 89,
+      "loss": 1.7452,
+      "ctc": 4.2632,
+      "att": 1.4654
+    },
+    {
+      "step": 90,
+      "loss": 1.5258,
+      "ctc": 2.9043,
+      "att": 1.3726
+    },
+    {
+      "step": 91,
+      "loss": 2.4872,
+      "ctc": 3.981,
+      "att": 2.3213
+    },
+    {
+      "step": 92,
+      "loss": 3.4189,
+      "ctc": 6.3067,
+      "att": 3.098
+    },
+    {
+      "step": 93,
+      "loss": 1.4781,
+      "ctc": 2.2589,
+      "att": 1.3914
+    },
+    {
+      "step": 94,
+      "loss": 2.9996,
+      "ctc": 5.8638,
+      "att": 2.6813
+    },
+    {
+      "step": 95,
+      "loss": 2.6777,
+      "ctc": 4.4028,
+      "att": 2.4861
+    },
+    {
+      "step": 96,
+      "loss": 2.6501,
+      "ctc": 6.8099,
+      "att": 2.1879
+    },
+    {
+      "step": 97,
+      "loss": 3.1047,
+      "ctc": 5.2157,
+      "att": 2.8701
+    },
+    {
+      "step": 98,
+      "loss": 2.9147,
+      "ctc": 4.2384,
+      "att": 2.7676
+    },
+    {
+      "step": 99,
+      "loss": 1.9544,
+      "ctc": 2.9255,
+      "att": 1.8465
+    },
+    {
+      "step": 100,
+      "loss": 3.4649,
+      "ctc": 6.7438,
+      "att": 3.1006
+    },
+    {
+      "step": 101,
+      "loss": 2.4772,
+      "ctc": 4.5497,
+      "att": 2.2469
+    },
+    {
+      "step": 102,
+      "loss": 2.6728,
+      "ctc": 5.3046,
+      "att": 2.3804
+    },
+    {
+      "step": 103,
+      "loss": 1.7645,
+      "ctc": 4.2537,
+      "att": 1.4879
+    },
+    {
+      "step": 104,
+      "loss": 1.3892,
+      "ctc": 2.6075,
+      "att": 1.2538
+    },
+    {
+      "step": 105,
+      "loss": 1.7868,
+      "ctc": 3.0387,
+      "att": 1.6477
+    },
+    {
+      "step": 106,
+      "loss": 2.3119,
+      "ctc": 4.2649,
+      "att": 2.0949
+    },
+    {
+      "step": 107,
+      "loss": 3.9362,
+      "ctc": 7.8779,
+      "att": 3.4982
+    },
+    {
+      "step": 108,
+      "loss": 2.0927,
+      "ctc": 4.6512,
+      "att": 1.8084
+    },
+    {
+      "step": 109,
+      "loss": 3.0624,
+      "ctc": 4.8468,
+      "att": 2.8641
+    },
+    {
+      "step": 110,
+      "loss": 2.1283,
+      "ctc": 4.4118,
+      "att": 1.8746
+    },
+    {
+      "step": 111,
+      "loss": 1.6703,
+      "ctc": 2.4941,
+      "att": 1.5787
+    },
+    {
+      "step": 112,
+      "loss": 1.4202,
+      "ctc": 2.0828,
+      "att": 1.3466
+    },
+    {
+      "step": 113,
+      "loss": 2.4302,
+      "ctc": 4.8403,
+      "att": 2.1624
+    },
+    {
+      "step": 114,
+      "loss": 2.3534,
+      "ctc": 4.9454,
+      "att": 2.0654
+    },
+    {
+      "step": 115,
+      "loss": 0.8965,
+      "ctc": 1.1161,
+      "att": 0.8721
+    },
+    {
+      "step": 116,
+      "loss": 2.5889,
+      "ctc": 4.7103,
+      "att": 2.3532
+    },
+    {
+      "step": 117,
+      "loss": 0.6971,
+      "ctc": 0.8688,
+      "att": 0.678
+    },
+    {
+      "step": 118,
+      "loss": 0.9886,
+      "ctc": 1.5566,
+      "att": 0.9254
+    },
+    {
+      "step": 119,
+      "loss": 2.299,
+      "ctc": 3.658,
+      "att": 2.148
+    },
+    {
+      "step": 120,
+      "loss": 2.2276,
+      "ctc": 3.2969,
+      "att": 2.1088
+    },
+    {
+      "step": 121,
+      "loss": 1.01,
+      "ctc": 1.1475,
+      "att": 0.9947
+    },
+    {
+      "step": 122,
+      "loss": 3.2531,
+      "ctc": 6.0273,
+      "att": 2.9449
+    },
+    {
+      "step": 123,
+      "loss": 3.676,
+      "ctc": 5.0203,
+      "att": 3.5266
+    },
+    {
+      "step": 124,
+      "loss": 1.5774,
+      "ctc": 2.5742,
+      "att": 1.4666
+    },
+    {
+      "step": 125,
+      "loss": 2.694,
+      "ctc": 6.1458,
+      "att": 2.3105
+    },
+    {
+      "step": 126,
+      "loss": 0.7623,
+      "ctc": 1.1105,
+      "att": 0.7236
+    },
+    {
+      "step": 127,
+      "loss": 2.6576,
+      "ctc": 5.0302,
+      "att": 2.3939
+    },
+    {
+      "step": 128,
+      "loss": 1.4241,
+      "ctc": 4.2023,
+      "att": 1.1154
+    },
+    {
+      "step": 129,
+      "loss": 1.548,
+      "ctc": 3.2353,
+      "att": 1.3605
+    },
+    {
+      "step": 130,
+      "loss": 1.7508,
+      "ctc": 2.6287,
+      "att": 1.6533
+    },
+    {
+      "step": 131,
+      "loss": 3.4412,
+      "ctc": 5.5161,
+      "att": 3.2107
+    },
+    {
+      "step": 132,
+      "loss": 1.8666,
+      "ctc": 4.0694,
+      "att": 1.6219
+    },
+    {
+      "step": 133,
+      "loss": 2.4194,
+      "ctc": 3.9048,
+      "att": 2.2544
+    },
+    {
+      "step": 134,
+      "loss": 3.6319,
+      "ctc": 6.2878,
+      "att": 3.3368
+    },
+    {
+      "step": 135,
+      "loss": 3.7422,
+      "ctc": 8.385,
+      "att": 3.2263
+    },
+    {
+      "step": 136,
+      "loss": 2.0532,
+      "ctc": 5.0055,
+      "att": 1.7252
+    },
+    {
+      "step": 137,
+      "loss": 0.957,
+      "ctc": 1.2785,
+      "att": 0.9212
+    },
+    {
+      "step": 138,
+      "loss": 1.9043,
+      "ctc": 4.3847,
+      "att": 1.6287
+    },
+    {
+      "step": 139,
+      "loss": 1.6842,
+      "ctc": 2.1256,
+      "att": 1.6352
+    },
+    {
+      "step": 140,
+      "loss": 2.4654,
+      "ctc": 4.6866,
+      "att": 2.2186
+    },
+    {
+      "step": 141,
+      "loss": 1.1622,
+      "ctc": 1.9485,
+      "att": 1.0748
+    },
+    {
+      "step": 142,
+      "loss": 1.6543,
+      "ctc": 2.5852,
+      "att": 1.5509
+    },
+    {
+      "step": 143,
+      "loss": 1.3891,
+      "ctc": 2.717,
+      "att": 1.2416
+    },
+    {
+      "step": 144,
+      "loss": 1.9239,
+      "ctc": 2.7945,
+      "att": 1.8271
+    },
+    {
+      "step": 145,
+      "loss": 2.4529,
+      "ctc": 4.8693,
+      "att": 2.1844
+    },
+    {
+      "step": 146,
+      "loss": 3.1047,
+      "ctc": 6.5919,
+      "att": 2.7173
+    },
+    {
+      "step": 147,
+      "loss": 1.4507,
+      "ctc": 1.7747,
+      "att": 1.4147
+    },
+    {
+      "step": 148,
+      "loss": 1.9408,
+      "ctc": 3.3748,
+      "att": 1.7814
+    },
+    {
+      "step": 149,
+      "loss": 2.3596,
+      "ctc": 5.8943,
+      "att": 1.9669
+    },
+    {
+      "step": 150,
+      "loss": 1.7319,
+      "ctc": 3.061,
+      "att": 1.5843
+    },
+    {
+      "step": 151,
+      "loss": 2.1624,
+      "ctc": 4.2989,
+      "att": 1.9251
+    },
+    {
+      "step": 152,
+      "loss": 1.527,
+      "ctc": 1.8029,
+      "att": 1.4963
+    },
+    {
+      "step": 153,
+      "loss": 1.9302,
+      "ctc": 2.5855,
+      "att": 1.8574
+    },
+    {
+      "step": 154,
+      "loss": 1.598,
+      "ctc": 2.2698,
+      "att": 1.5234
+    },
+    {
+      "step": 155,
+      "loss": 1.0524,
+      "ctc": 1.577,
+      "att": 0.9941
+    },
+    {
+      "step": 156,
+      "loss": 1.0746,
+      "ctc": 2.2186,
+      "att": 0.9475
+    },
+    {
+      "step": 157,
+      "loss": 1.621,
+      "ctc": 3.7418,
+      "att": 1.3853
+    },
+    {
+      "step": 158,
+      "loss": 1.24,
+      "ctc": 2.3604,
+      "att": 1.1155
+    },
+    {
+      "step": 159,
+      "loss": 0.8058,
+      "ctc": 0.9621,
+      "att": 0.7885
+    },
+    {
+      "step": 160,
+      "loss": 0.719,
+      "ctc": 1.3383,
+      "att": 0.6502
+    },
+    {
+      "step": 161,
+      "loss": 1.6982,
+      "ctc": 3.5933,
+      "att": 1.4876
+    },
+    {
+      "step": 162,
+      "loss": 2.3977,
+      "ctc": 4.2616,
+      "att": 2.1906
+    },
+    {
+      "step": 163,
+      "loss": 1.0854,
+      "ctc": 1.9479,
+      "att": 0.9895
+    },
+    {
+      "step": 164,
+      "loss": 1.1074,
+      "ctc": 1.5709,
+      "att": 1.0559
+    },
+    {
+      "step": 165,
+      "loss": 1.2057,
+      "ctc": 2.3705,
+      "att": 1.0762
+    },
+    {
+      "step": 166,
+      "loss": 3.6264,
+      "ctc": 4.2045,
+      "att": 3.5621
+    },
+    {
+      "step": 167,
+      "loss": 1.2451,
+      "ctc": 2.5592,
+      "att": 1.0991
+    },
+    {
+      "step": 168,
+      "loss": 2.3427,
+      "ctc": 3.7668,
+      "att": 2.1844
+    },
+    {
+      "step": 169,
+      "loss": 1.1553,
+      "ctc": 2.1307,
+      "att": 1.047
+    },
+    {
+      "step": 170,
+      "loss": 2.1756,
+      "ctc": 2.5573,
+      "att": 2.1331
+    },
+    {
+      "step": 171,
+      "loss": 2.6297,
+      "ctc": 4.6326,
+      "att": 2.4071
+    },
+    {
+      "step": 172,
+      "loss": 1.581,
+      "ctc": 3.2952,
+      "att": 1.3905
+    },
+    {
+      "step": 173,
+      "loss": 1.4992,
+      "ctc": 2.5296,
+      "att": 1.3847
+    },
+    {
+      "step": 174,
+      "loss": 0.8694,
+      "ctc": 1.9338,
+      "att": 0.7511
+    },
+    {
+      "step": 175,
+      "loss": 1.2134,
+      "ctc": 2.1804,
+      "att": 1.1059
+    },
+    {
+      "step": 176,
+      "loss": 2.9428,
+      "ctc": 4.1602,
+      "att": 2.8075
+    },
+    {
+      "step": 177,
+      "loss": 1.2523,
+      "ctc": 2.9221,
+      "att": 1.0668
+    },
+    {
+      "step": 178,
+      "loss": 1.6744,
+      "ctc": 2.2879,
+      "att": 1.6063
+    },
+    {
+      "step": 179,
+      "loss": 2.8416,
+      "ctc": 4.2611,
+      "att": 2.6839
+    },
+    {
+      "step": 180,
+      "loss": 0.7903,
+      "ctc": 1.5248,
+      "att": 0.7086
+    },
+    {
+      "step": 181,
+      "loss": 3.6775,
+      "ctc": 5.7047,
+      "att": 3.4523
+    },
+    {
+      "step": 182,
+      "loss": 0.7552,
+      "ctc": 1.0886,
+      "att": 0.7182
+    },
+    {
+      "step": 183,
+      "loss": 1.4733,
+      "ctc": 3.652,
+      "att": 1.2312
+    },
+    {
+      "step": 184,
+      "loss": 1.4257,
+      "ctc": 1.8775,
+      "att": 1.3755
+    },
+    {
+      "step": 185,
+      "loss": 0.98,
+      "ctc": 2.1385,
+      "att": 0.8513
+    },
+    {
+      "step": 186,
+      "loss": 1.7023,
+      "ctc": 2.7816,
+      "att": 1.5824
+    },
+    {
+      "step": 187,
+      "loss": 1.0078,
+      "ctc": 1.2308,
+      "att": 0.983
+    },
+    {
+      "step": 188,
+      "loss": 1.7623,
+      "ctc": 5.3057,
+      "att": 1.3685
+    },
+    {
+      "step": 189,
+      "loss": 1.7902,
+      "ctc": 3.1389,
+      "att": 1.6403
+    },
+    {
+      "step": 190,
+      "loss": 1.4492,
+      "ctc": 3.1086,
+      "att": 1.2648
+    },
+    {
+      "step": 191,
+      "loss": 0.9662,
+      "ctc": 2.0654,
+      "att": 0.8441
+    },
+    {
+      "step": 192,
+      "loss": 1.5338,
+      "ctc": 2.7021,
+      "att": 1.404
+    },
+    {
+      "step": 193,
+      "loss": 0.9413,
+      "ctc": 1.7208,
+      "att": 0.8547
+    },
+    {
+      "step": 194,
+      "loss": 0.8015,
+      "ctc": 1.3669,
+      "att": 0.7387
+    },
+    {
+      "step": 195,
+      "loss": 1.9478,
+      "ctc": 2.228,
+      "att": 1.9167
+    },
+    {
+      "step": 196,
+      "loss": 1.2991,
+      "ctc": 2.5734,
+      "att": 1.1575
+    },
+    {
+      "step": 197,
+      "loss": 1.8284,
+      "ctc": 4.0467,
+      "att": 1.582
+    },
+    {
+      "step": 198,
+      "loss": 2.1084,
+      "ctc": 3.3532,
+      "att": 1.9701
+    },
+    {
+      "step": 199,
+      "loss": 1.2096,
+      "ctc": 2.6977,
+      "att": 1.0442
+    },
+    {
+      "step": 200,
+      "loss": 1.1666,
+      "ctc": 1.6953,
+      "att": 1.1079
+    },
+    {
+      "step": 201,
+      "loss": 1.0335,
+      "ctc": 1.7856,
+      "att": 0.9499
+    },
+    {
+      "step": 202,
+      "loss": 2.4067,
+      "ctc": 5.2188,
+      "att": 2.0943
+    },
+    {
+      "step": 203,
+      "loss": 1.7014,
+      "ctc": 2.1567,
+      "att": 1.6508
+    },
+    {
+      "step": 204,
+      "loss": 1.447,
+      "ctc": 1.9258,
+      "att": 1.3938
+    },
+    {
+      "step": 205,
+      "loss": 1.8107,
+      "ctc": 3.8,
+      "att": 1.5897
+    },
+    {
+      "step": 206,
+      "loss": 1.7503,
+      "ctc": 2.5285,
+      "att": 1.6639
+    },
+    {
+      "step": 207,
+      "loss": 1.0457,
+      "ctc": 1.6194,
+      "att": 0.982
+    },
+    {
+      "step": 208,
+      "loss": 1.3212,
+      "ctc": 1.1341,
+      "att": 1.342
+    },
+    {
+      "step": 209,
+      "loss": 0.5907,
+      "ctc": 0.9189,
+      "att": 0.5542
+    },
+    {
+      "step": 210,
+      "loss": 1.2617,
+      "ctc": 1.7276,
+      "att": 1.2099
+    },
+    {
+      "step": 211,
+      "loss": 2.0758,
+      "ctc": 3.5802,
+      "att": 1.9086
+    },
+    {
+      "step": 212,
+      "loss": 1.4405,
+      "ctc": 2.8669,
+      "att": 1.282
+    },
+    {
+      "step": 213,
+      "loss": 1.4253,
+      "ctc": 2.4055,
+      "att": 1.3164
+    },
+    {
+      "step": 214,
+      "loss": 4.0633,
+      "ctc": 7.6575,
+      "att": 3.664
+    },
+    {
+      "step": 215,
+      "loss": 2.4142,
+      "ctc": 3.1227,
+      "att": 2.3355
+    },
+    {
+      "step": 216,
+      "loss": 1.6349,
+      "ctc": 3.9029,
+      "att": 1.3829
+    },
+    {
+      "step": 217,
+      "loss": 1.2577,
+      "ctc": 2.9703,
+      "att": 1.0674
+    },
+    {
+      "step": 218,
+      "loss": 1.8723,
+      "ctc": 4.1488,
+      "att": 1.6193
+    },
+    {
+      "step": 219,
+      "loss": 1.3997,
+      "ctc": 2.855,
+      "att": 1.2379
+    },
+    {
+      "step": 220,
+      "loss": 1.3739,
+      "ctc": 2.2608,
+      "att": 1.2754
+    },
+    {
+      "step": 221,
+      "loss": 0.901,
+      "ctc": 1.0343,
+      "att": 0.8862
+    },
+    {
+      "step": 222,
+      "loss": 1.4861,
+      "ctc": 2.8248,
+      "att": 1.3373
+    },
+    {
+      "step": 223,
+      "loss": 1.0891,
+      "ctc": 1.9557,
+      "att": 0.9928
+    },
+    {
+      "step": 224,
+      "loss": 1.4923,
+      "ctc": 2.9002,
+      "att": 1.3359
+    },
+    {
+      "step": 225,
+      "loss": 2.4382,
+      "ctc": 4.1769,
+      "att": 2.2451
+    },
+    {
+      "step": 226,
+      "loss": 1.6208,
+      "ctc": 2.4725,
+      "att": 1.5262
+    },
+    {
+      "step": 227,
+      "loss": 1.6515,
+      "ctc": 3.0976,
+      "att": 1.4908
+    },
+    {
+      "step": 228,
+      "loss": 0.7977,
+      "ctc": 1.4061,
+      "att": 0.7302
+    },
+    {
+      "step": 229,
+      "loss": 0.6126,
+      "ctc": 1.0088,
+      "att": 0.5686
+    },
+    {
+      "step": 230,
+      "loss": 1.3034,
+      "ctc": 3.3945,
+      "att": 1.071
+    },
+    {
+      "step": 231,
+      "loss": 0.8666,
+      "ctc": 1.4532,
+      "att": 0.8015
+    },
+    {
+      "step": 232,
+      "loss": 0.5381,
+      "ctc": 0.4798,
+      "att": 0.5445
+    },
+    {
+      "step": 233,
+      "loss": 1.7472,
+      "ctc": 2.6789,
+      "att": 1.6437
+    },
+    {
+      "step": 234,
+      "loss": 0.9971,
+      "ctc": 2.1257,
+      "att": 0.8717
+    },
+    {
+      "step": 235,
+      "loss": 1.6346,
+      "ctc": 4.1555,
+      "att": 1.3545
+    },
+    {
+      "step": 236,
+      "loss": 1.0097,
+      "ctc": 1.8404,
+      "att": 0.9174
+    },
+    {
+      "step": 237,
+      "loss": 1.2372,
+      "ctc": 2.9896,
+      "att": 1.0425
+    },
+    {
+      "step": 238,
+      "loss": 1.5128,
+      "ctc": 3.2955,
+      "att": 1.3147
+    },
+    {
+      "step": 239,
+      "loss": 1.0511,
+      "ctc": 1.5439,
+      "att": 0.9963
+    },
+    {
+      "step": 240,
+      "loss": 2.6603,
+      "ctc": 3.0592,
+      "att": 2.6159
+    },
+    {
+      "step": 241,
+      "loss": 1.6967,
+      "ctc": 3.8544,
+      "att": 1.4569
+    },
+    {
+      "step": 242,
+      "loss": 1.2597,
+      "ctc": 1.7588,
+      "att": 1.2043
+    },
+    {
+      "step": 243,
+      "loss": 0.6054,
+      "ctc": 1.1052,
+      "att": 0.5498
+    },
+    {
+      "step": 244,
+      "loss": 2.1764,
+      "ctc": 3.0496,
+      "att": 2.0794
+    },
+    {
+      "step": 245,
+      "loss": 0.9957,
+      "ctc": 1.4125,
+      "att": 0.9494
+    },
+    {
+      "step": 246,
+      "loss": 1.003,
+      "ctc": 2.1226,
+      "att": 0.8786
+    },
+    {
+      "step": 247,
+      "loss": 1.1868,
+      "ctc": 2.3991,
+      "att": 1.0521
+    },
+    {
+      "step": 248,
+      "loss": 1.876,
+      "ctc": 2.6275,
+      "att": 1.7925
+    },
+    {
+      "step": 249,
+      "loss": 1.9783,
+      "ctc": 4.1132,
+      "att": 1.741
+    },
+    {
+      "step": 250,
+      "loss": 1.4076,
+      "ctc": 3.7901,
+      "att": 1.1429
+    },
+    {
+      "step": 251,
+      "loss": 0.9444,
+      "ctc": 2.1893,
+      "att": 0.8061
+    },
+    {
+      "step": 252,
+      "loss": 0.9927,
+      "ctc": 0.9848,
+      "att": 0.9936
+    },
+    {
+      "step": 253,
+      "loss": 1.1907,
+      "ctc": 2.1881,
+      "att": 1.0799
+    },
+    {
+      "step": 254,
+      "loss": 0.7893,
+      "ctc": 1.3415,
+      "att": 0.7279
+    },
+    {
+      "step": 255,
+      "loss": 1.0652,
+      "ctc": 2.3419,
+      "att": 0.9234
+    },
+    {
+      "step": 256,
+      "loss": 1.9255,
+      "ctc": 3.6899,
+      "att": 1.7295
+    },
+    {
+      "step": 257,
+      "loss": 2.8168,
+      "ctc": 5.7071,
+      "att": 2.4956
+    },
+    {
+      "step": 258,
+      "loss": 0.9604,
+      "ctc": 1.4126,
+      "att": 0.9101
+    },
+    {
+      "step": 259,
+      "loss": 0.79,
+      "ctc": 1.4476,
+      "att": 0.7169
+    },
+    {
+      "step": 260,
+      "loss": 0.5574,
+      "ctc": 0.7842,
+      "att": 0.5322
+    },
+    {
+      "step": 261,
+      "loss": 2.0449,
+      "ctc": 5.2104,
+      "att": 1.6932
+    },
+    {
+      "step": 262,
+      "loss": 1.2906,
+      "ctc": 2.9803,
+      "att": 1.1029
+    },
+    {
+      "step": 263,
+      "loss": 1.7699,
+      "ctc": 1.9731,
+      "att": 1.7473
+    },
+    {
+      "step": 264,
+      "loss": 1.3602,
+      "ctc": 3.2039,
+      "att": 1.1553
+    },
+    {
+      "step": 265,
+      "loss": 2.0135,
+      "ctc": 3.174,
+      "att": 1.8846
+    },
+    {
+      "step": 266,
+      "loss": 2.6683,
+      "ctc": 3.6105,
+      "att": 2.5637
+    },
+    {
+      "step": 267,
+      "loss": 1.5795,
+      "ctc": 2.5326,
+      "att": 1.4736
+    },
+    {
+      "step": 268,
+      "loss": 2.4867,
+      "ctc": 3.2171,
+      "att": 2.4055
+    },
+    {
+      "step": 269,
+      "loss": 1.4253,
+      "ctc": 2.4732,
+      "att": 1.3088
+    },
+    {
+      "step": 270,
+      "loss": 1.8006,
+      "ctc": 3.8284,
+      "att": 1.5753
+    },
+    {
+      "step": 271,
+      "loss": 2.1274,
+      "ctc": 3.2506,
+      "att": 2.0025
+    },
+    {
+      "step": 272,
+      "loss": 1.3009,
+      "ctc": 2.2219,
+      "att": 1.1986
+    },
+    {
+      "step": 273,
+      "loss": 1.0737,
+      "ctc": 2.2104,
+      "att": 0.9474
+    },
+    {
+      "step": 274,
+      "loss": 1.7083,
+      "ctc": 2.5129,
+      "att": 1.6189
+    },
+    {
+      "step": 275,
+      "loss": 3.0666,
+      "ctc": 6.8664,
+      "att": 2.6445
+    },
+    {
+      "step": 276,
+      "loss": 1.6506,
+      "ctc": 2.857,
+      "att": 1.5165
+    },
+    {
+      "step": 277,
+      "loss": 0.9071,
+      "ctc": 1.7858,
+      "att": 0.8095
+    },
+    {
+      "step": 278,
+      "loss": 1.7592,
+      "ctc": 3.3567,
+      "att": 1.5817
+    },
+    {
+      "step": 279,
+      "loss": 0.6462,
+      "ctc": 1.6956,
+      "att": 0.5296
+    },
+    {
+      "step": 280,
+      "loss": 0.8175,
+      "ctc": 1.1455,
+      "att": 0.7811
+    },
+    {
+      "step": 281,
+      "loss": 0.7171,
+      "ctc": 1.0271,
+      "att": 0.6827
+    },
+    {
+      "step": 282,
+      "loss": 0.7243,
+      "ctc": 1.0186,
+      "att": 0.6916
+    },
+    {
+      "step": 283,
+      "loss": 0.5398,
+      "ctc": 0.8979,
+      "att": 0.5
+    },
+    {
+      "step": 284,
+      "loss": 1.7659,
+      "ctc": 3.5073,
+      "att": 1.5724
+    },
+    {
+      "step": 285,
+      "loss": 1.5982,
+      "ctc": 3.1638,
+      "att": 1.4243
+    },
+    {
+      "step": 286,
+      "loss": 1.371,
+      "ctc": 2.6222,
+      "att": 1.2319
+    },
+    {
+      "step": 287,
+      "loss": 0.9607,
+      "ctc": 1.6915,
+      "att": 0.8795
+    },
+    {
+      "step": 288,
+      "loss": 0.7605,
+      "ctc": 1.9644,
+      "att": 0.6268
+    },
+    {
+      "step": 289,
+      "loss": 0.9842,
+      "ctc": 1.3913,
+      "att": 0.939
+    },
+    {
+      "step": 290,
+      "loss": 1.0474,
+      "ctc": 1.7233,
+      "att": 0.9723
+    },
+    {
+      "step": 291,
+      "loss": 1.455,
+      "ctc": 2.1376,
+      "att": 1.3792
+    },
+    {
+      "step": 292,
+      "loss": 1.2672,
+      "ctc": 1.3681,
+      "att": 1.256
+    },
+    {
+      "step": 293,
+      "loss": 1.6405,
+      "ctc": 2.9203,
+      "att": 1.4983
+    },
+    {
+      "step": 294,
+      "loss": 1.7121,
+      "ctc": 3.1992,
+      "att": 1.5469
+    },
+    {
+      "step": 295,
+      "loss": 2.1034,
+      "ctc": 4.2468,
+      "att": 1.8653
+    },
+    {
+      "step": 296,
+      "loss": 0.8482,
+      "ctc": 1.4055,
+      "att": 0.7863
+    },
+    {
+      "step": 297,
+      "loss": 0.9488,
+      "ctc": 1.2322,
+      "att": 0.9174
+    },
+    {
+      "step": 298,
+      "loss": 0.9378,
+      "ctc": 2.2284,
+      "att": 0.7944
+    },
+    {
+      "step": 299,
+      "loss": 2.2351,
+      "ctc": 3.2974,
+      "att": 2.117
+    },
+    {
+      "step": 300,
+      "loss": 0.549,
+      "ctc": 0.9294,
+      "att": 0.5068
+    }
+  ],
+  "before_rows": [
+    {
+      "key": "03",
+      "ref": "yes that works for me",
+      "top1": "yes that was me",
+      "ref_words": 5,
+      "top1_errors": 2,
+      "top1_wer": 0.4,
+      "exact_rank": 3,
+      "exact@1": 0,
+      "oracle_errors@1": 2,
+      "within1@1": 0,
+      "exact@3": 1,
+      "oracle_errors@3": 0,
+      "within1@3": 1,
+      "exact@5": 1,
+      "oracle_errors@5": 0,
+      "within1@5": 1,
+      "exact@10": 1,
+      "oracle_errors@10": 0,
+      "within1@10": 1
+    },
+    {
+      "key": "05",
+      "ref": "sure go ahead",
+      "top1": "go ahead",
+      "ref_words": 3,
+      "top1_errors": 1,
+      "top1_wer": 0.333,
+      "exact_rank": "",
+      "exact@1": 0,
+      "oracle_errors@1": 1,
+      "within1@1": 1,
+      "exact@3": 0,
+      "oracle_errors@3": 1,
+      "within1@3": 1,
+      "exact@5": 0,
+      "oracle_errors@5": 1,
+      "within1@5": 1,
+      "exact@10": 0,
+      "oracle_errors@10": 1,
+      "within1@10": 1
+    },
+    {
+      "key": "07",
+      "ref": "can we move it to three thirty",
+      "top1": "can we move it to thirty",
+      "ref_words": 7,
+      "top1_errors": 1,
+      "top1_wer": 0.143,
+      "exact_rank": 3,
+      "exact@1": 0,
+      "oracle_errors@1": 1,
+      "within1@1": 1,
+      "exact@3": 1,
+      "oracle_errors@3": 0,
+      "within1@3": 1,
+      "exact@5": 1,
+      "oracle_errors@5": 0,
+      "within1@5": 1,
+      "exact@10": 1,
+      "oracle_errors@10": 0,
+      "within1@10": 1
+    },
+    {
+      "key": "20",
+      "ref": "I just finished my homework",
+      "top1": "i just finished my homework",
+      "ref_words": 5,
+      "top1_errors": 0,
+      "top1_wer": 0.0,
+      "exact_rank": 1,
+      "exact@1": 1,
+      "oracle_errors@1": 0,
+      "within1@1": 1,
+      "exact@3": 1,
+      "oracle_errors@3": 0,
+      "within1@3": 1,
+      "exact@5": 1,
+      "oracle_errors@5": 0,
+      "within1@5": 1,
+      "exact@10": 1,
+      "oracle_errors@10": 0,
+      "within1@10": 1
+    },
+    {
+      "key": "22",
+      "ref": "the doctor said I need to rest",
+      "top1": "the doctor said i need rest",
+      "ref_words": 7,
+      "top1_errors": 1,
+      "top1_wer": 0.143,
+      "exact_rank": 10,
+      "exact@1": 0,
+      "oracle_errors@1": 1,
+      "within1@1": 1,
+      "exact@3": 0,
+      "oracle_errors@3": 1,
+      "within1@3": 1,
+      "exact@5": 0,
+      "oracle_errors@5": 1,
+      "within1@5": 1,
+      "exact@10": 1,
+      "oracle_errors@10": 0,
+      "within1@10": 1
+    },
+    {
+      "key": "24",
+      "ref": "I don't think that's a good plan",
+      "top1": "i don't think that's a good plan",
+      "ref_words": 7,
+      "top1_errors": 0,
+      "top1_wer": 0.0,
+      "exact_rank": 1,
+      "exact@1": 1,
+      "oracle_errors@1": 0,
+      "within1@1": 1,
+      "exact@3": 1,
+      "oracle_errors@3": 0,
+      "within1@3": 1,
+      "exact@5": 1,
+      "oracle_errors@5": 0,
+      "within1@5": 1,
+      "exact@10": 1,
+      "oracle_errors@10": 0,
+      "within1@10": 1
+    }
+  ],
+  "after_rows": [
+    {
+      "key": "03",
+      "ref": "yes that works for me",
+      "top1": "yes that works for me",
+      "ref_words": 5,
+      "top1_errors": 0,
+      "top1_wer": 0.0,
+      "exact_rank": 1,
+      "exact@1": 1,
+      "oracle_errors@1": 0,
+      "within1@1": 1,
+      "exact@3": 1,
+      "oracle_errors@3": 0,
+      "within1@3": 1,
+      "exact@5": 1,
+      "oracle_errors@5": 0,
+      "within1@5": 1,
+      "exact@10": 1,
+      "oracle_errors@10": 0,
+      "within1@10": 1
+    },
+    {
+      "key": "05",
+      "ref": "sure go ahead",
+      "top1": "sure go ahead",
+      "ref_words": 3,
+      "top1_errors": 0,
+      "top1_wer": 0.0,
+      "exact_rank": 1,
+      "exact@1": 1,
+      "oracle_errors@1": 0,
+      "within1@1": 1,
+      "exact@3": 1,
+      "oracle_errors@3": 0,
+      "within1@3": 1,
+      "exact@5": 1,
+      "oracle_errors@5": 0,
+      "within1@5": 1,
+      "exact@10": 1,
+      "oracle_errors@10": 0,
+      "within1@10": 1
+    },
+    {
+      "key": "07",
+      "ref": "can we move it to three thirty",
+      "top1": "can we move it to three thirty",
+      "ref_words": 7,
+      "top1_errors": 0,
+      "top1_wer": 0.0,
+      "exact_rank": 1,
+      "exact@1": 1,
+      "oracle_errors@1": 0,
+      "within1@1": 1,
+      "exact@3": 1,
+      "oracle_errors@3": 0,
+      "within1@3": 1,
+      "exact@5": 1,
+      "oracle_errors@5": 0,
+      "within1@5": 1,
+      "exact@10": 1,
+      "oracle_errors@10": 0,
+      "within1@10": 1
+    },
+    {
+      "key": "20",
+      "ref": "I just finished my homework",
+      "top1": "i just finished my homework",
+      "ref_words": 5,
+      "top1_errors": 0,
+      "top1_wer": 0.0,
+      "exact_rank": 1,
+      "exact@1": 1,
+      "oracle_errors@1": 0,
+      "within1@1": 1,
+      "exact@3": 1,
+      "oracle_errors@3": 0,
+      "within1@3": 1,
+      "exact@5": 1,
+      "oracle_errors@5": 0,
+      "within1@5": 1,
+      "exact@10": 1,
+      "oracle_errors@10": 0,
+      "within1@10": 1
+    },
+    {
+      "key": "22",
+      "ref": "the doctor said I need to rest",
+      "top1": "the doctor said i need to rest",
+      "ref_words": 7,
+      "top1_errors": 0,
+      "top1_wer": 0.0,
+      "exact_rank": 1,
+      "exact@1": 1,
+      "oracle_errors@1": 0,
+      "within1@1": 1,
+      "exact@3": 1,
+      "oracle_errors@3": 0,
+      "within1@3": 1,
+      "exact@5": 1,
+      "oracle_errors@5": 0,
+      "within1@5": 1,
+      "exact@10": 1,
+      "oracle_errors@10": 0,
+      "within1@10": 1
+    },
+    {
+      "key": "24",
+      "ref": "I don't think that's a good plan",
+      "top1": "i don't think that's a good plan",
+      "ref_words": 7,
+      "top1_errors": 0,
+      "top1_wer": 0.0,
+      "exact_rank": 1,
+      "exact@1": 1,
+      "oracle_errors@1": 0,
+      "within1@1": 1,
+      "exact@3": 1,
+      "oracle_errors@3": 0,
+      "within1@3": 1,
+      "exact@5": 1,
+      "oracle_errors@5": 0,
+      "within1@5": 1,
+      "exact@10": 1,
+      "oracle_errors@10": 0,
+      "within1@10": 1
+    }
+  ],
+  "checkpoints": {
+    "100": {
+      "test": {
+        "clips": 6,
+        "top1_wer": 0.0588,
+        "exact@1": 0.8333,
+        "exact@3": 1,
+        "exact@5": 1,
+        "exact@10": 1,
+        "oracle_wer@5": 0.0,
+        "oracle_wer@10": 0.0,
+        "within1@5": 1
+      },
+      "rows": [
+        {
+          "key": "03",
+          "ref": "yes that works for me",
+          "top1": "yes that was me",
+          "ref_words": 5,
+          "top1_errors": 2,
+          "top1_wer": 0.4,
+          "exact_rank": 2,
+          "exact@1": 0,
+          "oracle_errors@1": 2,
+          "within1@1": 0,
+          "exact@3": 1,
+          "oracle_errors@3": 0,
+          "within1@3": 1,
+          "exact@5": 1,
+          "oracle_errors@5": 0,
+          "within1@5": 1,
+          "exact@10": 1,
+          "oracle_errors@10": 0,
+          "within1@10": 1
+        },
+        {
+          "key": "05",
+          "ref": "sure go ahead",
+          "top1": "sure go ahead",
+          "ref_words": 3,
+          "top1_errors": 0,
+          "top1_wer": 0.0,
+          "exact_rank": 1,
+          "exact@1": 1,
+          "oracle_errors@1": 0,
+          "within1@1": 1,
+          "exact@3": 1,
+          "oracle_errors@3": 0,
+          "within1@3": 1,
+          "exact@5": 1,
+          "oracle_errors@5": 0,
+          "within1@5": 1,
+          "exact@10": 1,
+          "oracle_errors@10": 0,
+          "within1@10": 1
+        },
+        {
+          "key": "07",
+          "ref": "can we move it to three thirty",
+          "top1": "can we move it to three thirty",
+          "ref_words": 7,
+          "top1_errors": 0,
+          "top1_wer": 0.0,
+          "exact_rank": 1,
+          "exact@1": 1,
+          "oracle_errors@1": 0,
+          "within1@1": 1,
+          "exact@3": 1,
+          "oracle_errors@3": 0,
+          "within1@3": 1,
+          "exact@5": 1,
+          "oracle_errors@5": 0,
+          "within1@5": 1,
+          "exact@10": 1,
+          "oracle_errors@10": 0,
+          "within1@10": 1
+        },
+        {
+          "key": "20",
+          "ref": "I just finished my homework",
+          "top1": "i just finished my homework",
+          "ref_words": 5,
+          "top1_errors": 0,
+          "top1_wer": 0.0,
+          "exact_rank": 1,
+          "exact@1": 1,
+          "oracle_errors@1": 0,
+          "within1@1": 1,
+          "exact@3": 1,
+          "oracle_errors@3": 0,
+          "within1@3": 1,
+          "exact@5": 1,
+          "oracle_errors@5": 0,
+          "within1@5": 1,
+          "exact@10": 1,
+          "oracle_errors@10": 0,
+          "within1@10": 1
+        },
+        {
+          "key": "22",
+          "ref": "the doctor said I need to rest",
+          "top1": "the doctor said i need to rest",
+          "ref_words": 7,
+          "top1_errors": 0,
+          "top1_wer": 0.0,
+          "exact_rank": 1,
+          "exact@1": 1,
+          "oracle_errors@1": 0,
+          "within1@1": 1,
+          "exact@3": 1,
+          "oracle_errors@3": 0,
+          "within1@3": 1,
+          "exact@5": 1,
+          "oracle_errors@5": 0,
+          "within1@5": 1,
+          "exact@10": 1,
+          "oracle_errors@10": 0,
+          "within1@10": 1
+        },
+        {
+          "key": "24",
+          "ref": "I don't think that's a good plan",
+          "top1": "i don't think that's a good plan",
+          "ref_words": 7,
+          "top1_errors": 0,
+          "top1_wer": 0.0,
+          "exact_rank": 1,
+          "exact@1": 1,
+          "oracle_errors@1": 0,
+          "within1@1": 1,
+          "exact@3": 1,
+          "oracle_errors@3": 0,
+          "within1@3": 1,
+          "exact@5": 1,
+          "oracle_errors@5": 0,
+          "within1@5": 1,
+          "exact@10": 1,
+          "oracle_errors@10": 0,
+          "within1@10": 1
+        }
+      ],
+      "feasibility": null
+    },
+    "200": {
+      "test": {
+        "clips": 6,
+        "top1_wer": 0.0,
+        "exact@1": 1,
+        "exact@3": 1,
+        "exact@5": 1,
+        "exact@10": 1,
+        "oracle_wer@5": 0.0,
+        "oracle_wer@10": 0.0,
+        "within1@5": 1
+      },
+      "rows": [
+        {
+          "key": "03",
+          "ref": "yes that works for me",
+          "top1": "yes that works for me",
+          "ref_words": 5,
+          "top1_errors": 0,
+          "top1_wer": 0.0,
+          "exact_rank": 1,
+          "exact@1": 1,
+          "oracle_errors@1": 0,
+          "within1@1": 1,
+          "exact@3": 1,
+          "oracle_errors@3": 0,
+          "within1@3": 1,
+          "exact@5": 1,
+          "oracle_errors@5": 0,
+          "within1@5": 1,
+          "exact@10": 1,
+          "oracle_errors@10": 0,
+          "within1@10": 1
+        },
+        {
+          "key": "05",
+          "ref": "sure go ahead",
+          "top1": "sure go ahead",
+          "ref_words": 3,
+          "top1_errors": 0,
+          "top1_wer": 0.0,
+          "exact_rank": 1,
+          "exact@1": 1,
+          "oracle_errors@1": 0,
+          "within1@1": 1,
+          "exact@3": 1,
+          "oracle_errors@3": 0,
+          "within1@3": 1,
+          "exact@5": 1,
+          "oracle_errors@5": 0,
+          "within1@5": 1,
+          "exact@10": 1,
+          "oracle_errors@10": 0,
+          "within1@10": 1
+        },
+        {
+          "key": "07",
+          "ref": "can we move it to three thirty",
+          "top1": "can we move it to three thirty",
+          "ref_words": 7,
+          "top1_errors": 0,
+          "top1_wer": 0.0,
+          "exact_rank": 1,
+          "exact@1": 1,
+          "oracle_errors@1": 0,
+          "within1@1": 1,
+          "exact@3": 1,
+          "oracle_errors@3": 0,
+          "within1@3": 1,
+          "exact@5": 1,
+          "oracle_errors@5": 0,
+          "within1@5": 1,
+          "exact@10": 1,
+          "oracle_errors@10": 0,
+          "within1@10": 1
+        },
+        {
+          "key": "20",
+          "ref": "I just finished my homework",
+          "top1": "i just finished my homework",
+          "ref_words": 5,
+          "top1_errors": 0,
+          "top1_wer": 0.0,
+          "exact_rank": 1,
+          "exact@1": 1,
+          "oracle_errors@1": 0,
+          "within1@1": 1,
+          "exact@3": 1,
+          "oracle_errors@3": 0,
+          "within1@3": 1,
+          "exact@5": 1,
+          "oracle_errors@5": 0,
+          "within1@5": 1,
+          "exact@10": 1,
+          "oracle_errors@10": 0,
+          "within1@10": 1
+        },
+        {
+          "key": "22",
+          "ref": "the doctor said I need to rest",
+          "top1": "the doctor said i need to rest",
+          "ref_words": 7,
+          "top1_errors": 0,
+          "top1_wer": 0.0,
+          "exact_rank": 1,
+          "exact@1": 1,
+          "oracle_errors@1": 0,
+          "within1@1": 1,
+          "exact@3": 1,
+          "oracle_errors@3": 0,
+          "within1@3": 1,
+          "exact@5": 1,
+          "oracle_errors@5": 0,
+          "within1@5": 1,
+          "exact@10": 1,
+          "oracle_errors@10": 0,
+          "within1@10": 1
+        },
+        {
+          "key": "24",
+          "ref": "I don't think that's a good plan",
+          "top1": "i don't think that's a good plan",
+          "ref_words": 7,
+          "top1_errors": 0,
+          "top1_wer": 0.0,
+          "exact_rank": 1,
+          "exact@1": 1,
+          "oracle_errors@1": 0,
+          "within1@1": 1,
+          "exact@3": 1,
+          "oracle_errors@3": 0,
+          "within1@3": 1,
+          "exact@5": 1,
+          "oracle_errors@5": 0,
+          "within1@5": 1,
+          "exact@10": 1,
+          "oracle_errors@10": 0,
+          "within1@10": 1
+        }
+      ],
+      "feasibility": null
+    }
+  }
+}

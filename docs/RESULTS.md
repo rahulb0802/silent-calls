@@ -3,6 +3,18 @@
 Every number we can show, in the order we got it. Each row links to the run's folder in
 `server/results/`, which has `summary.md` / `report.md`, per-clip CSVs and every N-best list.
 
+## Headline numbers
+
+| | |
+|---|---|
+| Lip-read time after key release (A16, live path) | **0.92 s** median (face detection hidden during the hold) |
+| End to end over venue Wi-Fi (VP8 stream) | **1.3 s** median, key release → candidates on the laptop |
+| Correct sentence among the top 10 (no training) | **56%** of silent clips (exact top guess 36%) |
+| Personal LoRA adapter, unseen sentences | WER **37% → 31%**, top-5 **49% → 56%**, ≤1 word off in top 5 **64% → 73%** |
+| Same adapter on someone else | no change (37% → 37%): the gain is personal |
+| Training one adapter | **~35 s** on one A16 (1.2M parameters, 0.5% of the model) |
+| Upload needed | 1.1 MB/s as JPEG frames, **~250 KB/s** as a VP8 stream at the same accuracy |
+
 **Test data:** 3 people × 30 silently mouthed call sentences (`server/eval_data/feasibility_sentences.csv`),
 recorded on laptop webcams with `record.html` before the event, plus 6 spoken-aloud clips each for 2 people.
 **Model:** AutoAVSR visual-only, LRS3 (`LRS3_V_WER19.1`, ~250M params) + LRS3 subword LM, no training on our data
@@ -90,7 +102,11 @@ Lower JPEG quality on full 480p frames barely saves bandwidth (JPEG has no inter
 | 720p, 1 Mbps | 125 KB/s | 42% | 28% | 43% | 48% |
 | 360p, 250 kbps | 32 KB/s | 49% | 24% | 36% | 41% |
 
-<!-- VP8B -->
+| 480p, 2 Mbps | 247 KB/s | 37% | 33% | 48% | 53% |
+| 720p, 2 Mbps | 247 KB/s | 42% | 29% | 43% | 50% |
+
+At 2 Mbps / 480p (~250 KB/s) the stream is within noise of full JPEG frames. 720p is never better than 480p
+at the same bitrate (the bits are spread over more pixels).
 
 **End to end over the venue Wi-Fi** (laptop → SSH tunnel → server, 12 clips, real time):
 
@@ -108,8 +124,9 @@ after release adds ~0.2 s (they can't run during the hold on a webm stream).
 
 **Recommendation for the client (Person 1):**
 - On good Wi-Fi/ethernet/hotspot (≥1.5 MB/s up): JPEG 480p q80 frames, as in PROTOCOL.md. Best accuracy, ~0.9 s.
-- On venue Wi-Fi: `MediaRecorder` VP8 at 1 Mbps, 480p, `start(100)`, send each `dataavailable` blob as a binary
-  message after `utterance.start {encoding: "webm"}`. ~125 KB/s, costs a few points of exact@5/10, +0.2 s.
+- On venue Wi-Fi: `MediaRecorder` VP8 at **2 Mbps, 480p** (`videoBitsPerSecond: 2_000_000`), `start(100)`, send
+  each `dataavailable` blob as a binary message after `utterance.start {encoding: "webm"}`. ~250 KB/s, about the
+  same accuracy as JPEG frames, +0.2 s. Drop to 1 Mbps if the uplink is worse than ~0.5 MB/s.
 - Either way, test the uplink before the demo (e.g. `tools/ws_replay.py`); if `end→candidates` is much more than
   ~1 s, the network is the problem, not the model.
 
@@ -146,8 +163,8 @@ each with `truth`, `context` (the other person's preceding line) and the top-10 
 
 Rank-8 LoRA on the query/key/value/output projections of all 12 encoder blocks (590k trainable parameters, 0.2% of
 the model); visual frontend, decoder and LM frozen. Loss = the checkpoint's own 0.1 × CTC + 0.9 × attention.
-Training: 300 steps, batch 8, AdamW lr 5e-4, random 88 px crops + time masking, fp16. **0.30 s/step on one A16
-→ ~90 s per adapter**, on the second GPU so live calls aren't slowed.
+Training: 300 steps, batch 8, AdamW lr 5e-4, random 88 px crops + time masking, fp16. **0.30-0.37 s/step on one
+A16, peak 2.6 GB**, on the second GPU so live calls aren't slowed.
 
 Before enrollment data existed, we tested it on the feasibility clips with **5-fold cross-validation by sentence**:
 each person's 30 sentences are split into 5 groups; an adapter is trained on 24 sentences and scored on the 6 it
@@ -182,13 +199,45 @@ Caveats: 30 sentences per person, so one clip is 3.3 points per person; Nilesh's
 which no adapter fixes. The enrollment adapters (section 6) train on 60 new sentences and are tested on the
 30 feasibility sentences, which is a cleaner split.
 
-<!-- LORA_VARIANTS -->
+**Variants** (same 5-fold cross-validation, all 90 clips pooled; "before" is 38% / 32% / 50% / 53% for every row):
+
+| adapter | trainable params | steps | WER | exact@1 | exact@5 | exact@10 | training (0.34-0.37 s/step) |
+|---|---|---|---|---|---|---|---|
+| rank 8, attention only, lr 5e-4 | 590k | 300 | 29% | 43% | 56% | 60% | ~110 s |
+| rank 8, attention + feed-forward ([`attn_ffn`](../server/results/lora_cv5_feasibility_r8_attn_ffn_s300_lr0.0005/crossval.md)) | 2.06M | 300 | 34% | 40% | 54% | 60% | ~110 s |
+| rank 16, attention only, lr 1e-3 ([`r16`](../server/results/lora_cv5_feasibility_r16_attn_s300_lr0.001/crossval.md)), at step 100 | 1.18M | 100 | 29% | 44% | 57% | 61% | **~35 s** |
+| same, at step 300 | 1.18M | 300 | 27% | 49% | 53% | 62% | ~100 s |
+
+Adding the feed-forward layers overfits (more parameters, 24 training clips). Rank 16 with a higher learning
+rate gets the same gain in a third of the steps.
+
+**Decision:** rank 16, alpha 32, lr 1e-3, **100 steps** (~35 s of training on one A16), attention projections
+only. These are the trainer defaults now.
+
+**Final configuration, with the control** (rank 16, 100 steps, LM weight 0.2;
+[`lora_cv5_final_r16_s100_lm0.2`](../server/results/lora_cv5_final_r16_s100_lm0.2/crossval.md)):
+
+| | clips | WER | exact@1 | exact@5 | exact@10 | oracle WER@10 | within1@5 |
+|---|---|---|---|---|---|---|---|
+| base model | 90 | 37% | 36% | 49% | 56% | 24% | 64% |
+| **own adapter** (100 steps) | 90 | **31%** | **40%** | **56%** | **60%** | **18%** | **73%** |
+| own adapter at step 50 | 90 | 30% | 44% | 56% | 62% | 19% | 72% |
+| other people's clips, base model | 180 | 37% | 36% | 49% | 56% | 24% | 64% |
+| other people's clips, **someone else's adapter** | 180 | 37% | 35% | 49% | 56% | 24% | 65% |
+
+Per person, base → own adapter: Rahul 38% → 21% WER (exact@10 60% → 70%), Sarvajith 15% → 13% (exact@5
+70% → 80%), Nilesh 59% → 58% (no change: his clips are cut off).
 
 ## 6. Enrollment → adapter, end to end
 
 Tested through the HTTP endpoints (`POST /enroll/{user}/clip` ×10, `POST /train/{user}`, polling
 `GET /train/{user}/status`): clips are cropped and stored as mouth crops only, training runs on GPU 1 as a
 subprocess, the adapter is written to `/opt/lr/adapters/<user>/adapter.pt`, and the live reader picks it up on
-that user's next utterance (reloads when it is retrained).
+that user's next utterance (reloads when it is retrained). Verified over the WebSocket: the same 6 clips came
+back with `adapter: "routetest"` for that user and `adapter: null` for another, with no added latency.
+(That run used 10 clips and 20 steps, only to test the plumbing; its accuracy numbers mean nothing.)
 
-<!-- ENROLL -->
+**Still to do with real enrollment data (Saturday):** each of us records the 60 prompts in
+`server/lora/enroll_sentences.csv` (none overlap the 30 test sentences) with `tools/record_enroll.html` or the
+app's enrollment screen, trains, and gets before/after on the 30 feasibility sentences as a fully separate test
+set (`--test-feasibility`, on by default from the endpoint).
