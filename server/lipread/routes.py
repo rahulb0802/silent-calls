@@ -51,9 +51,12 @@ def enroll_progress(user_id: str) -> dict:
 def enroll_clip(user_id: str, sentence_id: str = Form(...), file: UploadFile = File(...),
                 text: str | None = Form(None)) -> dict:
     sentences = {s["id"]: s["sentence"] for s in lora_data.enroll_sentences()}
-    text = text or sentences.get(sentence_id)
-    if not text:
-        raise HTTPException(400, f"unknown sentence_id {sentence_id!r}; pass text")
+    if sentence_id not in sentences:
+        raise HTTPException(400, "choose a sentence from the enrollment prompts")
+    text = sentences[sentence_id]
+    saved = ENROLL_DIR / adapter_key(user_id)
+    if not (saved / f"{sentence_id}.npz").exists() and len(list(saved.glob("*.npz"))) >= 60:
+        raise HTTPException(400, "maximum 60 enrollment sentences per profile")
     suffix = Path(file.filename or "clip.webm").suffix or ".webm"
     with tempfile.TemporaryDirectory() as d:  # the raw video is deleted as soon as the crop exists
         src = Path(d) / f"clip{suffix}"
@@ -82,8 +85,8 @@ def start_training(user_id: str, steps: int = 100, test_feasibility: bool = True
     if job and job.poll() is None:
         raise HTTPException(409, "already training")
     n = len(list((ENROLL_DIR / key).glob("*.npz")))
-    if n < lora_data.MIN_CLIPS:
-        raise HTTPException(400, f"need at least {lora_data.MIN_CLIPS} enrollment clips, have {n}")
+    if n < lora_data.MIN_CLIPS or n > 60:
+        raise HTTPException(400, f"need {lora_data.MIN_CLIPS}–60 accepted enrollment sentences, have {n}")
     out = ADAPTER_DIR / key
     out.mkdir(parents=True, exist_ok=True)
     (out / "status.json").write_text(json.dumps({"state": "queued", "started": time.time()}))

@@ -244,7 +244,7 @@ def train(args, avsr=None) -> dict:
     (rd / "report.json").write_text(json.dumps(report, indent=2))
     (rd / "report.md").write_text(render_md(tag, report))
     status.update(state="done", report={k: report[k] for k in
-                                        ("before_wer", "after_wer", "before_top5", "after_top5", "n_train", "n_test")})
+                                        ("before_wer", "after_wer", "before_top5", "after_top5", "n_train", "n_val", "n_test")})
     print(render_md(tag, report))
     return report
 
