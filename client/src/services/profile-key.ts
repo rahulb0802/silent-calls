@@ -1,4 +1,4 @@
-import {loadSettings} from './settings';
+import {loadSettings, saveSettings} from './settings';
 
 /** A random secret per profile, kept on this computer: the GPU stores everything for a profile under its
  * name plus this secret (server/lipread/identity.py), so typing someone's name doesn't open their model or
@@ -18,13 +18,24 @@ export function profileSecret(name = loadSettings().profileId): string {
   } catch { return ''; }
 }
 
-/** The key to type into another computer's Silent Calls to use this profile there. */
-export function exportProfileKey(): string { return profileSecret(); }
+/** The code to paste into another computer's Silent Calls: "<profile name>:<secret>", so pasting it there opens
+ * exactly this profile (no need to set the name first). */
+export function exportProfileKey(): string { const name = loadSettings().profileId.trim(); return `${name}:${profileSecret(name)}`; }
 
-/** Use a profile key from another computer for this profile name (its data then opens here). */
-export function importProfileKey(code: string): boolean {
+/** Switch this computer to the profile in a code from exportProfileKey (its name and key). A bare key (no
+ * name) applies to the current profile. The companion then reconnects as that profile. Returns the name. */
+export function importProfileKey(code: string): string | null {
   const value = code.trim();
-  if (!VALID.test(value)) return false;
-  try { localStorage.setItem(keyFor(loadSettings().profileId), value); window.dispatchEvent(new Event('silent-calls:settings')); return true; }
-  catch { return false; }
+  const cut = value.lastIndexOf(':');
+  const name = cut > 0 ? value.slice(0, cut).trim() : loadSettings().profileId.trim();
+  const secret = cut > 0 ? value.slice(cut + 1).trim() : value;
+  if (!name || name.length > 80 || !VALID.test(secret)) return null;
+  try {
+    localStorage.setItem(keyFor(name), secret);
+    const settings = loadSettings();
+    if (settings.profileId.trim() !== name) saveSettings({...settings, profileId: name});
+    window.dispatchEvent(new Event(KEY_CHANGED));
+    return name;
+  } catch { return null; }
 }
+export const KEY_CHANGED = 'silent-calls:profile-key';

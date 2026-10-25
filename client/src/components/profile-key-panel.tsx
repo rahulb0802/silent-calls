@@ -11,12 +11,13 @@ export function ProfileKeyPanel() {
     catch { setShown(true); setStatus('Copy it from the box below.'); }
   };
   const use = () => {
-    if (importProfileKey(code)) { setCode(''); setStatus('Using that key. Reconnect lip-reading to load the profile.'); }
-    else setStatus("That doesn't look like a profile key.");
+    const name = importProfileKey(code);
+    if (name) { setCode(''); setStatus(`Switched to profile "${name}" with that key. Start the companion again to load it.`); }
+    else setStatus("That doesn't look like a profile key. Paste the whole code, including the name before the colon.");
   };
   return <section className="hands-free" aria-label="Profile key">
     <strong className="hands-free-toggle">Profile key</strong>
-    <p className="capture-help">Your personal model and saved data on the GPU open only with this computer's key for your profile. To use the same profile on another computer, copy the key here and paste it there under the same profile name.</p>
+    <p className="capture-help">Your personal model and saved data on the GPU open only with this computer's key for your profile. To use the same profile on another computer, copy the code here and paste it there: it switches that computer to this profile. Keep it private.</p>
     <div className="hands-free-row">
       <button className="icon-text" onClick={() => void copy()}>Copy my profile key</button>
       <button className="icon-text" onClick={() => setShown(!shown)}>{shown ? 'Hide' : 'Show'}</button>

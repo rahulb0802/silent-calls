@@ -93,7 +93,7 @@ export function MeetingWidget({service:providedPort}:{service?:MeetingPort} = {}
   // in dictation the options show exactly what will be typed (lipread-port formats the same way)
   const shownText=(text:string)=>dictation?formatDictation(text,dictationNames([...vocabularyTerms(),loadSettings().profileId],voice.callNames??[])):text;
   // phrase memory's setting goes to the local service at start and whenever the profile changes
-  useEffect(()=>{const sync=()=>void window.desktop?.setMemory?.({profile:loadSettings().profileId.trim(),on:memoryOn(),secret:profileSecret()});sync();window.addEventListener('silent-calls:settings',sync);return()=>window.removeEventListener('silent-calls:settings',sync);},[]);
+  useEffect(()=>{const sync=()=>void window.desktop?.setMemory?.({profile:loadSettings().profileId.trim(),on:memoryOn(),secret:profileSecret()});sync();window.addEventListener('silent-calls:settings',sync);window.addEventListener('silent-calls:profile-key',sync);return()=>{window.removeEventListener('silent-calls:settings',sync);window.removeEventListener('silent-calls:profile-key',sync);};},[]);
   const tapTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
   const tapRef=useRef({dictation:false,choosing:false,accept:()=>{}});
   const confirmPick=(candidate:Candidate,text?:string)=>{if(service.phase==='choosing')coach.recordPick(candidate,text);service.confirm(candidate,text);};
@@ -173,8 +173,10 @@ export function MeetingWidget({service:providedPort}:{service?:MeetingPort} = {}
   useEffect(()=>{
     let profile=loadSettings().profileId;
     const changed=()=>{const next=loadSettings().profileId;if(next!==profile){profile=next;armAfterCamera.current=false;gpuPort.disconnect();stopRef.current();void window.desktop?.stopGlobalHold();setKeyFeedback('Profile changed. Connect lip-reading and enable your camera/key for this person.');}};
-    window.addEventListener('storage',changed);window.addEventListener('silent-calls:settings',changed);
-    return()=>{window.removeEventListener('storage',changed);window.removeEventListener('silent-calls:settings',changed);};
+    // a pasted profile key (same name, different key) is a different profile too: reconnect
+    const keyChanged=()=>{profile='';changed();};
+    window.addEventListener('storage',changed);window.addEventListener('silent-calls:settings',changed);window.addEventListener('silent-calls:profile-key',keyChanged);
+    return()=>{window.removeEventListener('storage',changed);window.removeEventListener('silent-calls:settings',changed);window.removeEventListener('silent-calls:profile-key',keyChanged);};
   },[gpuPort]);
   // A failed/disconnected camera must never leave the native listener armed.
   useEffect(() => { if (!capture.cameraOn) void window.desktop?.stopGlobalHold(); }, [capture.cameraOn]);
