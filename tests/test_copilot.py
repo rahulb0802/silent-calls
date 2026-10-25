@@ -201,7 +201,7 @@ def test_punctuation_is_used_only_when_every_word_is_kept():
     assert good == "Hi, my name is Rahul. Can you send me the Claude file?" and reworded is None
 
 
-def test_phrase_memory_recalls_past_replies_and_remembers_new_ones():
+def test_phrase_memory_gives_the_copilot_past_exchanges_and_keeps_new_replies():
     events = []
 
     async def emit(e):
@@ -215,7 +215,7 @@ def test_phrase_memory_recalls_past_replies_and_remembers_new_ones():
             return 31
 
         async def recall(self, line):
-            return ["Sure, I'll send it over tonight."]
+            return [("Can you send me the deck?", "Sure, I'll send it over tonight.")]
 
         async def add(self, prompt, reply):
             self.added.append((prompt, reply))
@@ -223,19 +223,23 @@ def test_phrase_memory_recalls_past_replies_and_remembers_new_ones():
         async def close(self):
             pass
 
+    client = FakeClient()
+    client.requests.append({})  # answer straight away (no mail search)
+
     async def run():
         mem = FakeMemory()
-        p = Pipeline(Settings(), voice=None, emit=emit, use_jev=False, use_claude=False, memory=mem)
-        await p.on_caption("Can you send me the deck?")  # memory off: nothing recalled or kept
+        cp = Copilot(Settings(), emit=emit, data=None, client=client)
+        p = Pipeline(Settings(), voice=None, emit=emit, use_jev=False, use_claude=False, copilot=cp, memory=mem)
         await p.set_memory("Rahul", True)
         await p.on_caption("Could you share the slides?")
+        await cp._task
         p.dictated("Yes, I'll share them after lunch.")
         await asyncio.sleep(0.01)
         await p.close()
         return mem
 
     mem = asyncio.run(run())
-    memory = [e for e in events if e.type == "memory"]
-    assert memory[0].on and memory[0].count == 31
-    assert memory[-1].phrases == ["Sure, I'll send it over tonight."] and memory[-1].for_line == "Could you share the slides?"
+    prompt = client.requests[-1]["messages"][0]["content"]
+    assert "How the user has replied to similar things before" in prompt and "Sure, I'll send it over tonight." in prompt
+    assert [e for e in events if e.type == "memory"][0].count == 31
     assert mem.added == [("Could you share the slides?", "Yes, I'll share them after lunch.")]

@@ -1,9 +1,11 @@
-"""Phrase memory (Moss): the user's own past replies, recalled when the other person says something similar.
+"""Phrase memory (Moss): the co-pilot's memory of how the user has answered before.
 
 Each reply the user speaks or dictates is stored with the line it answered ("Can you send the file? ->
-Sure, I'll send it over tonight."). When the other person says something, Moss finds the closest past
-exchanges in a few milliseconds and their replies go to the lip-reader with the co-pilot's, as sentences
-to score against the video: the user's own words, names and phrasing are the likeliest thing they'll say.
+Sure, I'll send it over tonight."). When the other person says something, Moss finds the user's closest past
+exchanges in a few milliseconds and the co-pilot (Claude) gets them as context: it writes replies to what's
+being said now, in the user's own phrasing and consistent with facts they've already given. Those replies
+are what the lip-reader checks against the video. (Past replies aren't offered as they are: an old answer
+rarely fits a new question exactly.)
 
 Opt-in per profile (the app sends {"type": "memory", "profile", "on"}). Only the user's replies and the line
 they answered are stored, in the profile's Moss index (cloud, so it follows the user; queries run on this
@@ -21,7 +23,7 @@ from pathlib import Path
 log = logging.getLogger(__name__)
 
 CACHE = Path.home() / ".silentcalls" / "moss"
-RECALL_K = 3
+RECALL_K = 4  # past exchanges given to the co-pilot
 PUSH_AFTER_S = 10.0  # batch cloud updates
 
 # Generic starting phrases, so the memory isn't empty on day one: (what they said, what the user replied)
@@ -66,7 +68,8 @@ def _key(profile: str) -> str:
 def _doc(prompt: str, reply: str, seed: bool = False):
     from moss import DocumentInfo
     pid = ("seed-" if seed else "p-") + hashlib.sha1(f"{prompt}|{reply}".lower().encode()).hexdigest()[:16]
-    return DocumentInfo(id=pid, text=f"{prompt} -> {reply}", metadata={"reply": reply, "seed": "1" if seed else "0"})
+    return DocumentInfo(id=pid, text=f"{prompt} -> {reply}",
+                        metadata={"prompt": prompt, "reply": reply, "seed": "1" if seed else "0"})
 
 
 class PhraseMemory:
@@ -111,14 +114,21 @@ class PhraseMemory:
             log.info("memory: %d phrases for this profile, opened in %.1f s", session.doc_count, time.perf_counter() - t0)
             return session.doc_count
 
-    async def recall(self, line: str, k: int = RECALL_K) -> list[str]:
-        """The user's replies to the past lines most like this one."""
+    async def recall(self, line: str, k: int = RECALL_K) -> list[tuple[str, str]]:
+        """The user's own past exchanges most like this line: [(what they said, what the user replied)]. The
+        generic starting phrases aren't the user's words, so they're left out."""
         if self._session is None or not line.strip():
             return []
         from moss import QueryOptions
-        res = await self._session.query(line, QueryOptions(top_k=k))
-        replies = [(d.metadata or {}).get("reply", "") for d in res.docs]
-        return list(dict.fromkeys(r for r in replies if r))[:k]
+        res = await self._session.query(line, QueryOptions(top_k=k + 8))
+        out = []
+        for d in res.docs:
+            meta = d.metadata or {}
+            if meta.get("seed") == "1" or not meta.get("reply"):
+                continue
+            prompt = meta.get("prompt") or d.text.split(" -> ")[0]
+            out.append((prompt, meta["reply"]))
+        return list(dict.fromkeys(out))[:k]
 
     async def add(self, prompt: str, reply: str) -> None:
         if self._session is None or not reply.strip():

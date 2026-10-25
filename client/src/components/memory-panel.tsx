@@ -22,7 +22,7 @@ export function MemoryPanel() {
   const memory = state.memory;
   return <section className="hands-free" aria-label="Remember my phrases">
     <label className="hands-free-toggle"><input type="checkbox" checked={on} onChange={event => change(event.target.checked)}/> Remember my phrases (Moss)</label>
-    <p className="capture-help">Keeps what you say (and the line it answered) so that next time someone asks something similar, your own past replies are offered and checked against your lips. Only your replies are kept, in your Moss project; searching happens on this computer.</p>
+    <p className="capture-help">Keeps what you say (and the line it answered). When someone asks something similar, the suggested replies are written the way you answered before, keeping facts you've already given, and still answer what's being asked now. Only your replies are kept, in your Moss project; searching happens on this computer.</p>
     {on && <p className="capture-help">{memory?.on ? `${memory.count} phrases, including 30 starting ones.` : 'Connecting to Moss…'}</p>}
     {on && <div className="hands-free-row"><button className="icon-text" disabled={!memory?.on} onClick={() => void window.desktop?.forgetPhrases?.()}>Forget my phrases</button></div>}
   </section>;

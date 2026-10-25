@@ -118,6 +118,9 @@ class Copilot:
         self.s = s
         self.emit = emit
         self.on_names = on_names  # names Claude found in the call (e.g. ones the captions wrote in lowercase)
+        # phrase memory (Moss): async line -> [(what they said, what the user replied)], the user's own past
+        # exchanges most like this line, so replies sound like them and keep facts they've already given
+        self.recall: Callable[[str], Awaitable[list[tuple[str, str]]]] | None = None
         self.names: list[str] = []
         self.data = data  # GoogleData, or anything with async calendar() / search_mail(query); None = no Google
         # keep the connection to the API open between lines (a new TLS handshake costs ~0.2-0.3 s)
@@ -179,7 +182,13 @@ class Copilot:
     async def _run(self, line: str, context: str, names: list[str]) -> None:
         t0 = time.perf_counter()
         try:
-            replies, steps = await self.prepare(context, names)
+            past = []
+            if self.recall:
+                try:
+                    past = await asyncio.wait_for(self.recall(line), 0.5)
+                except Exception as e:  # memory unavailable: replies without it
+                    log.info("copilot: memory unavailable (%s)", type(e).__name__)
+            replies, steps = await self.prepare(context, names, past)
         except asyncio.CancelledError:
             raise
         except Exception as e:  # network, API, Google; the call goes on without suggestions
@@ -205,7 +214,8 @@ class Copilot:
                 self._fast = False
         return await self.client.beta.messages.create(**request, betas=["server-side-fallback-2026-07-01"])
 
-    async def prepare(self, context: str, names: list[str]) -> tuple[list[CopilotReply], list[CopilotStep]]:
+    async def prepare(self, context: str, names: list[str], past: list[tuple[str, str]] | None = None
+                      ) -> tuple[list[CopilotReply], list[CopilotStep]]:
         steps: list[CopilotStep] = []
         parts = [f"Now: {dt.datetime.now().astimezone():%A %Y-%m-%d %H:%M %Z}"]
         if self.data is not None:
@@ -220,6 +230,11 @@ class Copilot:
             parts.append("(The user's calendar and email are not connected.)")
         if names:
             parts.append("Names and words the user uses: " + ", ".join(names))
+        if past:
+            parts.append("How the user has replied to similar things before, in their own words (from earlier calls). "
+                         "Write like them and keep facts they've already given if they still apply, but answer what "
+                         "is being said now; don't just repeat an old reply:\n"
+                         + "\n".join(f"- Them: {them}\n  User: {reply}" for them, reply in past))
         parts.append(f"The call so far (most recent last):\n{context}\n\nPrepare the user's likely replies.")
         messages: list = [{"role": "user", "content": "\n\n".join(parts)}]
         tools = [SEARCH_TOOL] if self.data is not None else []

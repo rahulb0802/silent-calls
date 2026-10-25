@@ -230,9 +230,9 @@ export class LipreadPort implements MeetingPort {
   }
   /** The co-pilot's prepared replies, scored by the lip-reader against this capture (unless turned off). */
   private given(): {given?: string[]} {
-    // the co-pilot's replies, then your own past replies from phrase memory: scored against the video
+    // the co-pilot's replies (written with your phrase memory when it's on): scored against the video
     const replies = copilotOff() ? [] : this.copilot?.replies.map(reply => reply.text) ?? [];
-    const given = [...new Set([...replies, ...this.recalled])].slice(0, 8);
+    const given = [...new Set(replies)].slice(0, 8);
     return given.length ? {given} : {};
   }
   /** Follow the local service's list of names in this call and the co-pilot's prepared replies. */

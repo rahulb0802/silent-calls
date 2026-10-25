@@ -45,6 +45,8 @@ class Pipeline:
         self.memory = memory  # PhraseMemory (Moss), or None; used only while the user has it on
         self.memory_on = False
         self._last_them = ""  # the line the user's next reply answers, for phrase memory
+        if copilot is not None and memory is not None:
+            copilot.recall = self._recall
         self._dictated: list[str] = []  # what was typed by dictation, as context for where sentences break
         # this call, in memory only, for the post-call review: every line, and for each line the user spoke,
         # the options they were shown
@@ -68,8 +70,6 @@ class Pipeline:
 
     async def on_caption(self, line: str) -> None:
         self._last_them = line
-        if self.memory_on:
-            asyncio.create_task(self._recall(line))
         self.transcript.add("them", line)
         self._call = (self._call + [("them", line)])[-200:]
         await self.emit(CaptionEvent(speaker="them", text=line))
@@ -188,13 +188,9 @@ class Pipeline:
         log.info("memory: forgot %d phrases", n)
         await self.emit(MemoryEvent(on=self.memory_on, count=self.memory._session.doc_count if self.memory_on else 0))
 
-    async def _recall(self, line: str) -> None:
-        try:
-            phrases = await self.memory.recall(line)
-        except Exception as e:
-            log.info("memory: recall failed (%s)", type(e).__name__)
-            return
-        await self.emit(MemoryEvent(on=True, phrases=phrases, for_line=line))
+    async def _recall(self, line: str) -> list[tuple[str, str]]:
+        """For the co-pilot: the user's past exchanges most like this line (none while memory is off)."""
+        return await self.memory.recall(line) if self.memory and self.memory_on else []
 
     async def _remember(self, text: str) -> None:
         if self.memory_on:
