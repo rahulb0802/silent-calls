@@ -417,3 +417,24 @@ counted. Results in `results/copilot_models/`. Total spend: about $2.
 
 Decision: keep Opus 5.5 with fast mode for the co-pilot. Sonnet 5.5 is the fallback if fast mode's price or rate
 limit becomes a problem (a quarter of the cost, same accuracy here, about 1 s slower).
+
+## 13. Longer captures: accuracy holds, reading time doesn't
+
+`server/eval_length.py`: one person's silent clips stitched into k-sentence clips (0.4 s still pause between),
+12 clips per k (all 90 at k=1), read whole vs. each sentence separately and joined. Results in
+`server/results/length/`.
+
+| sentences | seconds | WER whole | WER split | read time whole | read time split (sum) | peak GPU |
+|---|---|---|---|---|---|---|
+| 1 | 2.2 | 37% | 37% | 0.9 s | 0.9 s | 1.7 GB |
+| 2 | 4.7 | 47% | 42% | 1.8 s | 1.8 s | 1.7 GB |
+| 3 | 7.4 | 39% | 37% | 3.7 s | 2.9 s | 2.0 GB |
+| 4 | 10.8 | 46% | 41% | 6.1 s | 4.1 s | 2.1 GB |
+| 6 | 15.1 | 39% | 40% | 9.9 s | 5.4 s | 2.6 GB |
+| 8 | 20.6 | 34% | 34% | 17.0 s | 8.0 s | 3.2 GB |
+
+- Accuracy doesn't fall with length, up to 20 s (differences of a few points are noise at 12 clips per row).
+- Reading time grows faster than length: 17 s for a 20 s clip whole, 8 s if read sentence by sentence, and split
+  pieces can be read while the next one is being mouthed, so the wait after the last word is one sentence's.
+- GPU memory stays small (3.2 GB at 20 s). Stitched clips jump in head position at each join; a natural long
+  capture may read a little better or worse.
