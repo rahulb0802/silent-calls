@@ -61,8 +61,11 @@ SEED = [
 ]
 
 
-def _key(profile: str) -> str:
-    return "silentcalls-" + (re.sub(r"[^a-z0-9]+", "-", profile.lower()).strip("-")[:40] or "default")
+def _key(profile: str, secret: str = "") -> str:
+    """The profile's index: its name plus a hash of the app's secret for it (like the GPU's profiles), so
+    another computer typing the same name gets its own index."""
+    name = "silentcalls-" + (re.sub(r"[^a-z0-9]+", "-", profile.lower()).strip("-")[:40] or "default")
+    return f"{name}-{hashlib.sha256(secret.encode()).hexdigest()[:16]}" if secret else name
 
 
 def _doc(prompt: str, reply: str, seed: bool = False):
@@ -79,6 +82,7 @@ class PhraseMemory:
         self._client = client
         self._session = None
         self.profile = ""
+        self._name = ""  # the open index
         self._push: asyncio.TimerHandle | None = None
         self._lock = asyncio.Lock()
 
@@ -92,24 +96,26 @@ class PhraseMemory:
             self._client = MossClient(os.getenv("MOSS_PROJECT_ID"), os.getenv("MOSS_PROJECT_KEY"))
         return self._client
 
-    async def open(self, profile: str) -> int:
+    async def open(self, profile: str, secret: str = "") -> int:
         """Open (or create, seeded) this profile's index; returns how many phrases it holds."""
         async with self._lock:
-            if self._session is not None and profile == self.profile:
+            name = _key(profile, secret)
+            if self._session is not None and name == self._name:
                 return self._session.doc_count
             await self._close()
             t0 = time.perf_counter()
-            name = _key(profile)
             session = await self._moss().session(name)
+            if session.doc_count == 0 and secret:
+                await self._adopt_legacy(profile, session)
             disk = CACHE / name
             if session.doc_count == 0 and disk.exists():
                 try:
                     await session.load_from_disk(str(disk))
                 except Exception as e:  # an old or partial snapshot: start fresh
                     log.info("memory: disk copy unusable (%s)", type(e).__name__)
-            if session.doc_count == 0:
+            if session.doc_count == 0 or not any(d.id.startswith("seed-") for d in await session.get_docs()):
                 await session.add_docs([_doc(p, r, seed=True) for p, r in SEED])
-            self._session, self.profile = session, profile
+            self._session, self.profile, self._name = session, profile, name
             self._schedule_push()
             log.info("memory: %d phrases for this profile, opened in %.1f s", session.doc_count, time.perf_counter() - t0)
             return session.doc_count
@@ -147,6 +153,23 @@ class PhraseMemory:
             self._schedule_push()
         return len(mine)
 
+    async def _adopt_legacy(self, profile: str, session) -> None:
+        """An index from before profile keys (named by the profile alone): move the user's phrases into the
+        keyed one, once, and delete the old index so the bare name no longer opens them."""
+        legacy = _key(profile)
+        try:
+            if not any(i.name == legacy for i in await self._moss().list_indexes()):
+                return
+            old = await self._moss().session(legacy)
+            mine = [d for d in await old.get_docs() if d.id.startswith("p-")]
+            await old.close()
+            if mine:
+                await session.add_docs(mine)
+            await self._moss().delete_index(legacy)
+            log.info("memory: moved %d phrases into this profile's keyed index", len(mine))
+        except Exception as e:  # keep going with an empty index
+            log.info("memory: couldn't move the old index (%s)", type(e).__name__)
+
     def _schedule_push(self) -> None:
         if self._push:
             self._push.cancel()
@@ -158,7 +181,7 @@ class PhraseMemory:
         if session is None:
             return
         try:
-            disk = CACHE / _key(self.profile)
+            disk = CACHE / self._name
             disk.mkdir(parents=True, exist_ok=True)
             await session.save_to_disk(str(disk))
             await session.push_index()

@@ -228,7 +228,7 @@ TEMPLATES = ("can we talk about {w} later", "did you get my message about {w}", 
 
 def own_name(user_id: str | None) -> str | None:
     """The profile id, if it looks like a name ("Rahul"), lowercase."""
-    name = (user_id or "").strip().lower()
+    name = (user_id or "").split("~")[0].strip().lower()  # a storage id is "<name>~<key hash>" (identity.py)
     return name if re.fullmatch(r"[a-z][a-z' -]{1,39}", name) else None
 
 

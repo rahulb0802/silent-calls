@@ -144,8 +144,9 @@ def handler(pipeline: Pipeline):
                         vocab = msg.get("vocab") if isinstance(msg.get("vocab"), list) else []
                         launch(pipeline.review([w for w in vocab if isinstance(w, str)][:200]))
                     elif kind == "memory":
+                        secret = msg.get("secret") if isinstance(msg.get("secret"), str) else ""
                         launch(pipeline.set_memory(text_field(msg, "profile")[:80] if msg.get("profile") else "",
-                                                   msg.get("on") is True))
+                                                   msg.get("on") is True, secret[:128]))
                     elif kind == "memory.forget":
                         launch(pipeline.forget_phrases())
                     elif kind == "punctuate":

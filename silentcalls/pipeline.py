@@ -168,7 +168,7 @@ class Pipeline:
             self._moments = (self._moments + [{"said": text, "options": shown, "repair": self._last_repair}])[-100:]
         self._shown, self._last_repair = None, ""
 
-    async def set_memory(self, profile: str, on: bool) -> None:
+    async def set_memory(self, profile: str, on: bool, secret: str = "") -> None:
         """The app's phrase-memory setting for this profile (opt-in)."""
         if not self.memory:
             await self.emit(MemoryEvent(on=False))
@@ -177,7 +177,7 @@ class Pipeline:
         count = 0
         if on and profile:
             try:
-                count = await self.memory.open(profile)
+                count = await self.memory.open(profile, secret)
                 self.memory_on = True
             except Exception as e:  # Moss unreachable: carry on without it
                 log.info("memory: unavailable (%s)", type(e).__name__)

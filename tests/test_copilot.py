@@ -211,7 +211,7 @@ def test_phrase_memory_gives_the_copilot_past_exchanges_and_keeps_new_replies():
         def __init__(self):
             self.added, self._session = [], NS(doc_count=31)
 
-        async def open(self, profile):
+        async def open(self, profile, secret=""):
             return 31
 
         async def recall(self, line):

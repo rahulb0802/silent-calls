@@ -1,4 +1,5 @@
 import {practiceSentences, vocabularyTerms} from './personal-library';
+import {profileSecret} from './profile-key';
 import type {ServiceSettings} from './settings';
 export type EnrollmentPrompt={id:string;sentence:string};
 export type EnrollmentProgress={n_clips:number;sentence_ids:string[]};
@@ -30,7 +31,9 @@ export class EnrollmentApi {
     if(signal.aborted)controller.abort();else signal.addEventListener('abort',abort,{once:true});
     const timeout=setTimeout(()=>controller.abort(),init.method==='POST'?90000:20000);
     try {
-      const response=await fetch(`${this.base}${path}`,{...init,signal:controller.signal,credentials:'omit',redirect:'error'});
+      // the profile's secret (profile-key.ts): the GPU files this profile's data under it
+      const headers=new Headers(init.headers);headers.set('X-Profile-Secret',profileSecret(this.user));
+      const response=await fetch(`${this.base}${path}`,{...init,headers,signal:controller.signal,credentials:'omit',redirect:'error'});
       const text=await response.text();
       if(text.length>3_000_000)throw new Error('The server response was too large.');
       let data;

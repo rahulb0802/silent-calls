@@ -1,6 +1,7 @@
 import {useEffect, useState} from 'react';
 import {loadSettings} from '../services/settings';
 import {useLocalVoice} from '../services/use-local-voice';
+import {profileSecret} from '../services/profile-key';
 
 const key = () => `silent-calls:phrase-memory:v1:${encodeURIComponent(loadSettings().profileId.trim().toLowerCase())}`;
 export function memoryOn(): boolean { try { return localStorage.getItem(key()) === '1'; } catch { return false; } }
@@ -17,7 +18,7 @@ export function MemoryPanel() {
   }, []);
   const change = (next: boolean) => {
     try { if (next) localStorage.setItem(key(), '1'); else localStorage.removeItem(key()); } catch { /* this session only */ }
-    setOn(next); void window.desktop?.setMemory?.({profile: loadSettings().profileId.trim(), on: next});
+    setOn(next); void window.desktop?.setMemory?.({profile: loadSettings().profileId.trim(), on: next, secret: profileSecret()});
   };
   const memory = state.memory;
   return <section className="hands-free" aria-label="Remember my phrases">

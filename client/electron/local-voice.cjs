@@ -258,7 +258,8 @@ class LocalVoice {
   /** Phrase memory on or off for this profile (remembered, and sent again whenever the service reconnects). */
   setMemory(input) {
     const profile = input && typeof input.profile === 'string' ? input.profile.trim().slice(0, 80) : '';
-    this.memoryConfig = { profile, on: Boolean(input && input.on) && Boolean(profile) };
+    const secret = input && typeof input.secret === 'string' && /^[A-Za-z0-9_-]{32,128}$/.test(input.secret) ? input.secret : '';
+    this.memoryConfig = { profile, secret, on: Boolean(input && input.on) && Boolean(profile) };
     if (this.state.connection === 'connected' && this.socket && this.socket.readyState === 1) {
       try { this.socket.send(JSON.stringify({ type: 'memory', ...this.memoryConfig })); } catch { /* resent on reconnect */ }
     }

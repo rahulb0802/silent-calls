@@ -4,6 +4,7 @@ import type {Candidate, MeetingEvent, MeetingPort, QualityData, Route, Utterance
 import {personalIntroduction} from './personal-introduction';
 import {vocabularyTerms} from './personal-library';
 import {LEARNED, learningOn} from './learning';
+import {profileSecret} from './profile-key';
 import {dictationNames, dictationOn, formatDictation} from './dictation';
 import type {CopilotState} from './use-local-voice';
 import type {ServiceSettings} from './settings';
@@ -157,7 +158,7 @@ export class LipreadPort implements MeetingPort {
     socket.onopen = () => {
       if (this.socket !== socket) return;
       if (this.opening) clearTimeout(this.opening); this.opening = null;
-      socket.send(JSON.stringify({type:'session.start', user_id:this.settings.profileId.trim(), use_adapter:true}));
+      socket.send(JSON.stringify({type:'session.start', user_id:this.settings.profileId.trim(), secret:profileSecret(this.settings.profileId), use_adapter:true}));
       this.retries = 0;
       this.connection(true, 'GPU connected · hold the key, then choose a phrase to speak.');
     };

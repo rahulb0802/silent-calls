@@ -19,6 +19,7 @@ import time
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
+from . import identity
 from .reader import LipReader
 from .routes import router
 
@@ -52,6 +53,7 @@ def softmax(xs: list[float]) -> list[float]:
 @app.websocket("/ws/session")
 async def session(ws: WebSocket, user_id: str = "anon") -> None:
     await ws.accept()
+    user_id = "anon"  # until session.start brings the profile's name and secret
     use_adapter, utt_id, webm = True, None, False
     session_vocab, utt_vocab, utt_given = [], [], []
     completed = {}  # only this connection may label its own completed captures
@@ -67,7 +69,11 @@ async def session(ws: WebSocket, user_id: str = "anon") -> None:
             m = json.loads(msg["text"])
             kind = m.get("type")
             if kind == "session.start":
-                user_id = m.get("user_id", user_id)
+                try:  # the profile's name + the app's secret for it (identity.py); no secret, no profile
+                    user_id = identity.storage_id(str(m.get("user_id", "")), m.get("secret"))
+                except identity.MissingSecret as e:
+                    user_id = "anon"
+                    await ws.send_json({"type": "error", "code": "no_profile_key", "message": str(e)})
                 use_adapter = m.get("use_adapter", True)
                 session_vocab = list(m.get("vocab") or [])
             elif kind == "utterance.start":

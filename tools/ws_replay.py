@@ -8,7 +8,9 @@ includes the network. Needs: pip install av opencv-python numpy websockets
 
 import argparse
 import asyncio
+import hashlib
 import json
+import os
 import shutil
 import statistics
 import subprocess
@@ -57,7 +59,9 @@ async def run(url: str, clips: list[str], height: int, quality: int, user: str, 
               given: list[str] | None = None) -> None:
     delays = []
     async with websockets.connect(f"{url}/ws/session?user_id={user}", max_size=None) as ws:
-        await ws.send(json.dumps({"type": "session.start", "user_id": user, "use_adapter": True}))
+        # profiles open only with their key (server/lipread/identity.py); a fixed one per replay user
+        secret = os.getenv("REPLAY_PROFILE_KEY") or hashlib.sha256(f"replay:{user}".encode()).hexdigest()[:48]
+        await ws.send(json.dumps({"type": "session.start", "user_id": user, "secret": secret, "use_adapter": True}))
         for i, path in enumerate(clips):
             if webm:
                 frames, rate = webm_chunks(path, height, webm), 10  # chunks, sent at 10 per second

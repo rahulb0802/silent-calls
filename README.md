@@ -510,7 +510,11 @@ python tools/check_setup.py --live   # also one tiny request each to Jev, Claude
   win, and Claude's repair is the dependable fix.
 - **Numbers barely show on lips**; the co-pilot supplies them from your calendar and email.
 - **Small test set:** 3 people, 30 sentences each. Decision thresholds were fitted and scored on the same clips.
-- **Single-user GPU server** reached over SSH; no multi-user authentication yet.
+- **No accounts.** The GPU server is reachable only through the SSH tunnel (its firewall allows SSH only). Profiles
+  are separated by a random per-profile key the app keeps on each computer: the server stores a profile's clips,
+  personal model, corrections and words under its name plus that key, so typing someone's name opens nothing
+  ([`identity.py`](server/lipread/identity.py)); Settings → Profile key moves a profile to another computer.
+  Not full authentication: anyone holding the SSH key can still reach the server.
 
 ## Repository
 

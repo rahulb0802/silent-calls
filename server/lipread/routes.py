@@ -26,34 +26,49 @@ import tempfile
 import time
 from pathlib import Path
 
-from fastapi import APIRouter, Body, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Body, File, Form, Header, HTTPException, UploadFile
 
 from ..lora import data as lora_data
 from ..lora.lora import adapter_key
 from . import frames as fr
+from . import identity
 from . import vocab as vb
 from .paths import ADAPTER_DIR, ENROLL_DIR
 
 router = APIRouter()
+Secret = Header(None, alias="X-Profile-Secret")
+
+
+def _uid(name: str | None, secret: str | None) -> str:
+    """The profile's storage id (identity.py): its name and the app's secret for it; 401 without the secret."""
+    try:
+        return identity.storage_id(name or "", secret)
+    except identity.MissingSecret as e:
+        raise HTTPException(401, str(e)) from e
 REPO = Path(__file__).resolve().parents[2]
 _jobs: dict[str, subprocess.Popen] = {}
 
 
 @router.get("/enroll/sentences")
-def enroll_sentences(user_id: str | None = None) -> list[dict]:
+def enroll_sentences(user_id: str | None = None, x_profile_secret: str | None = Secret) -> list[dict]:
     """With user_id: their personal sentences (name + saved vocabulary, PUT /vocab first) in the first 30."""
-    return lora_data.enroll_sentences(user_id)
+    return lora_data.enroll_sentences(_uid(user_id, x_profile_secret) if user_id else None)
 
 
 @router.get("/enroll/{user_id}")
-def enroll_progress(user_id: str) -> dict:
-    ids = sorted(p.stem for p in (ENROLL_DIR / adapter_key(user_id)).glob("*.npz"))
-    return {"user_id": user_id, "n_clips": len(ids), "sentence_ids": ids}
+def enroll_progress(user_id: str, x_profile_secret: str | None = Secret) -> dict:
+    return _progress(_uid(user_id, x_profile_secret))
+
+
+def _progress(uid: str) -> dict:
+    ids = sorted(p.stem for p in (ENROLL_DIR / adapter_key(uid)).glob("*.npz"))
+    return {"user_id": identity.display_name(uid), "n_clips": len(ids), "sentence_ids": ids}
 
 
 @router.post("/enroll/{user_id}/clip")
 def enroll_clip(user_id: str, sentence_id: str = Form(...), file: UploadFile = File(...),
-                text: str | None = Form(None)) -> dict:
+                text: str | None = Form(None), x_profile_secret: str | None = Secret) -> dict:
+    user_id = _uid(user_id, x_profile_secret)
     sentences = {s["id"]: s["sentence"] for s in lora_data.enroll_sentences(user_id)}
     if sentence_id not in sentences:
         raise HTTPException(400, "choose a sentence from the enrollment prompts")
@@ -79,11 +94,12 @@ def enroll_clip(user_id: str, sentence_id: str = Form(...), file: UploadFile = F
     ok = q["face_rate"] >= 0.9 and q["n_frames"] >= 10
     if ok:
         lora_data.save_enrollment(adapter_key(user_id), sentence_id, text, crop, q)
-    return {"ok": ok, "sentence_id": sentence_id, "quality": q, **enroll_progress(user_id)}
+    return {"ok": ok, "sentence_id": sentence_id, "quality": q, **_progress(user_id)}
 
 
 @router.post("/train/{user_id}")
-def start_training(user_id: str, steps: int = 100, test_feasibility: bool = True) -> dict:
+def start_training(user_id: str, steps: int = 100, test_feasibility: bool = True, x_profile_secret: str | None = Secret) -> dict:
+    user_id = _uid(user_id, x_profile_secret)
     key = adapter_key(user_id)
     job = _jobs.get(key)
     if job and job.poll() is None:
@@ -103,7 +119,8 @@ def start_training(user_id: str, steps: int = 100, test_feasibility: bool = True
 
 
 @router.get("/train/{user_id}/status")
-def training_status(user_id: str) -> dict:
+def training_status(user_id: str, x_profile_secret: str | None = Secret) -> dict:
+    user_id = _uid(user_id, x_profile_secret)
     key = adapter_key(user_id)
     path = ADAPTER_DIR / key / "status.json"
     if not path.exists():
@@ -117,7 +134,8 @@ def training_status(user_id: str) -> dict:
 
 
 @router.get("/train/{user_id}/report")
-def training_report(user_id: str) -> dict:
+def training_report(user_id: str, x_profile_secret: str | None = Secret) -> dict:
+    user_id = _uid(user_id, x_profile_secret)
     folder = ADAPTER_DIR / adapter_key(user_id)
     path = folder / "last-training-report.json"
     if not path.exists():
@@ -128,23 +146,27 @@ def training_report(user_id: str) -> dict:
 
 
 @router.get("/corrections/{user_id}")
-def get_corrections(user_id: str) -> dict:
-    return {"user_id": user_id, "n": len(list(lora_data.corrections_dir(adapter_key(user_id)).glob("*.npz")))}
+def get_corrections(user_id: str, x_profile_secret: str | None = Secret) -> dict:
+    user_id = _uid(user_id, x_profile_secret)
+    return {"user_id": identity.display_name(user_id), "n": len(list(lora_data.corrections_dir(adapter_key(user_id)).glob("*.npz")))}
 
 
 @router.delete("/corrections/{user_id}")
-def delete_corrections(user_id: str) -> dict:
+def delete_corrections(user_id: str, x_profile_secret: str | None = Secret) -> dict:
+    user_id = _uid(user_id, x_profile_secret)
     lora_data.delete_corrections(adapter_key(user_id))
-    return {"user_id": user_id, "n": 0}
+    return {"user_id": identity.display_name(user_id), "n": 0}
 
 
 @router.get("/vocab/{user_id}")
-def get_vocab(user_id: str) -> dict:
-    return {"user_id": user_id, "words": vb.load_user(user_id), "practice": vb.load_practice(user_id)}
+def get_vocab(user_id: str, x_profile_secret: str | None = Secret) -> dict:
+    user_id = _uid(user_id, x_profile_secret)
+    return {"user_id": identity.display_name(user_id), "words": vb.load_user(user_id), "practice": vb.load_practice(user_id)}
 
 
 @router.put("/vocab/{user_id}")
 def put_vocab(user_id: str, words: list[str] = Body(..., embed=True),
-              practice: list[str] | None = Body(None, embed=True)) -> dict:
+              practice: list[str] | None = Body(None, embed=True), x_profile_secret: str | None = Secret) -> dict:
     """practice: sentences to add to calibration (approved from the post-call review); omitted = keep."""
-    return {"user_id": user_id, "words": vb.save_user(user_id, words, practice), "practice": vb.load_practice(user_id)}
+    user_id = _uid(user_id, x_profile_secret)
+    return {"user_id": identity.display_name(user_id), "words": vb.save_user(user_id, words, practice), "practice": vb.load_practice(user_id)}
