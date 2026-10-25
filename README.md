@@ -51,10 +51,12 @@ a webcam.
 | 🙂 **Hands-free by default** | Nod to start, mouth your reply, nod to finish. Turn your head to move through the options, nod to say one, shake to cancel. Gesture sizes are tuned to you in onboarding. A hold-to-talk key and clicks still work. |
 | 🗣️ **Your own voice** | Cloned from a short recording in onboarding and spoken into any call app through a virtual microphone, ~90 ms after you pick. |
 | 📅 **Co-pilot** | While the other person talks, Claude drafts 2–3 likely replies from the conversation, your calendar and your email. The lip-reader scores them against your lips, or you tap **Say it**. |
+| 💬 **Phrase memory** | Opt-in, with [Moss](https://usemoss.dev): the co-pilot remembers how you've answered before, so its suggestions sound like you and keep facts you've already given. |
 | ⌨️ **Dictation** | Flip a switch and your picks are typed at the cursor in any app instead of spoken, with Claude adding capitals and punctuation without changing a word. |
 | 📷 **Camera coach** | One short tip at a time about light, framing, pose and timing. It learns from your own results which tips actually help you. |
 | 🔍 **Show work** | A compact strip under your webcam that opens into everything the lip-reader saw: every guess, which were co-pilot replies, the ranking, and where each fact came from. |
 | 📝 **Post-call coach** | After a call, Claude proposes words and practice sentences from the places lip-reading struggled. You approve each one. |
+| 🔑 **Private profiles, no accounts** | Your calibration clips, adapter and words on the GPU open only with a secret key kept on your computer. Copy it to move your profile to another machine. |
 
 ## How it works
 
@@ -99,7 +101,8 @@ flowchart LR
     STORE --> SPLIT["80% train<br/>20% held out"]
     SPLIT --> TRAIN["LoRA training on GPU 1<br/>100 steps · ~35 s"]
     TRAIN --> REPORT["Before / after report<br/>on the held-out clips"]
-    TRAIN --> HOT["Hot-loaded on your<br/>next utterance (GPU 0)"]
+    REPORT -- "no regression" --> HOT["Hot-loaded on your<br/>next utterance (GPU 0)"]
+    REPORT -. "worse" .-> KEEP["Current adapter kept"]
     COACH["Post-call coach:<br/>approved practice sentences"] -.-> CAL
     CORR["Opt-in: phrases you corrected<br/>in calls (up to 200)"] -.-> TRAIN
 ```
@@ -134,6 +137,7 @@ flowchart LR
         CAM["Nod, mouth your reply, nod<br/>(or hold a key)"]
         CAP["Captions of the other person<br/><i>Cartesia Ink STT</i>"]
         COP["Co-pilot<br/><i>Claude + Calendar / Gmail</i>"]
+        MEM["Phrase memory<br/><i>Moss, on-device recall</i>"]
         DEC["Rank + repair<br/><i>TypeSafe Jev · Claude</i>"]
         PICK["Turn to choose, nod to pick<br/>(or keys 1–3)"]
         TTS["Your cloned voice<br/><i>Cartesia Sonic</i>"]
@@ -142,6 +146,7 @@ flowchart LR
 
     CAM -- "VP8 over SSH tunnel" --> LIP
     CAP --> COP
+    MEM -. "your past replies" .-> COP
     COP -- "likely replies" --> LIP
     LIP -- "top 10" --> DEC
     CAP --> DEC
@@ -152,15 +157,19 @@ flowchart LR
 ```
 
 1. **Nod, mouth your reply, nod again.** Hands-free is the default (a hold-to-talk key still works); a head shake
-   cancels. The lip-reader decodes the clip with your adapter and vocabulary, including names it picked up from
+   cancels. A reply can run up to 22 s, with a "Wrapping up" countdown near the end, and a forgotten finishing nod
+   ends the capture 4 s after you stop mouthing. The lip-reader decodes the clip with your adapter and vocabulary, including names it picked up from
    your calendar invites, the people who email you most, and the call itself.
 2. **The co-pilot's replies are scored against the same video.** As soon as the other person's live caption pauses
-   (Cartesia STT), Claude drafts 2–3 likely replies from the conversation and, read-only, your calendar and email.
+   (Cartesia STT), Claude drafts 2–3 likely replies from the conversation, read-only access to your calendar and
+   email, and, if you opt in, your 4 closest past exchanges from Moss phrase memory, so the replies use your own
+   phrasing.
    They appear as cards you can tap (**Say it**), and the model also scores each one on your lips: *your mouthing
    picks the reply*, and the co-pilot supplies what lips can't show (times, order numbers, names). With the right
    reply in the list, the top guess is right **77%** of the time instead of 36%; when it isn't, nothing gets worse.
 3. **Jev ranks the options with the conversation**, and Claude offers a repaired sentence when the lip-reader is
-   close but wrong (p/b/m and f/v look identical on lips).
+   close but wrong (p/b/m and f/v look identical on lips). If a top guess starts "my name is…", the app also offers
+   it with your saved name spelled in.
 4. **You pick one.** Turn your head to move through the top 3 and Claude's suggestion, nod to say it (or press
    1–3). It's spoken in your cloned voice through a virtual microphone, ~90 ms to first audio. In **dictation**
    mode it's typed at your cursor instead. **Nothing is ever spoken or typed without your pick.**
@@ -319,6 +328,48 @@ wins 77% of the time.
 </details>
 
 <details>
+<summary><b>Phrase memory: replies in your own words</b></summary>
+<br/>
+
+With "Remember my phrases" on, every reply you speak or dictate is kept with the line it answered in your profile's
+Moss index ([`silentcalls/phrase_memory.py`](silentcalls/phrase_memory.py)). Recall runs on your computer in
+**3–5 ms**, and a new phrase can be recalled right after it's added. Old replies aren't offered as they were, since
+they rarely fit a new question exactly; instead your 4 closest past exchanges go into the co-pilot's prompt.
+
+Live, asked *"are the redesign mockups ready?"*, after earlier saying *"I'll drop them in our Slack channel
+tonight"* and mentioning a Friday deadline:
+
+| | Co-pilot's reply |
+|---|---|
+| without memory | *"I can send them over Monday morning."* |
+| **with memory** | *"Almost done. I'll drop them in our Slack channel tonight."* / *"…before the Friday deadline."* |
+
+"Forget my phrases" deletes them.
+
+</details>
+
+<details>
+<summary><b>Longer replies: accuracy holds up to 20 s</b></summary>
+<br/>
+
+[`server/eval_length.py`](server/eval_length.py): one person's silent clips stitched into clips of k sentences
+(0.4 s pause between), read whole vs. sentence by sentence ([`server/results/length/`](server/results/length/summary.md)).
+
+| sentences | seconds | WER whole | WER split | read time whole | read time split (sum) | peak GPU |
+|---|---|---|---|---|---|---|
+| 1 | 2.2 | 37% | 37% | 0.9 s | 0.9 s | 1.7 GB |
+| 2 | 4.7 | 47% | 42% | 1.8 s | 1.8 s | 1.7 GB |
+| 4 | 10.8 | 46% | 41% | 6.1 s | 4.1 s | 2.1 GB |
+| 6 | 15.1 | 39% | 40% | 9.9 s | 5.4 s | 2.6 GB |
+| 8 | 20.6 | 34% | 34% | **17.0 s** | **8.0 s** | 3.2 GB |
+
+Accuracy doesn't fall with length (a few points is noise at 12 clips per row), so the capture limit went from 14 s
+to 22 s. Reading time grows faster than length, though: reading sentence by sentence while the next one is mouthed
+would cut the wait after the last word to one sentence's.
+
+</details>
+
+<details>
 <summary><b>Conversation context: Jev and decision weights</b></summary>
 <br/>
 
@@ -468,7 +519,10 @@ Vercel AI Gateway key for Jev).
    export SILENT_SSH_HOST=<your server IP>            # PowerShell: $env:SILENT_SSH_HOST="<your server IP>"
    export SILENT_SSH_KEY=~/.ssh/vultr_lipread         # only if your key is somewhere else
    ```
-4. **Optional:** Google sign-in for the co-pilot's calendar and email (read-only): [docs/COPILOT.md](docs/COPILOT.md).
+4. **Optional:**
+   - Google sign-in for the co-pilot's calendar and email (read-only): [docs/COPILOT.md](docs/COPILOT.md).
+   - Phrase memory: add `MOSS_PROJECT_ID` and `MOSS_PROJECT_KEY` from [portal.usemoss.dev](https://portal.usemoss.dev)
+     to `.env`, then turn on "Remember my phrases" in the app.
 5. **Launch:**
    ```sh
    cd client
@@ -490,12 +544,18 @@ python tools/check_setup.py --live   # also one tiny request each to Jev, Claude
 - **Nothing is spoken or typed without your pick.** Jev and Claude only rank and suggest; auto-speak is off.
 - **Video stays in memory.** Webcam frames are processed and dropped. Only calibration clips are kept, and only as
   96×96 mouth crops with their sentence, per user.
-- **Your adapter and vocabulary are yours**, loaded only for your profile.
+- **Your profile opens only with your key.** The app makes a random secret per profile and the GPU stores your
+  calibration clips, adapter, corrections and words under your name plus a hash of it
+  ([`identity.py`](server/lipread/identity.py)); without it the server returns nothing. Settings → Profile key
+  copies it to another computer.
+- **Retraining is guarded.** A new adapter replaces yours only if held-out accuracy doesn't regress.
 - **Learning from corrections is opt-in.** A capture's mouth crop is held in memory for 3 minutes and saved only if
   you've turned it on and separately approved that the corrected text matches the words you mouthed; Settings shows how many are saved and deletes them. Picking a reply alone does not approve learning.
 - **The camera coach and gestures run locally.** Face landmarks and tiny pixel statistics are computed in the app
   and thrown away; nothing is stored or sent.
 - **Dictation puts your clipboard back** after it pastes, unless you copied something else meanwhile.
+- **Phrase memory is opt-in** and keeps only your replies and the line they answered; "Forget my phrases" deletes
+  them.
 - **Google access is read-only**, snippets only, nothing logged. The co-pilot shows where every fact came from and
   can be switched off in the widget.
 - **No keys in the repo.** Secrets live in `.env` and `~/.silentcalls/`.
@@ -510,21 +570,19 @@ python tools/check_setup.py --live   # also one tiny request each to Jev, Claude
   win, and Claude's repair is the dependable fix.
 - **Numbers barely show on lips**; the co-pilot supplies them from your calendar and email.
 - **Small test set:** 3 people, 30 sentences each. Decision thresholds were fitted and scored on the same clips.
-- **No accounts.** The GPU server is reachable only through the SSH tunnel (its firewall allows SSH only). Profiles
-  are separated by a random per-profile key the app keeps on each computer: the server stores a profile's clips,
-  personal model, corrections and words under its name plus that key, so typing someone's name opens nothing
-  ([`identity.py`](server/lipread/identity.py)); Settings → Profile key moves a profile to another computer.
-  Not full authentication: anyone holding the SSH key can still reach the server.
+- **No accounts.** Profiles are separated by per-profile keys (see Privacy), and the GPU server is reachable only
+  through the SSH tunnel (its firewall allows SSH only). That isn't full authentication: anyone holding the SSH key
+  can still reach the server.
 
 ## Repository
 
 ```
-server/lipread/    GPU lip-reading service: model, vocab bias, given-sentence scoring, HTTP + WebSocket
+server/lipread/    GPU lip-reading service: model, vocab bias, given-sentence scoring, profile keys, HTTP + WS
 server/lora/       Personal adapters: enrollment data, LoRA, trainer, cross-validation
 server/eval*.py    The evaluations behind every number in docs/RESULTS.md
 server/results/    Every run: summaries, per-clip CSVs, N-best lists
 client/            Electron + React app: companion, onboarding, hands-free gestures, camera coach, dictation
-silentcalls/       Local Python service: captions, co-pilot, coach, decision (Jev + Claude), punctuation, voice
+silentcalls/       Local Python service: captions, co-pilot, phrase memory, coach, decision, punctuation, voice
 tools/             Setup checker, co-pilot benchmark, WebSocket replay, Jev smoke test
 docs/              Architecture, protocol, results, setup guides
 tests/             Python tests (app tests in client/tests/)
@@ -532,7 +590,8 @@ tests/             Python tests (app tests in client/tests/)
 
 Deeper reading: [Architecture](docs/ARCHITECTURE.md) · [WebSocket protocol](docs/PROTOCOL.md) ·
 [Results log](docs/RESULTS.md) · [Co-pilot setup](docs/COPILOT.md) · [Camera coach](docs/CAMERA_COACH.md) ·
-[Gesture onboarding](docs/GESTURE_ONBOARDING.md)
+[Gesture onboarding](docs/GESTURE_ONBOARDING.md) · [Correction learning](docs/CORRECTION_LEARNING.md) ·
+[Personal introductions](docs/PERSONAL_INTRODUCTIONS.md)
 
 ## Team
 
