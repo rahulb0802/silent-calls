@@ -1,9 +1,11 @@
 export const FPS = 25;
 export const PRE_ROLL_MS = 500;
 export const POST_ROLL_MS = 300;
-// Server keeps at most 375 frames / 15s; reserve room for pre-roll and tail.
-export const MAX_HOLD_MS = 14_000;
-const MAX_BYTES = 48 * 1024 * 1024;
+// One capture is at most 22 s (the server keeps 24 s, so pre-roll and tail fit). Accuracy holds at that length;
+// reading time grows faster than it (docs/RESULTS.md section 13), so replies in calls are best kept short.
+export const MAX_HOLD_MS = 22_000;
+export const WARN_BEFORE_MS = 5_000;  // show a countdown this long before the cap
+const MAX_BYTES = 64 * 1024 * 1024;
 export type Frame = { timestampMs: number; jpeg: string };
 export type CaptureClip = {
   schemaVersion: 1; id: string; width: number; height: number; targetFps: number;

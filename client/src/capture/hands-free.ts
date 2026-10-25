@@ -37,6 +37,7 @@ const MIN_CAPTURE_MS = 900;                // never end a capture sooner than th
 const SPEECH_SWINGS = 3;                   // jaw open/close turns in the start window: speech has several, a twitch one or two
 const SWING = 0.03;                        // change in the lip gap (gap / mouth width) that counts as a turn
 const MIN_ACTIVE_MS = 700;                 // a capture with less mouthing than this is dropped, not read
+const QUIET_STOP_MS = 4000;                // nod mode: no mouthing this long ends the capture (a forgotten finishing nod)
 const RESTART_WIN = 700;                   // mouthing this long while options are shown discards them and reads again
 const MIN_ON = 1.2;         // floor for the adaptive start threshold
 const NOISE_GAIN = 3;       // adaptive threshold: this many times the resting noise
@@ -67,6 +68,7 @@ export class HandsFree {
   private recent: {t: number; on: boolean; off: boolean; open: number}[] = [];  // on: mouthing (and facing, head still); off: any movement
   private activeMs = 0;  // mouthing during the capture this started
   private lostAt = -1e9;  // when the face was last lost
+  private lastMouth = 0;  // nod mode: when the mouth last moved during the capture
   private out: null | {axis: 'yaw' | 'pitch'; since: number; side: number; flips: number; peak: number} = null;
   private rebase = false;  // a head movement never came back: take the current pose as the new rest
   private quietUntil = 0;
@@ -122,9 +124,15 @@ export class HandsFree {
       if (this.rebase) { this.rebase = false; this.baseYaw = s.yaw; this.basePitch = s.pitch; }
       if (gesture && s.t >= this.quietUntil) {
         this.quietUntil = s.t + REFRACTORY_MS;
-        if (phase === 'idle') { if (gesture === 'send') this.started = s.t; events.push(gesture); }
+        if (phase === 'idle') { if (gesture === 'send') { this.started = s.t; this.activeMs = 0; this.lastMouth = 0; } events.push(gesture); }
         else if (gesture === 'cancel') { this.started = 0; events.push('cancel'); }  // shake: drop this reading
         else if (this.started && gesture === 'send') { this.started = 0; events.push('stop'); }
+      }
+      if (phase === 'capturing' && this.started && !events.length) {
+        if (this.mouth >= off) { this.activeMs += dt; this.lastMouth = s.t; }
+        if (s.t - Math.max(this.lastMouth, this.started) >= QUIET_STOP_MS) {  // stopped mouthing, never nodded
+          events.push(this.activeMs >= MIN_ACTIVE_MS ? 'stop' : 'discard'); this.started = 0;
+        }
       }
       if (phase === 'idle' && this.started && s.t - this.started > 1000) this.started = 0;
       return events;

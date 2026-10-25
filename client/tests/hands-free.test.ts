@@ -189,3 +189,16 @@ test('the nod that finished reading does not pick the first option', () => {
   // options appear while the head is still coming back from the finishing nod
   assert.deepEqual(names(run([{ms: 1000, phase: 'idle'}, {ms: 900, phase: 'choosing', at: t => ({pitch: 10 + (t < 1400 ? 9 : 0)})}])), []);
 });
+
+test('nod mode: a capture with no finishing nod ends 4 s after the mouthing stops', () => {
+  const hf = new HandsFree({mode: 'head', startBy: 'nod'});
+  const out: [number, HandsFreeEvent][] = [];
+  for (let t = 0; t < 9000; t += STEP) {
+    const phase: HandsFreePhase = t < 1500 ? 'idle' : 'capturing';
+    const pose = t >= 1000 && t < 1350 ? {pitch: 28} : {};
+    const mouth = t >= 1600 && t < 3600 ? mouthing(t) : {};
+    for (const e of hf.push({t, ...rest, ...mouth, ...pose}, phase)) out.push([t, e]);
+  }
+  assert.deepEqual(names(out), ['send', 'stop']);
+  assert.ok(out[1][0] >= 3600 + 3900 && out[1][0] <= 3600 + 4400, `stopped at ${out[1][0]}`);
+});

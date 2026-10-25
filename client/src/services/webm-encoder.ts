@@ -1,7 +1,7 @@
 import type {Frame} from '../capture/buffer';
 
 const FRAME_MS = 40;
-const MAX_QUEUED_FRAMES = 375;
+const MAX_QUEUED_FRAMES = 600;  // 24 s at 25 fps, the server's limit
 const MAX_VIDEO_BYTES = 20 * 1024 * 1024;
 
 /** Records the existing pre-roll, live frames, and post-roll as one VP8 stream. */

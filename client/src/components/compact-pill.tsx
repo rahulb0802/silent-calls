@@ -7,6 +7,7 @@ export type PillPhase = 'off' | 'starting' | 'listening' | 'capturing' | 'thinki
 type Props = {
   learningReview?:ReactNode;
   phase: PillPhase;
+  countdown?: number | null;  // seconds left before the capture cap, in its last seconds
   dictation: boolean;        // picks are typed into the focused app instead of spoken
   onDictation: (on: boolean) => void;
   candidates: Candidate[];
@@ -63,6 +64,7 @@ export function CompactPill(p: Props) {
       <div className="pill-status" aria-live="polite">
         <strong>{p.dictation && p.phase === 'speaking' ? 'Typing it' : p.dictation && p.phase === 'listening' ? 'Dictation: mouth what to type' : STATUS[p.phase]}</strong>
         {p.phase === 'listening' && <span className="pill-caption">{p.lastLine ? `${p.lastLine.speaker}: ${p.lastLine.text}` : p.hint}</span>}
+        {p.phase === 'capturing' && p.countdown != null && <span className="pill-caption pill-countdown">Wrapping up in {p.countdown} s</span>}
         {p.phase === 'capturing' && <span className="pill-wave" aria-hidden="true">{[0, 1, 2, 3, 4, 5, 6].map(n => <i key={n} style={{animationDelay: `${n * 60}ms`}}/>)}</span>}
         {p.phase === 'speaking' && <span className="pill-caption">“{p.speaking}”</span>}
         {p.phase === 'off' && <span className="pill-caption">Start it when your call begins.</span>}

@@ -40,7 +40,9 @@ def clean_given(given: list[str] | None) -> list[str]:
 
 
 MIN_FRAMES = 10  # 0.4 s; shorter than this is a mis-press
-MAX_FRAMES = 15 * MODEL_FPS  # frames past 15 s are ignored
+# Captures up to ~22 s (the app's cap) plus pre-roll and tail; accuracy holds at that length, reading time
+# grows faster than it (docs/RESULTS.md section 13). Frames past 24 s are ignored, on both upload paths.
+MAX_FRAMES = 24 * MODEL_FPS
 
 
 KEEP_S, KEEP_N = 180, 20  # recent crops held in memory for corrections
@@ -189,6 +191,7 @@ class LipReader:
         except Exception as e:  # truncated/corrupt stream
             log.warning("webm decode failed: %s", e)
             return [], []
+        frames = frames[:MAX_FRAMES]
         n = self._cpu._max_workers
         parts = [frames[i::n] for i in range(n)]  # interleaved, so every worker gets the same amount
         found = await asyncio.gather(*(loop.run_in_executor(self._cpu, self._detect_many, p) for p in parts))

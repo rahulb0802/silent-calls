@@ -51,7 +51,7 @@ export const ADVICE: Record<IssueId, Advice> = {
   clipped_start: {text: 'Start recording a little earlier.', category: 'timing', severity: 'issue', icon: 'clock', persistMs: 0},
   clipped_end: {text: 'Finish the whole phrase before releasing.', category: 'timing', severity: 'issue', icon: 'clock', persistMs: 0},
   too_few_frames: {text: 'Try that sentence again.', category: 'timing', severity: 'issue', icon: 'repeat', persistMs: 0},
-  held_too_long: {text: 'Keep each phrase under 14 seconds.', category: 'timing', severity: 'issue', icon: 'clock', persistMs: 0},
+  held_too_long: {text: 'That ran past 22 seconds and was cut off. Keep each phrase shorter.', category: 'timing', severity: 'issue', icon: 'clock', persistMs: 0},
   held_still: {text: 'Hold still while you mouth.', category: 'stability', severity: 'issue', icon: 'move', persistMs: 0},
   fast_pace: {text: 'Try mouthing that a little slower.', category: 'pace', severity: 'issue', icon: 'gauge', persistMs: 0},
   slow_pace: {text: 'Try your natural pace.', category: 'pace', severity: 'issue', icon: 'gauge', persistMs: 0},
